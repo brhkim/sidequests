@@ -1,0 +1,69 @@
+name: Deploy sidequests to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build every sidequest
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          {
+            echo '<!doctype html><meta charset="utf-8">'
+            echo '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            echo '<title>sidequests</title>'
+            echo '<style>body{font:16px/1.6 system-ui;margin:0 auto;padding:3rem 1.5rem;max-width:40rem}'
+            echo 'a{display:block;padding:.75rem 1rem;margin:.5rem 0;border:1px solid #8884;border-radius:.5rem;text-decoration:none;color:inherit}'
+            echo 'a:hover{background:#8881}small{opacity:.7;display:block}</style>'
+            echo '<h1>sidequests</h1>'
+          } > _site/index.html
+
+          for dir in */; do
+            name="${dir%/}"
+            [ -f "$dir/package.json" ] || continue
+            node -e "process.exit(require('./$dir/package.json').scripts?.build?0:1)" || continue
+
+            echo "::group::$name"
+            ( cd "$dir" && npm ci && npm run build )
+            if [ -d "$dir/dist" ]; then
+              mkdir -p "_site/$name"
+              cp -r "$dir/dist/." "_site/$name/"
+              desc=$(node -e "console.log(require('./$dir/package.json').description||'')")
+              echo "<a href=\"./$name/\"><strong>$name</strong><small>$desc</small></a>" >> _site/index.html
+            fi
+            echo "::endgroup::"
+          done
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
