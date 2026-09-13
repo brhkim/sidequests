@@ -1,0 +1,22 @@
+{
+  "name": "shooter_ad",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Squad shooter in the mobile-ad style: hold the line, grow the army, rank up the ring",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "verify": "node scripts/verify.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  }
+}
