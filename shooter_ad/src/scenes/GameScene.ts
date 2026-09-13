@@ -8,6 +8,7 @@ import { Gates } from '../systems/Gates';
 import { Difficulty } from '../systems/Difficulty';
 import { Grid } from '../systems/Grid';
 import { SpritePool } from '../systems/SpritePool';
+import { createRng } from '../systems/Rng';
 
 const SKIN = 0xf2c9a0;
 
@@ -32,20 +33,25 @@ export class GameScene extends Phaser.Scene {
   }[] = [];
   private cursors?: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
 
+  private rng: () => number = Math.random;
   private targetX = VIEW.width / 2;
   private kills = 0;
   private streak = 0;
   private over = false;
 
+  private seed = 0;
+
   constructor() { super('Game'); }
 
   create(): void {
-    const rng = Math.random;
-    this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower);
+    const { rng, seed } = createRng();
+    this.seed = seed;
+    this.rng = rng;
+    this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
     this.bullets = new Bullets();
     this.difficulty = new Difficulty();
-    this.enemies = new Enemies(rng, this.difficulty);
-    this.gates = new Gates(rng, (offer) => this.difficulty.observeGateOffer(offer));
+    this.enemies = new Enemies(this.rng, this.difficulty);
+    this.gates = new Gates(this.rng, (offer) => this.difficulty.observeGateOffer(offer));
     this.grid = new Grid<Enemy>(48, VIEW.width);
 
     this.drawBackground();
@@ -96,7 +102,7 @@ export class GameScene extends Phaser.Scene {
     this.kills = 0;
     this.streak = 0;
     this.targetX = VIEW.width / 2;
-    this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower);
+    this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
     this.bullets = new Bullets();
     this.difficulty.reset();
     this.enemies.reset();
@@ -235,6 +241,9 @@ export class GameScene extends Phaser.Scene {
 
   private emitHud(): void {
     const par = this.difficulty.snapshot();
+    const gates = this.gates.items
+      .filter((g) => g.active)
+      .map((g) => ({ x: Math.round(g.x), label: g.type.label, kind: g.type.kind, y: Math.round(g.y) }));
     this.registry.set('stats', {
       power: Math.floor(this.squad.power),
       parPower: par.parPower,
@@ -248,6 +257,8 @@ export class GameScene extends Phaser.Scene {
       units: this.squad.units.length,
       kills: this.kills,
       over: this.over,
+      seed: this.seed,
+      gates,
     });
     this.game.events.emit('hud', {
       power: Math.floor(this.squad.power),

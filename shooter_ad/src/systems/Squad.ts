@@ -33,7 +33,10 @@ export class Squad {
   frenzyTime = 0;
   slowTime = 0;
 
-  constructor(x: number, y: number, power: number) {
+  constructor(
+    x: number, y: number, power: number,
+    private readonly rng: () => number = Math.random,
+  ) {
     this.x = x;
     this.y = y;
     this.progress = { power, upgrades: freshUpgrades() };
@@ -67,7 +70,7 @@ export class Squad {
       const s = SLOTS[slot] ?? SLOTS[0];
       this.units.push({
         x: this.x + s.x, y: this.y + s.y,
-        slot, tier: 0, cooldown: Math.random() * 0.4,
+        slot, tier: 0, cooldown: this.rng() * 0.4,
       });
     }
     if (this.units.length > count) this.units.length = count;
