@@ -20,7 +20,11 @@ export class Gates {
   private accum = 0;
   private nextPair = 0;
 
-  constructor(private readonly rng: () => number) {}
+  constructor(
+    private readonly rng: () => number,
+    /** Called with each offered set, so par can take the best of them. */
+    private readonly onOffer: (gates: readonly GateType[]) => void = () => {},
+  ) {}
 
   update(dt: number, timeScale: number, wave: number): void {
     this.accum += dt;
@@ -37,6 +41,7 @@ export class Gates {
 
   private spawnPair(wave: number): void {
     const [left, right] = rollGatePair(wave, this.rng);
+    this.onOffer([left, right]);
     const half = (VIEW.width - GATES.pairGap) / 2;
     const pair = this.nextPair++;
     this.push({ x: half / 2, width: half, type: left, pair });

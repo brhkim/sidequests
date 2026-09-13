@@ -5,6 +5,7 @@ import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
 import { Enemies, type Enemy } from '../systems/Enemies';
 import { Gates } from '../systems/Gates';
+import { Difficulty } from '../systems/Difficulty';
 import { Grid } from '../systems/Grid';
 import { SpritePool } from '../systems/SpritePool';
 
@@ -15,6 +16,7 @@ export class GameScene extends Phaser.Scene {
   private bullets!: Bullets;
   private enemies!: Enemies;
   private gates!: Gates;
+  private difficulty!: Difficulty;
   private grid!: Grid<Enemy>;
 
   private bodyPool!: SpritePool;
@@ -41,8 +43,9 @@ export class GameScene extends Phaser.Scene {
     const rng = Math.random;
     this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower);
     this.bullets = new Bullets();
-    this.enemies = new Enemies(rng);
-    this.gates = new Gates(rng);
+    this.difficulty = new Difficulty();
+    this.enemies = new Enemies(rng, this.difficulty);
+    this.gates = new Gates(rng, (offer) => this.difficulty.observeGateOffer(offer));
     this.grid = new Grid<Enemy>(48, VIEW.width);
 
     this.drawBackground();
@@ -95,6 +98,7 @@ export class GameScene extends Phaser.Scene {
     this.targetX = VIEW.width / 2;
     this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower);
     this.bullets = new Bullets();
+    this.difficulty.reset();
     this.enemies.reset();
     this.gates.reset();
     this.game.events.emit('restart');
@@ -110,6 +114,7 @@ export class GameScene extends Phaser.Scene {
 
     this.handleKeys(dt);
     this.squad.update(dt, this.targetX);
+    this.enemies.playerDps = this.squad.dps;
     this.fire(dt);
     this.bullets.update(dt);
     const { newWave } = this.enemies.update(dt, timeScale);
@@ -117,6 +122,7 @@ export class GameScene extends Phaser.Scene {
 
     if (newWave) {
       this.squad.addPower(WAVE.clearBonus);
+      this.difficulty.awardWaveClear();
       this.toast(`WAVE ${this.enemies.wave.index}`);
     }
 
@@ -182,6 +188,7 @@ export class GameScene extends Phaser.Scene {
         if (c.hp <= 0) {
           c.active = false;
           this.squad.addPower(CAGE.reward);
+          this.difficulty.awardCage();
           this.toast(`RESCUED +${CAGE.reward}`);
         }
         break;
@@ -227,8 +234,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private emitHud(): void {
+    const par = this.difficulty.snapshot();
     this.registry.set('stats', {
       power: Math.floor(this.squad.power),
+      parPower: par.parPower,
+      standing: Number(this.difficulty.standing(this.squad.power).toFixed(3)),
+      dps: Math.round(this.squad.dps),
+      hpMult: Number(this.enemies.hpMult.toFixed(2)),
+      rate: Number(this.enemies.spawnRate.toFixed(2)),
       wave: this.enemies.wave.index,
       tier: this.squad.topTier,
       tierName: TIERS[this.squad.topTier].name,

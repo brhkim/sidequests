@@ -16,6 +16,12 @@ export const ARENA = {
   breachY: 862,
   /** Enemies spawn above the top edge. */
   spawnY: -40,
+  /**
+   * Enemies and cages only appear within the band the squad's CENTRE can
+   * reach. Spawning to the full view width put targets in columns the central
+   * mass could never line up on, so they walked past untouched.
+   */
+  spawnInset: 14,
 } as const;
 
 export const SQUAD = {
@@ -32,6 +38,8 @@ export const SQUAD = {
   followLerp: 14,
   moveSpeed: 620,
   startPower: 6,
+  /** Hard ceiling on army power, and the top of the rank ladder. */
+  maxPower: 40000,
   /** Power lost when an enemy breaches the line, multiplied by enemy damage. */
   breachLoss: 1,
 } as const;
@@ -45,6 +53,12 @@ export const WEAPON = {
   /** Firing is staggered across the ring so shots stream rather than pulse. */
   volleySpread: 0.55,
   maxBullets: 900,
+  /**
+   * Each repeat of a stacking weapon upgrade is worth this fraction of the
+   * last. Unbounded additive stacking is what let four DMG+ gates outscale
+   * every enemy curve in the game.
+   */
+  upgradeDiminish: 0.72,
 } as const;
 
 export const WAVE = {
@@ -62,6 +76,50 @@ export const WAVE = {
   bossEvery: 5,
   /** Power awarded for surviving a wave. */
   clearBonus: 4,
+} as const;
+
+/**
+ * Closed-loop difficulty. See systems/Difficulty.ts - enemies are budgeted
+ * against a fraction of what a perfect player could be doing right now, rather
+ * than against the wave number.
+ */
+export const DIFFICULTY = {
+  /**
+   * The strength the curve expects of you, as a fraction of perfect play.
+   * Below 1 on purpose: a player who plays well rises ABOVE the curve and gets
+   * to feel it. Raise toward 1 to make the game meaner.
+   */
+  targetFraction: 0.7,
+  /**
+   * Share of the target player's damage output that arriving enemies consume.
+   * Under 1 leaves headroom so a competent player is never simply swamped.
+   */
+  pressure: 0.82,
+  /**
+   * Mercy clamp. Par grows on perfect play whether or not you kept up, so
+   * without this a single missed multiplier gate ratchets difficulty beyond
+   * reach and the run spirals: fewer kills -> more breaches -> less power ->
+   * harder enemies. Enemy pressure is therefore never budgeted above this
+   * multiple of what the player can ACTUALLY destroy right now, which leaves a
+   * losing run recoverable while a leading run still gets the full curve.
+   */
+  maxOverPlayer: 1.35,
+  /** Guard rails, so a pathological run cannot produce absurd enemies. */
+  minHpMult: 0.6,
+  maxHpMult: 400,
+  /** A boss is budgeted as this many seconds of ordinary pressure, at once. */
+  bossSeconds: 9,
+  /**
+   * Seconds for the budget to catch up to a change in par. Multiplier gates
+   * double par in a single instant, which used to halve your standing with no
+   * warning; easing the budget gives you time to reach your own next gate.
+   */
+  smoothingSeconds: 6,
+  /**
+   * Floor on spawn rate when the budget is being met by thinning the wave
+   * rather than weakening it, as a fraction of the authored rate.
+   */
+  minSpawnRateFactor: 0.35,
 } as const;
 
 export const GATES = {

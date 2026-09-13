@@ -1,5 +1,6 @@
 import { ARENA, CAGE, VIEW, WAVE } from '../config';
-import { ENEMY_BY_ID, rollEnemy, type EnemyType } from '../data/enemies';
+import { ENEMY_BY_ID, poolAverageHp, rollEnemy, type EnemyType } from '../data/enemies';
+import type { Difficulty } from './Difficulty';
 
 export interface Enemy {
   x: number; y: number;
@@ -24,7 +25,6 @@ export interface WaveState {
   timeLeft: number;
   duration: number;
   spawnRate: number;
-  hpMult: number;
 }
 
 export class Enemies {
@@ -34,8 +34,21 @@ export class Enemies {
   private spawnAccum = 0;
   private cageAccum = 0;
 
-  constructor(private readonly rng: () => number) {
+  constructor(
+    private readonly rng: () => number,
+    private readonly difficulty: Difficulty,
+  ) {
     this.wave = this.buildWave(1);
+  }
+
+  /**
+   * Horizontal band enemies may occupy: only where the squad's CENTRE can
+   * reach. Outside it, targets drift past columns the central mass can never
+   * line up on.
+   */
+  private band(radius: number): { min: number; max: number } {
+    const inset = ARENA.spawnInset + radius;
+    return { min: ARENA.minX + inset, max: ARENA.maxX - inset };
   }
 
   private buildWave(index: number): WaveState {
@@ -51,12 +64,21 @@ export class Enemies {
         WAVE.maxSpawnRate,
         WAVE.baseSpawnRate + (index - 1) * WAVE.spawnRateGrowth,
       ),
-      hpMult: Math.pow(1 + WAVE.hpGrowth, index - 1),
     };
   }
 
+  /** Current HP multiplier, set by the closed-loop difficulty model. */
+  /** Set by GameScene each frame: what the squad can actually destroy. */
+  playerDps = 1;
+  /** Budget split for this frame, recomputed in update(). */
+  private throttled: { hpMult: number; spawnRate: number } =
+    { hpMult: 1, spawnRate: WAVE.baseSpawnRate };
+
+  get hpMult(): number { return this.throttled.hpMult; }
+  get spawnRate(): number { return this.throttled.spawnRate; }
+
   private spawn(type: EnemyType, x: number, y: number, hpScale = 1): void {
-    const hp = type.hp * this.wave.hpMult * hpScale;
+    const hp = type.hp * this.hpMult * hpScale;
     const free = this.items.find((e) => !e.active);
     const enemy: Enemy = {
       x, y, hp, maxHp: hp, type, radius: type.radius,
@@ -67,8 +89,8 @@ export class Enemies {
   }
 
   private spawnX(radius: number): number {
-    const margin = radius + 12;
-    return margin + this.rng() * (VIEW.width - margin * 2);
+    const { min, max } = this.band(radius);
+    return min + this.rng() * Math.max(0, max - min);
   }
 
   /** Advances the wave clock. Returns true on the frame a new wave begins. */
@@ -80,7 +102,7 @@ export class Enemies {
     if (next % WAVE.bossEvery === 0) {
       const boss = ENEMY_BY_ID.get('titan');
       if (boss) {
-        const scale = 1 + Math.floor(next / WAVE.bossEvery) * 0.45;
+        const scale = this.difficulty.bossHpScale(boss.hp * this.hpMult);
         this.spawn(boss, VIEW.width / 2, ARENA.spawnY - 40, scale);
       }
     }
@@ -91,17 +113,23 @@ export class Enemies {
     const scaled = dt * timeScale;
     const newWave = this.advanceWave(dt);
 
-    this.spawnAccum += dt * this.wave.spawnRate;
+    this.difficulty.update(dt, this.playerDps);
+    this.throttled = this.difficulty.throttle(
+      this.wave.spawnRate, poolAverageHp(this.wave.index),
+    );
+
+    this.spawnAccum += dt * this.throttled.spawnRate;
     while (this.spawnAccum >= 1) {
       this.spawnAccum -= 1;
       const type = rollEnemy(this.wave.index, this.rng);
       this.spawn(type, this.spawnX(type.radius), ARENA.spawnY);
+      this.difficulty.observeSpawn();
     }
 
     this.cageAccum += dt;
     if (this.cageAccum > this.wave.duration && this.rng() < CAGE.chancePerWave) {
       this.cageAccum = 0;
-      const hp = CAGE.hp * this.wave.hpMult;
+      const hp = CAGE.hp * this.hpMult;
       const cage = this.cages.find((c) => !c.active);
       const fresh: Cage = {
         x: this.spawnX(CAGE.radius), y: ARENA.spawnY, hp, maxHp: hp, active: true,
@@ -165,7 +193,8 @@ export class Enemies {
     }
 
     e.y += speed * dt;
-    e.x = Math.max(e.radius, Math.min(VIEW.width - e.radius, e.x));
+    const { min, max } = this.band(e.radius);
+    e.x = Math.max(min, Math.min(max, e.x));
   }
 
   /** Applies armour and returns true if the hit killed the enemy. */

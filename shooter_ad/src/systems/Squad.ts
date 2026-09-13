@@ -2,6 +2,10 @@ import { ARENA, SQUAD, BUFF, WEAPON } from '../config';
 import { TIERS, tierFor } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { SLOTS } from './Formation';
+import {
+  applyGate, freshUpgrades, squadDps, unitShares,
+  type Progress, type Upgrades,
+} from './Progression';
 
 export interface Unit {
   x: number; y: number;
@@ -12,42 +16,34 @@ export interface Unit {
   cooldown: number;
 }
 
-export interface Upgrades {
-  damageMult: number;
-  fireRateMult: number;
-  guns: number;
-  pierce: number;
-}
-
 /**
- * The army. `power` is the single source of truth for size *and* strength: it
- * decides how many units are visible (capped) and what tier they wear. Growing
- * past the cap promotes the ring rather than widening it.
+ * The army. `power` decides how many units are visible (capped at three hex
+ * rings) and what rank they wear; growing past the cap promotes the ring
+ * rather than widening it.
+ *
+ * The gate maths and the damage model live in Progression, shared with the
+ * difficulty model so the two cannot drift apart.
  */
 export class Squad {
   x: number;
   readonly y: number;
-  power: number;
+  readonly progress: Progress;
   units: Unit[] = [];
-  upgrades: Upgrades = { damageMult: 1, fireRateMult: 1, guns: 1, pierce: 0 };
   shieldTime = 0;
   frenzyTime = 0;
-  /** Set by the scene; Gates and Enemies read it to slow the world. */
   slowTime = 0;
 
   constructor(x: number, y: number, power: number) {
     this.x = x;
     this.y = y;
-    this.power = power;
+    this.progress = { power, upgrades: freshUpgrades() };
     this.rebuild();
   }
 
-  get alive(): boolean { return this.power > 0; }
-
-  /** How many bodies are actually drawn. */
-  get visibleCount(): number {
-    return Math.max(1, Math.min(Math.floor(this.power), SQUAD.ringCap));
-  }
+  get power(): number { return this.progress.power; }
+  get upgrades(): Upgrades { return this.progress.upgrades; }
+  get alive(): boolean { return this.progress.power > 0; }
+  get dps(): number { return squadDps(this.progress); }
 
   /** Tier of the strongest unit, for the HUD. */
   get topTier(): number {
@@ -57,20 +53,14 @@ export class Squad {
   }
 
   addPower(amount: number): void {
-    this.power = Math.max(0, Math.min(99999, this.power + amount));
+    this.progress.power = Math.max(0, Math.min(SQUAD.maxPower, this.progress.power + amount));
     this.rebuild();
   }
 
-  /**
-   * Recompute the roster. Power is dealt out evenly across the capped ring;
-   * the remainder goes to the innermost units first, so the leader visibly
-   * ranks up before the outer ring catches up.
-   */
+  /** Recompute the roster from current power. */
   rebuild(): void {
-    const count = this.visibleCount;
-    const total = Math.floor(this.power);
-    const base = Math.floor(total / count);
-    const extra = total % count;
+    const shares = unitShares(this.progress.power);
+    const count = shares.length;
 
     while (this.units.length < count) {
       const slot = this.units.length;
@@ -83,9 +73,8 @@ export class Squad {
     if (this.units.length > count) this.units.length = count;
 
     for (let i = 0; i < count; i++) {
-      const share = base + (i < extra ? 1 : 0);
       this.units[i].slot = i;
-      this.units[i].tier = tierFor(share);
+      this.units[i].tier = tierFor(shares[i]);
     }
   }
 
@@ -105,42 +94,25 @@ export class Squad {
   }
 
   damagePerShot(tier: number): number {
-    return WEAPON.baseDamage * TIERS[tier].damage * this.upgrades.damageMult;
+    return WEAPON.baseDamage * TIERS[tier].damage * this.progress.upgrades.damageMult;
   }
 
   shotInterval(tier: number): number {
     const frenzy = this.frenzyTime > 0 ? BUFF.frenzyFireRate : 1;
     const rate = WEAPON.baseFireRate * TIERS[tier].fireRate
-      * this.upgrades.fireRateMult * frenzy;
+      * this.progress.upgrades.fireRateMult * frenzy;
     return 1 / rate;
   }
 
-  /** Applies a gate. Returns a short string for the floating feedback text. */
+  /** Applies a gate and returns the floating feedback label. */
   applyGate(gate: GateType): string {
+    const label = applyGate(this.progress, gate);
     switch (gate.kind) {
-      case 'add': this.addPower(gate.value); return `+${gate.value}`;
-      case 'sub': this.addPower(-gate.value); return `-${gate.value}`;
-      case 'mul':
-        this.addPower(Math.floor(this.power) * (gate.value - 1));
-        return `x${gate.value}`;
-      case 'div':
-        this.power = Math.max(1, Math.floor(this.power / gate.value));
-        this.rebuild();
-        return `/${gate.value}`;
-      case 'firerate':
-        this.upgrades.fireRateMult += gate.value; return 'FIRE RATE UP';
-      case 'damage':
-        this.upgrades.damageMult += gate.value; return 'DAMAGE UP';
-      case 'multishot':
-        this.upgrades.guns += gate.value; return `${this.upgrades.guns} GUNS`;
-      case 'pierce':
-        this.upgrades.pierce += gate.value; return 'PIERCING';
-      case 'shield':
-        this.shieldTime = BUFF.shield; return 'SHIELD';
-      case 'slowmo':
-        this.slowTime = BUFF.slowmo; return 'SLOW MOTION';
-      case 'frenzy':
-        this.frenzyTime = BUFF.frenzy; return 'FRENZY';
+      case 'shield': this.shieldTime = BUFF.shield; break;
+      case 'slowmo': this.slowTime = BUFF.slowmo; break;
+      case 'frenzy': this.frenzyTime = BUFF.frenzy; break;
+      default: this.rebuild(); break;
     }
+    return label;
   }
 }

@@ -81,9 +81,25 @@ export const ENEMY_BY_ID: ReadonlyMap<string, EnemyType> = new Map(
   ENEMIES.map((e) => [e.id, e]),
 );
 
+/** Types that can roll at this wave. */
+export function spawnPool(wave: number): EnemyType[] {
+  return ENEMIES.filter((e) => e.weight > 0 && e.minWave <= wave);
+}
+
+/**
+ * Weight-averaged base HP of the current pool. The difficulty model needs this
+ * to convert a damage-per-second budget into an HP multiplier.
+ */
+export function poolAverageHp(wave: number): number {
+  const pool = spawnPool(wave);
+  const weight = pool.reduce((sum, e) => sum + e.weight, 0);
+  if (weight === 0) return 1;
+  return pool.reduce((sum, e) => sum + e.hp * e.weight, 0) / weight;
+}
+
 /** Weighted pick from the types unlocked at this wave. Bosses are never rolled. */
 export function rollEnemy(wave: number, rng: () => number): EnemyType {
-  const pool = ENEMIES.filter((e) => e.weight > 0 && e.minWave <= wave);
+  const pool = spawnPool(wave);
   const total = pool.reduce((sum, e) => sum + e.weight, 0);
   let roll = rng() * total;
   for (const e of pool) {

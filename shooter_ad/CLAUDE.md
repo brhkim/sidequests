@@ -13,6 +13,12 @@ npm run build   # typecheck + production build to dist/
 npm run verify  # REQUIRED before claiming a change works (see below)
 ```
 
+`npm run balance` plays the built game for two minutes and prints a time series
+of power, par, standing, DPS and the enemy HP multiplier. Use it before and
+after any balance change - the death-spiral bug in the first difficulty model
+was invisible in a screenshot and obvious in the series. `PROBE_SECONDS=240`
+runs it longer.
+
 `npm run verify` builds nothing - run `npm run build` first. It serves `dist/`,
 plays the game headlessly for 24 seconds with simulated pointer input, and
 fails on any console error, a blank frame, zero kills, a wave that never
@@ -64,6 +70,37 @@ and positioning stops working. This game never grows the formation past
 Thresholds are power-per-unit, so with a 19-strong ring the army totals for each
 colour are 19 / 38 / 76 / 152 / 304 / 608. Halving a threshold roughly halves
 the time to that shirt.
+
+## Difficulty is closed-loop
+
+Enemy strength is NOT keyed to the wave number. `systems/Difficulty.ts` tracks a
+shadow "par" player who takes the best gate offered every time - scored by
+resulting DPS, not raw power, so a flat `+30` does not automatically beat
+`DMG+` - and collects every wave, streak and cage bonus. Enemy HP is then
+derived so that arriving hit points consume a set share of what a
+target-strength player could destroy:
+
+```
+budget/sec = squadDps(par) * targetFraction * pressure
+hpMult     = budget/sec / (spawnRate * avgPoolHp)
+```
+
+Spawn rate keeps its own hand-authored curve, so pacing stays authored while
+difficulty stays automatic.
+
+Two properties matter and are easy to break:
+
+- **`Progression.ts` is the single definition of squad strength.** The squad
+  fires from it and the difficulty model budgets against it. Two copies would
+  drift and the curve would silently stop matching the game.
+- **`DIFFICULTY.maxOverPlayer` is a mercy clamp, not a nicety.** Par grows on
+  perfect play whether or not the player kept up, so without it one missed
+  multiplier gate ratchets difficulty out of reach and the run spirals: fewer
+  kills, more breaches, less power, harder enemies. Removing the clamp
+  reproduces a reliable death spiral around wave 7.
+
+To make the game harder, raise `targetFraction` toward 1. To make wins feel
+bigger, lower it.
 
 ## Extending content
 
