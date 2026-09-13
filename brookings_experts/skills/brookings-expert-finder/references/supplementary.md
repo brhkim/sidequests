@@ -1,0 +1,292 @@
+# Expert-tagged people missing from the public directory
+
+272 people carry Brookings' `expert` person-type but do not
+appear in the /experts/ directory the other index files are built from. Built 2026-09-13.
+
+**Read this list carefully -- it is the messy one.** It mixes two very different
+groups that the tag does not distinguish:
+
+- Current people the directory simply omits. The Vice President and Director of
+  Global Economy and Development is in here, so omission is clearly not a signal
+  of departure.
+- Scholars who have left, whose profiles kept the expert tag. Brookings demoted at
+  least one departed fellow to `guest-author` instead, so the tag is maintained
+  inconsistently and cannot be trusted either way.
+
+These records carry no topic, region or center facets, so they cannot be routed on
+subject. Use this file as a **recall backstop**: when a name surfaces in search and
+is missing from the dimension files, check here before assuming they are not at
+Brookings -- and verify the affiliation live either way.
+
+- Julius Agbor — `julius-agbor`
+- Ranj Alaaldin — `ranj-alaaldin`
+- Belinda Archibong — `belinda-archibong`
+- Tamar Manuelyan Atinc — `tamar-manuelyan-atinc`
+- J. Brian Atwood — `j-brian-atwood`
+- Robert Axtell — `robert-axtell`
+- Katie Bach — `katie-bach`
+- Jeffrey A. Bader — `jeffrey-a-bader`
+- Dany Bahar — `dany-bahar`
+- Briana Ballis — `briana-ballis`
+- Garrett Barker — `garrett-barker`
+- Rachel Barker — `rachel-barker`
+- Jeremy Barofsky — `jeremy-barofsky`
+- Eric M. Beall — `eric-m-beall`
+- Célia Belin — `celia-belin`
+- Alex Berke — `alex-berke`
+- Annette Bernhardt — `annette-bernhardt`
+- Tawanna Black — `tawanna-black`
+- Paul Blustein — `paul-blustein`
+- Tim  Boersma — `tim-boersma`
+- Kofi Bonner — `kofi-bonner`
+- Barry P. Bosworth — `barry-p-bosworth`
+- Jennifer Bradley — `jennifer-bradley`
+- Jessica Brandt — `jessica-brandt`
+- Paul C. Brophy — `paul-c-brophy`
+- Camille Busette — `camille-busette`
+- Daniel L. Byman — `daniel-l-byman`
+- Tonantzin Carmona — `tonantzin-carmona`
+- Josh Carpenter — `josh-carpenter`
+- TaLisa Carter — `talisa-carter`
+- Kevin Casas-Zamora — `kevin-casas-zamora-2`
+- Chris Castro — `chris-castro`
+- Stephanie Riegg Cellini — `stephanie-riegg-cellini`
+- Bhaskar Chakravorti — `bhaskar-chakravorti`
+- Nayan Chanda — `nayan-chanda`
+- Judy Chevalier — `judy-chevalier`
+- Thomas J. Christensen — `thomas-j-christensen`
+- Stephen P. Cohen — `stephen-p-cohen`
+- Philippe Le Corre — `philippe-le-corre`
+- Brahima Sangafowa Coulibaly — `brahima-coulibaly`
+- Madelyn R. Creedon — `madelyn-r-creedon`
+- Kimberlé W. Crenshaw — `kimberle-w-crenshaw`
+- Dr. Maya Rockeymoore Cummings — `dr-maya-rockeymoore-cummings`
+- Mauricio Cárdenas — `mauricio-cardenas-2`
+- Laura von Daniels — `laura-von-daniels`
+- Kemal Derviş — `kemal-dervis`
+- Reva Dhingra — `reva-dhingra`
+- David Dollar — `david-dollar`
+- James W. Ellsworth — `james-w-ellsworth`
+- Alex Engler — `alex-engler`
+- Robert Espinoza — `robert-espinoza`
+- Stephen Eubank — `stephen-eubank`
+- Federica Saini Fasanotti — `federica-saini-fasanotti`
+- Tetsuro Fujimoto — `tetsuro-fujimoto`
+- Matthew Garvin — `matthew-garvin`
+- Sudha Ghimire — `sudha-ghimire`
+- D. Michael Goedecke — `d-michael-goedecke`
+- Annelies Goger — `annelies-goger`
+- James Goldgeier — `james-goldgeier`
+- Marek Gootman — `marek-gootman`
+- Jean-Marie Guéhenno — `jean-marie-guehenno`
+- David P. Hajjar — `david-p-hajjar`
+- Shadi Hamid — `shadi-hamid`
+- Amos Harel — `amos-harel`
+- Fredrick C. Harris — `fredrick-c-harris`
+- Melissa Harris-Perry — `melissa-harris-perry`
+- Ian Hathaway — `ian-hathaway`
+- John Henderson — `john-henderson`
+- Makada Henry-Nickie — `makada-henry-nickie`
+- Stephen Hess — `stephen-hess`
+- John Hudak — `john-hudak`
+- Nathan Hultman — `nathan-hultman`
+- Francesca Ioffreda — `francesca-ioffreda`
+- Luther Jackson — `luther-jackson`
+- Quinta Jurecic — `quinta-jurecic`
+- Marvin Kalb — `marvin-kalb`
+- Joseph W. Kane — `joseph-kane`
+- Noah Kazis — `noah-kazis`
+- Richard Kazis — `richard-kazis`
+- Melissa S. Kearney — `melissa-s-kearney`
+- Joseph B. Keller — `joseph-b-keller`
+- Hayin Kimner — `hayin-kimner`
+- Molly Kinder — `molly-kinder`
+- Kemal Kirişci — `kemal-kirisci`
+- Kate Klonick — `kate-klonick`
+- Jeni Klugman — `jeni-klugman`
+- Elizabeth Kneebone — `elizabeth-kneebone`
+- Anton Korinek — `anton-korinek`
+- Carolyn Kousky — `carolyn-kousky`
+- Ananth Krishnan — `ananth-krishnan`
+- Arthur R. Kroeber — `arthur-r-kroeber`
+- Timothy Lea — `timothy-lea`
+- Anika Singh Lemar — `anika-singh-lemar`
+- Blair Levin — `blair-levin`
+- Shoshana Lew — `shoshana-lew`
+- Pamela D. Lewis — `pamela-d-lewis`
+- Cheng Li — `cheng-li`
+- Syaru Shirley Lin — `syaru-shirley-lin`
+- Elizabeth Linos — `elizabeth-linos`
+- Hanna Love — `hanna-love`
+- Abraham F. Lowenthal — `abraham-f-lowenthal-2`
+- Willow Lung-Amam — `willow-lung-amam`
+- Tracy Ann Maese — `tracy-ann-maese`
+- John P. Maher — `john-p-maher`
+- Thomas E. Mann — `thomas-e-mann`
+- John W. McArthur — `john-mcarthur`
+- Ryan McCormack — `ryan-mccormack`
+- Brad McDearman — `brad-mcdearman`
+- Warwick J. McKibbin — `warwick-j-mckibbin`
+- Joshua P. Meltzer — `joshua-p-meltzer`
+- Chris Meserole — `chris-meserole`
+- Keesha Middlemass — `keesha-middlemass`
+- Jabari Miller — `jabari-miller`
+- Hu Min — `hu-min`
+- Allison Minor — `allison-minor`
+- Saurabh Mishra — `saurabh-mishra`
+- Reena V Mithal — `reena-v-mithal`
+- Rakesh Mohan — `rakesh-mohan`
+- Diana Villiers Negroponte — `diana-villiers-negroponte-2`
+- Amy J. Nelson — `amy-j-nelson`
+- Ajai Nirula — `ajai-nirula`
+- Pietro S. Nivola — `pietro-s-nivola`
+- Chinasa T. Okolo — `chinasa-t-okolo`
+- Peter Orszag — `peter-orszag`
+- Peter A. Petri — `peter-a-petri`
+- Thomas Pickering — `thomas-pickering`
+- Jonathan D. Pollack — `jonathan-d-pollack`
+- Robert Puentes — `robert-puentes`
+- Amna Qayyum — `amna-qayyum`
+- Bharat Ramamurti — `bharat-ramamurti`
+- Stephanie Rawlings-Blake — `stephanie-rawlings-blake`
+- Victor Ray — `victor-ray`
+- Richard V. Reeves — `richard-v-reeves`
+- Ana Revenga — `ana-revenga`
+- Alice M. Rivlin — `alice-m-rivlin`
+- Mary Jean Ryan — `mary-jean-ryan`
+- Natan Sachs — `natan-sachs`
+- Rodney Sampson — `rodney-sampson`
+- Arturo Sarukhan — `arturo-sarukhan`
+- Aia Sarycheva — `aia-sarycheva`
+- Tomohiro Sato — `sato-tomohiro`
+- Jenny Schuetz — `jenny-schuetz`
+- Louise Seamster — `louise-seamster`
+- Steven Seltzer — `steven-seltzer`
+- Jeremy Shapiro — `jeremy-shapiro`
+- Jordan Shapiro — `jordan-shapiro`
+- Vaishant Sharma — `vaishant-sharma`
+- Jim Shelton — `jim-shelton`
+- Evan Siddall — `evan-siddall`
+- Samantha Silverberg — `samantha-silverberg`
+- Jared Silverman — `jared-silverman`
+- Audrey Singer — `audrey-singer-2__trashed`
+- Harsha Vardhana Singh — `harsha-vardhana-singh`
+- Pavneet Singh — `pavneet-singh`
+- Amanda Sloat — `amanda-sloat`
+- Aaron Sojourner — `aaron-sojourner`
+- Javier Solana — `javier-solana`
+- Jeannie Sowers — `jeannie-sowers`
+- Julia Stasch — `julia-stasch`
+- Angela Stent — `angela-stent`
+- Ran Tao — `ran-tao`
+- Egon Terplan — `egon-terplan`
+- Mebrahtom Tesfahunegn — `mebrahtom-tesfahunegn`
+- Christopher A. Thomas — `christopher-a-thomas`
+- Rahul Tongia — `rahul-tongia`
+- Adam Triggs — `adam-triggs`
+- Jesus Leal Trujillo — `jesus-leal-trujillo`
+- Shalini Vajjhala — `shalini-vajjhala`
+- Tara Varma — `tara-varma`
+- Julie Wagner — `julie-wagner`
+- Mike Walker — `mike-walker`
+- Jeffery T.D. Wallace — `jeffery-t-d-wallace`
+- R. Kent Weaver — `r-kent-weaver`
+- Vesla Weaver — `vesla-weaver`
+- Shang-Jin Wei — `shang-jin-wei`
+- Brad Whitehead — `brad-whitehead`
+- Lydia Wilbard — `lydia-wilbard`
+- Peter J. Wilcoxen — `peter-j-wilcoxen`
+- Nicole E. Willcoxon — `nicole-e-willcoxon`
+- Tamara Cofman Wittes — `tamara-cofman-wittes`
+- Steve Wray — `steve-wray`
+- Qiao Yu — `qiao-yu`
+- Mubuso Zamchiya — `mubuso-zamchiya`
+- راجي أسعد — `%d8%b1%d8%a7%d8%ac%d9%8a-%d8%a3%d8%b3%d8%b9%d8%af`
+- ريكاردو  ألكرو — `%d8%b1%d9%8a%d9%83%d8%a7%d8%b1%d8%af%d9%88-%d8%a3%d9%84%d9%83%d8%b1%d9%88`
+- توران كيا أوغلو — `%d8%aa%d9%88%d8%b1%d8%a7%d9%86-%d9%83%d9%8a%d8%a7-%d8%a3%d9%88%d8%ba%d9%84%d9%88`
+- مايكل  أوهانلون — `%d9%85%d8%a7%d9%8a%d9%83%d9%84-%d8%a3%d9%88%d9%87%d8%a7%d9%86%d9%84%d9%88%d9%86`
+- لؤي الخطيب — `%d9%84%d8%a4%d9%8a-%d8%a7%d9%84%d8%ae%d8%b7%d9%8a%d8%a8`
+- باسم  الزبيدي — `%d8%a8%d8%a7%d8%b3%d9%85-%d8%a7%d9%84%d8%b2%d8%a8%d9%8a%d8%af%d9%8a`
+- بسمة المومني — `%d8%a8%d8%b3%d9%85%d8%a9-%d8%a7%d9%84%d9%85%d9%88%d9%85%d9%86%d9%8a`
+- توران كيا اوغلو — `%d8%aa%d9%88%d8%b1%d8%a7%d9%86-%d9%83%d9%8a%d8%a7-%d8%a7%d9%88%d8%ba%d9%84%d9%88`
+- غوين اوكروليك — `%d8%ba%d9%88%d9%8a%d9%86-%d8%a7%d9%88%d9%83%d8%b1%d9%88%d9%84%d9%8a%d9%83`
+- دانيال بايمن — `%d8%af%d8%a7%d9%86%d9%8a%d8%a7%d9%84-%d8%a8%d8%a7%d9%8a%d9%85%d9%86`
+- سلطان بركات — `%d8%b3%d9%84%d8%b7%d8%a7%d9%86-%d8%a8%d8%b1%d9%83%d8%a7%d8%aa`
+- بن  برنانكي — `%d8%a8%d9%86-%d8%a8%d8%b1%d9%86%d8%a7%d9%86%d9%83%d9%8a`
+- ستيورات   بروتمان — `%d8%b3%d8%aa%d9%8a%d9%88%d8%b1%d8%a7%d8%aa-%d8%a8%d8%b1%d9%88%d8%aa%d9%85%d8%a7%d9%86`
+- نيفين بندقجي — `%d9%86%d9%8a%d9%81%d9%8a%d9%86-%d8%a8%d9%86%d8%af%d9%82%d8%ac%d9%8a`
+- آمال  بوبكر — `%d8%a2%d9%85%d8%a7%d9%84-%d8%a8%d9%88%d8%a8%d9%83%d8%b1`
+- كينيث بولاك — `%d9%83%d9%8a%d9%86%d9%8a%d8%ab-%d8%a8%d9%88%d9%84%d8%a7%d9%83`
+- لينا بيضون — `%d9%84%d9%8a%d9%86%d8%a7-%d8%a8%d9%8a%d8%b6%d9%88%d9%86`
+- شبلي تلحمي — `%d8%b4%d8%a8%d9%84%d9%8a-%d8%aa%d9%84%d8%ad%d9%85%d9%8a`
+- ستيفن ر. جراند — `%d8%b3%d8%aa%d9%8a%d9%81%d9%86-%d8%b1-%d8%ac%d8%b1%d8%a7%d9%86%d8%af`
+- بروس جونز — `%d8%a8%d8%b1%d9%88%d8%b3-%d8%ac%d9%88%d9%86%d8%b2`
+- شادي حميد — `%d8%b4%d8%a7%d8%af%d9%8a-%d8%ad%d9%85%d9%8a%d8%af`
+- عاصم دندشلي — `%d8%b9%d8%a7%d8%b5%d9%85-%d8%af%d9%86%d8%af%d8%b4%d9%84%d9%8a`
+- ميليسا روجرز — `%d9%85%d9%8a%d9%84%d9%8a%d8%b3%d8%a7-%d8%b1%d9%88%d8%ac%d8%b1%d8%b2`
+- بروس ريدل — `%d8%a8%d8%b1%d9%88%d8%b3-%d8%b1%d9%8a%d8%af%d9%84`
+- بيتر و. سنجر — `%d8%a8%d9%8a%d8%aa%d8%b1-%d9%88-%d8%b3%d9%86%d8%ac%d8%b1`
+- سلمان شيخ — `%d8%b3%d9%84%d9%85%d8%a7%d9%86-%d8%b4%d9%8a%d8%ae`
+- عمر عاشور — `%d8%b9%d9%85%d8%b1-%d8%b9%d8%a7%d8%b4%d9%88%d8%b1`
+- سحر عزيز — `%d8%b3%d8%ad%d8%b1-%d8%b9%d8%b2%d9%8a%d8%b2`
+- كورين غراف — `%d9%83%d9%88%d8%b1%d9%8a%d9%86-%d8%ba%d8%b1%d8%a7%d9%81`
+- غريغوري غوس — `%d8%ba%d8%b1%d9%8a%d8%ba%d9%88%d8%b1%d9%8a-%d8%ba%d9%88%d8%b3`
+- إبراهيم فريحات — `%d8%a5%d8%a8%d8%b1%d8%a7%d9%87%d9%8a%d9%85-%d9%81%d8%b1%d9%8a%d8%ad%d8%a7%d8%aa-%d8%b4%d8%b1%d9%82%d9%8a%d8%a9`
+- زاك فيرتين — `%d8%b2%d8%a7%d9%83-%d9%81%d9%8a%d8%b1%d8%aa%d9%8a%d9%86`
+- إليزابيث  فيرس — `%d8%a5%d9%84%d9%8a%d8%b2%d8%a7%d8%a8%d9%8a%d8%ab-%d9%81%d9%8a%d8%b1%d8%b3`
+- إلين  كامراك — `%d8%a5%d9%84%d9%8a%d9%86-%d9%83%d8%a7%d9%85%d8%b1%d8%a7%d9%83`
+- كريستين م. لورد — `%d9%83%d8%b1%d9%8a%d8%b3%d8%aa%d9%8a%d9%86-%d9%85-%d9%84%d9%88%d8%b1%d8%af`
+- تشارلز ليستر — `%d8%aa%d8%b4%d8%a7%d8%b1%d9%84%d8%b2-%d9%84%d9%8a%d8%b3%d8%aa%d8%b1`
+- وارويك ج. ماكيبين — `%d9%88%d8%a7%d8%b1%d9%88%d9%8a%d9%83-%d8%ac-%d9%85%d8%a7%d9%83%d9%8a%d8%a8%d9%8a%d9%86`
+- سوزان مالوني — `%d8%b3%d9%88%d8%b2%d8%a7%d9%86-%d9%85%d8%a7%d9%84%d9%88%d9%86%d9%8a`
+- بيتر ماندافيل — `%d8%a8%d9%8a%d8%aa%d8%b1-%d9%85%d8%a7%d9%86%d8%af%d8%a7%d9%81%d9%8a%d9%84`
+- ميريت ف مبروك — `%d9%85%d9%8a%d8%b1%d9%8a%d8%aa-%d9%81-%d9%85%d8%a8%d8%b1%d9%88%d9%83`
+- عيد محمد — `%d8%b9%d9%8a%d8%af-%d9%85%d8%ad%d9%85%d8%af`
+- ويليام مكانتس — `%d9%88%d9%8a%d9%84%d9%8a%d8%a7%d9%85-%d9%85%d9%83%d8%a7%d9%86%d8%aa%d8%b3`
+- بيفرلي ميلتون-إدواردز — `%d8%a8%d9%8a%d9%81%d8%b1%d9%84%d9%8a-%d9%85%d9%8a%d9%84%d8%aa%d9%88%d9%86-%d8%a5%d8%af%d9%88%d8%a7%d8%b1%d8%af%d8%b2`
+- روبن ميلز — `%d8%b1%d9%88%d8%a8%d9%86-%d9%85%d9%8a%d9%84%d8%b2`
+- ألكسندر   هانلي — `%d8%a3%d9%84%d9%83%d8%b3%d9%86%d8%af%d8%b1-%d9%87%d8%a7%d9%86%d9%84%d9%8a`
+- ستيفن هايدمان — `%d8%b3%d8%aa%d9%8a%d9%81%d9%86-%d9%87%d8%a7%d9%8a%d8%af%d9%85%d8%a7%d9%86`
+- ريبيكا  ونثروب — `%d8%b1%d9%8a%d8%a8%d9%8a%d9%83%d8%a7-%d9%88%d9%86%d8%ab%d8%b1%d9%88%d8%a8`
+- تمارا كوفمان ويتس — `%d8%aa%d9%85%d8%a7%d8%b1%d8%a7-%d9%83%d9%88%d9%81%d9%85%d8%a7%d9%86-%d9%88%d9%8a%d8%aa%d8%b3`
+- داريل م. ويست — `%d8%af%d8%a7%d8%b1%d9%8a%d9%84-%d9%85-%d9%88%d9%8a%d8%b3%d8%aa`
+- 乔纳森•波拉克 — `%e4%b9%94%e7%ba%b3%e6%a3%ae%e6%b3%a2%e6%8b%89%e5%85%8b`
+- 何瑞恩 — `%e4%bd%95%e7%91%9e%e6%81%a9`
+- 余晖 — `%e4%bd%99%e6%99%96`
+- 俞樵 — `%e4%bf%9e%e6%a8%b5`
+- 傅瑞伟 — `%e5%82%85%e7%91%9e%e4%bc%9f`
+- 刘志林 — `%e5%88%98%e5%bf%97%e6%9e%97`
+- 巴利 • 博斯沃思 — `%e5%b7%b4%e5%88%a9-%e5%8d%9a%e6%96%af%e6%b2%83%e6%80%9d`
+- 卜睿哲 — `%e5%8d%9c%e7%9d%bf%e5%93%b2`
+- 马丁 印迪克 — `%e9%a9%ac%e4%b8%81-%e5%8d%b0%e8%bf%aa%e5%85%8b`
+- 司徒蕾 — `%e5%8f%b8%e5%be%92%e8%95%be`
+- 唐兴 — `%e5%94%90%e5%85%b4`
+- 巴瑞•诺顿 — `%e5%b7%b4%e7%91%9e%e8%af%ba%e9%a1%bf`
+- 布鲁斯•琼斯 — `%e5%b8%83%e9%b2%81%e6%96%af%e7%90%bc%e6%96%af`
+- 帕夫尼特·辛格 — `%e5%b8%95%e5%a4%ab%e5%b0%bc%e7%89%b9%c2%b7%e8%be%9b%e6%a0%bc`
+- 凯摩尔 • 德维斯 — `%e5%87%af%e6%91%a9%e5%b0%94-%e5%be%b7%e7%bb%b4%e6%96%af`
+- 卡伦 • 戴楠 — `%e5%8d%a1%e4%bc%a6-%e6%88%b4%e6%a5%a0`
+- 埃斯华 • 普拉萨德 — `%e5%9f%83%e6%96%af%e5%8d%8e-%e6%99%ae%e6%8b%89%e8%90%a8%e5%be%b7`
+- 李侃如 — `%e6%9d%8e%e4%be%83%e5%a6%82`
+- 李博平 — `%e6%9d%8e%e5%8d%9a%e5%b9%b3`
+- 李成 — `%e6%9d%8e%e6%88%90`
+- 杜大伟 — `%e6%9d%9c%e5%a4%a7%e4%bc%9f`
+- 杨燕绥 — `%e6%9d%a8%e7%87%95%e7%bb%a5`
+- 杰弗里•贝德 — `%e6%9d%b0%e5%bc%97%e9%87%8c%e8%b4%9d%e5%be%b7`
+- 柯庆生 — `%e6%9f%af%e5%ba%86%e7%94%9f`
+- 欧逸文 — `%e6%ac%a7%e9%80%b8%e6%96%87`
+- 沈大伟 — `%e6%b2%88%e5%a4%a7%e4%bc%9f`
+- 王丰 — `%e7%8e%8b%e4%b8%b0`
+- 王天夫 — `%e7%8e%8b%e5%a4%a9%e5%a4%ab`
+- 胡敏 — `%e8%83%a1%e6%95%8f`
+- 胡永泰 — `%e8%83%a1%e6%b0%b8%e6%b3%b0`
+- 道格拉斯 艾略特 — `%e9%81%93%e6%a0%bc%e6%8b%89%e6%96%af-%e8%89%be%e7%95%a5%e7%89%b9`
+- 阿黛尔 • 莫里斯 — `%e9%98%bf%e9%bb%9b%e5%b0%94-%e8%8e%ab%e9%87%8c%e6%96%af`
+- 葛艺豪 — `%e8%91%9b%e8%89%ba%e8%b1%aa`
+- 薛澜 — `%e8%96%9b%e6%be%9c`
+- 邓丽嘉 — `%e9%82%93%e4%b8%bd%e5%98%89`
+- 郑新业 — `%e9%83%91%e6%96%b0%e4%b8%9a`
+- 陆克 — `%e9%99%86%e5%85%8b`
+- 陶然 — `%e9%99%b6%e7%84%b6`
+- 达雷尔 • 韦斯特 — `%e8%be%be%e9%9b%b7%e5%b0%94-%e9%9f%a6%e6%96%af%e7%89%b9`
+- 沃里克 • 麦基宾 — `%e6%b2%83%e9%87%8c%e5%85%8b-%e9%ba%a6%e5%9f%ba%e5%ae%be`

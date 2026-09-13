@@ -1,0 +1,66 @@
+{
+  "memo": "workspace/iteration-1/eval-2-thin-field-sahel-debt/with_skill/outputs/memo.md",
+  "recommended": [
+    "Danielle Resnick",
+    "Vera Songwe",
+    "Alexander Noyes",
+    "Brahima Sangafowa Coulibaly",
+    "Landry Sign\u00e9"
+  ],
+  "unknown_people": [],
+  "dead_links": [],
+  "unreachable_links": [],
+  "expectations": [
+    {
+      "text": "Recommends 3-5 experts",
+      "passed": true,
+      "evidence": "5 recommendation headings: ['Danielle Resnick', 'Vera Songwe', 'Alexander Noyes', 'Brahima Sangafowa Coulibaly', 'Landry Sign\u00e9']"
+    },
+    {
+      "text": "Every recommended person is a real Brookings expert in the roster",
+      "passed": true,
+      "evidence": "all matched"
+    },
+    {
+      "text": "Cites at least two linked sources",
+      "passed": true,
+      "evidence": "23 markdown links, 20 unique URLs"
+    },
+    {
+      "text": "No cited URL is dead (404/5xx from a server that answered)",
+      "passed": true,
+      "evidence": "skipped (--no-net)"
+    },
+    {
+      "text": "Uses the memo template's numbered recommendation headings",
+      "passed": true,
+      "evidence": "numbered headings present"
+    },
+    {
+      "text": "Citations carry dates",
+      "passed": true,
+      "evidence": "50 date mentions"
+    },
+    {
+      "text": "States the consult mode it assumed",
+      "passed": true,
+      "evidence": "mode stated explicitly"
+    },
+    {
+      "text": "Explains the ranking rather than only listing",
+      "passed": true,
+      "evidence": "ordering rationale section present"
+    },
+    {
+      "text": "Gives an access / availability read",
+      "passed": true,
+      "evidence": "access/availability language found"
+    },
+    {
+      "text": "Notes coverage gaps or also-considered candidates",
+      "passed": true,
+      "evidence": "gap/also-considered section present"
+    }
+  ],
+  "score": "10/10"
+}

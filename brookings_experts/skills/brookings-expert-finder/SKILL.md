@@ -76,12 +76,30 @@ only one. Open the files your question actually has:
 | `references/by-region.md` | The question has a country or regional angle. |
 | `references/by-center.md` | The question maps onto a standing body of work. |
 | `references/untagged.md` | Rarely; people filed under no facets, some leadership. |
+| `references/supplementary.md` | A name surfaced in search but is missing from the files above. |
 
 Opening `by-region.md` on anything geographic is not optional housekeeping. The
 director of the John L. Thornton China Center carries regions and centers but
 **no topic tags at all** -- a topic-only search on a China story misses him
 entirely. Where Brookings tags someone unevenly, the dimension you skip is
 exactly where the best candidate hides.
+
+**The index is incomplete, and knowing how is part of using it.** It is built
+from Brookings' public `/experts/` directory, which quietly omits people who are
+plainly current -- the Vice President and Director of Global Economy and
+Development is not in it, and neither is at least one nonresident senior fellow
+whose profile page describes an active appointment. So:
+
+- **Absence from the index is never evidence that someone has left.** If search
+  surfaces a credible Brookings-affiliated name you cannot find in the dimension
+  files, check `supplementary.md`, then verify their affiliation live. Do not
+  drop them, and do not describe them as former.
+- **Presence is not proof they are current either.** The index is a snapshot with
+  a build date in its header.
+
+Treat the bundled files as a recall aid with good coverage and honest edges,
+not as the authority on who works at Brookings today. The authority is the
+person's own profile plus what they have recently published.
 
 Pull a **long list of 10-15 names** spanning the dimensions you identified. Being
 generous here is nearly free -- the expensive step is verification, and you want
@@ -189,6 +207,13 @@ Everything in the memo has to survive a reader clicking the links.
 - Training and pedigree claims (degrees, prior government roles) come from their
   Brookings titles or a verifiable source, not from recall. Getting someone's
   former job title wrong is the kind of error that ends the reader's trust.
+- **Search summaries misattribute authorship.** A run of this skill was handed a
+  2024 IMF paper credited to a Brookings scholar who had nothing to do with it;
+  fetching the page showed six entirely different authors. Before you attach a
+  publication to a person as evidence, confirm their name is on it -- open the
+  page when the byline is doing real work in your ranking.
+- When a source is genuinely unreachable, say so and cite what you could confirm
+  instead of quietly dropping the claim or presenting it as fully verified.
 - Note the roster's build date when currency matters. Someone who joined last
   month will not be in the bundled index at all -- which is a reason to search,
   not a reason to assume the index is complete.

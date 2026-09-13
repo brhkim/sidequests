@@ -1,0 +1,65 @@
+{
+  "memo": "workspace/iteration-1/eval-0-cross-cutting-chip-controls/without_skill/outputs/memo.md",
+  "recommended": [
+    "Christopher A. Thomas",
+    "Mireya Sol\u00eds",
+    "Kyle Chan",
+    "Mark MacCarthy"
+  ],
+  "unknown_people": [],
+  "dead_links": [],
+  "unreachable_links": [],
+  "expectations": [
+    {
+      "text": "Recommends 3-5 experts",
+      "passed": true,
+      "evidence": "4 recommendation headings: ['Christopher A. Thomas', 'Mireya Sol\u00eds', 'Kyle Chan', 'Mark MacCarthy']"
+    },
+    {
+      "text": "Every recommended person is a real Brookings expert in the roster",
+      "passed": true,
+      "evidence": "all matched"
+    },
+    {
+      "text": "Cites at least two linked sources",
+      "passed": true,
+      "evidence": "15 markdown links, 15 unique URLs"
+    },
+    {
+      "text": "No cited URL is dead (404/5xx from a server that answered)",
+      "passed": true,
+      "evidence": "skipped (--no-net)"
+    },
+    {
+      "text": "Uses the memo template's numbered recommendation headings",
+      "passed": false,
+      "evidence": "unnumbered headings (format only; not a quality signal)"
+    },
+    {
+      "text": "Citations carry dates",
+      "passed": true,
+      "evidence": "14 date mentions"
+    },
+    {
+      "text": "States the consult mode it assumed",
+      "passed": false,
+      "evidence": "no consult mode stated"
+    },
+    {
+      "text": "Explains the ranking rather than only listing",
+      "passed": false,
+      "evidence": "missing"
+    },
+    {
+      "text": "Gives an access / availability read",
+      "passed": true,
+      "evidence": "access/availability language found"
+    },
+    {
+      "text": "Notes coverage gaps or also-considered candidates",
+      "passed": false,
+      "evidence": "no gaps or also-considered section"
+    }
+  ],
+  "score": "6/10"
+}

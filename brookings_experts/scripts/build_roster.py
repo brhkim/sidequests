@@ -28,6 +28,8 @@ import html
 import json
 import re
 import sys
+import time
+import urllib.error
 import urllib.request
 from collections import defaultdict
 from datetime import date
@@ -64,7 +66,53 @@ def fetch(url: str) -> str:
         return resp.read().decode("utf-8", errors="replace")
 
 
-def extract_config(html: str) -> dict:
+def fetch_expert_tagged() -> dict[str, str]:
+    """Every person record carrying the `expert` type, as slug -> name.
+
+    Why this exists: the /experts/ directory is curated and complete-looking, and
+    it is neither. It omits people who are plainly current -- the Vice President
+    and Director of Global Economy and Development is missing from it, as is at
+    least one nonresident senior fellow whose profile describes an active
+    appointment. An eval run caught the VP, which is the only reason we know.
+
+    The `person-type` taxonomy is the wider net: ~730 records against the
+    directory's 381. It is not a drop-in replacement, because it is maintained
+    inconsistently in the other direction -- departed scholars keep the expert
+    tag (while at least one was demoted to guest-author instead), and these
+    records carry no topic, region or center facets to route on.
+
+    So: directory for the curated core, this for recall, and the difference gets
+    published as a flagged supplement rather than silently merged.
+
+    The taxonomy is not exposed as a REST filter -- passing `person-type=expert`
+    returns byte-identical results to passing nothing, which is easy to mistake
+    for a working filter. The tag only leaks through `class_list`, so the whole
+    post type has to be walked.
+    """
+    out: dict[str, str] = {}
+    page = 1
+    while True:
+        url = (f"{BASE}/wp-json/wp/v2/person?per_page=100&page={page}"
+               "&orderby=title&order=asc&_fields=slug,title,class_list")
+        try:
+            records = json.loads(fetch(url))
+        except urllib.error.HTTPError as e:
+            if e.code == 400:  # ran past the last page
+                break
+            raise
+        if not records:
+            break
+        for r in records:
+            if "person-type-expert" in r.get("class_list", []):
+                out[r["slug"]] = html.unescape(r["title"]["rendered"])
+        if page % 50 == 0:
+            print(f"  ...scanned {page} pages, {len(out)} expert-tagged so far", flush=True)
+        page += 1
+        time.sleep(0.15)  # be a considerate guest on someone else's server
+    return out
+
+
+def extract_config(page_html: str) -> dict:
     """Pull the inline brookingsAlgolia object out of the page.
 
     Uses raw_decode rather than a regex for the closing brace: the object is
@@ -72,14 +120,14 @@ def extract_config(html: str) -> dict:
     flip.
     """
     marker = "const brookingsAlgolia = "
-    i = html.find(marker)
+    i = page_html.find(marker)
     if i < 0:
         raise SystemExit(
             f"config object not found on {CONFIG_PAGE}\n"
             "Brookings changed their page structure -- re-check which pages "
             "carry the inline config before trusting anything downstream."
         )
-    obj, _ = json.JSONDecoder().raw_decode(html[i + len(marker):])
+    obj, _ = json.JSONDecoder().raw_decode(page_html[i + len(marker):])
     return obj
 
 
@@ -101,7 +149,7 @@ def flatten_entities(entities: list, out: dict | None = None, parent: str | None
     return out
 
 
-def parse_cards(html: str) -> dict:
+def parse_cards(page_html: str) -> dict:
     """slug -> facet IDs Brookings files each expert under."""
     pattern = re.compile(
         r"data-filter-research-programs='(\[[^']*\])'\s+"
@@ -112,7 +160,7 @@ def parse_cards(html: str) -> dict:
         re.S,
     )
     cards = {}
-    for programs, topics, regions, _keywords, slug in pattern.findall(html):
+    for programs, topics, regions, _keywords, slug in pattern.findall(page_html):
         cards[slug] = {
             "program_ids": json.loads(programs),
             "topic_ids": json.loads(topics),
@@ -147,7 +195,7 @@ def classify(titles: list[str]) -> dict:
     return {"appointment": appointment, "seniority": seniority, "named_chair": named_chair}
 
 
-def build() -> dict:
+def build(deep: bool = True) -> dict:
     config = extract_config(fetch(CONFIG_PAGE))
     experts = json.loads(config["experts"])
     entities = flatten_entities(json.loads(config["entities"]))
@@ -187,10 +235,23 @@ def build() -> dict:
         })
 
     people.sort(key=lambda p: p["name"].split()[-1].lower())
+
+    supplement = []
+    if deep:
+        print("scanning person records for expert-tagged people outside the directory...")
+        listed = {p["slug"] for p in people}
+        supplement = sorted(
+            ({"slug": s, "name": n} for s, n in fetch_expert_tagged().items() if s not in listed),
+            key=lambda r: r["name"].split()[-1].lower(),
+        )
+        print(f"  found {len(supplement)} expert-tagged people absent from the directory")
+
     return {
         "built": date.today().isoformat(),
         "source": {"config": CONFIG_PAGE, "directory": DIRECTORY_PAGE},
-        "counts": {"experts": len(people), "topics": len(topics), "regions": len(regions)},
+        "counts": {"experts": len(people), "topics": len(topics), "regions": len(regions),
+                   "supplementary": len(supplement)},
+        "supplementary": supplement,
         "topic_tree": [{"name": t["name"], "parent": t["parent"], "slug": t["slug"]} for t in topics.values()],
         "people": people,
     }
@@ -357,19 +418,45 @@ def write_outputs(data: dict, root: Path) -> None:
         "worked example.", "",
     ]))
 
+    if data.get("supplementary"):
+        lines = [
+            "# Expert-tagged people missing from the public directory", "",
+            f"{len(data['supplementary'])} people carry Brookings' `expert` person-type but do not",
+            f"appear in the /experts/ directory the other index files are built from. Built {data['built']}.", "",
+            "**Read this list carefully -- it is the messy one.** It mixes two very different",
+            "groups that the tag does not distinguish:", "",
+            "- Current people the directory simply omits. The Vice President and Director of",
+            "  Global Economy and Development is in here, so omission is clearly not a signal",
+            "  of departure.",
+            "- Scholars who have left, whose profiles kept the expert tag. Brookings demoted at",
+            "  least one departed fellow to `guest-author` instead, so the tag is maintained",
+            "  inconsistently and cannot be trusted either way.", "",
+            "These records carry no topic, region or center facets, so they cannot be routed on",
+            "subject. Use this file as a **recall backstop**: when a name surfaces in search and",
+            "is missing from the dimension files, check here before assuming they are not at",
+            "Brookings -- and verify the affiliation live either way.", "",
+        ]
+        for r in data["supplementary"]:
+            lines.append(f"- {r['name']} — `{r['slug']}`")
+        lines.append("")
+        (refs / "supplementary.md").write_text("\n".join(lines))
+
     sizes = {f: (refs / f).stat().st_size / 1024
              for f in ("by-topic.md", "by-region.md", "by-center.md")}
     print(f"experts : {data['counts']['experts']}")
     print(f"topics  : {data['counts']['topics']}  regions: {data['counts']['regions']}")
-    print(f"units   : {len(index_rows)}  stranded: {len(stranded)}")
+    print(f"units   : {len(index_rows)}  stranded: {len(stranded)}  supplementary: {len(data.get('supplementary', []))}")
     print("tier 1  : " + ", ".join(f"{k} {v:.1f}KB" for k, v in sizes.items()))
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
+    ap.add_argument("--fast", action="store_true",
+                    help="skip the person-type scan (~270 requests); roster will miss "
+                         "current people the /experts/ directory omits")
     args = ap.parse_args()
-    write_outputs(build(), args.root)
+    write_outputs(build(deep=not args.fast), args.root)
     return 0
 
 
