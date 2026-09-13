@@ -1,0 +1,148 @@
+# Restart prompt — shooter_ad
+
+Paste everything below the line into a fresh session.
+
+---
+
+You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo.
+Work on `main`. A previous session built the game and then redesigned what it is
+for; your job is to execute that redesign.
+
+## 1. Orient before touching anything
+
+Read, in this order:
+
+1. `CLAUDE.md` at the repo root — repo conventions, and hard-won lessons about
+   verification, measurement, permissions and deployment.
+2. `shooter_ad/CLAUDE.md` — how this game's code actually works, plus a
+   **"Known-broken, measured, not yet fixed"** section you must not tune around.
+3. `shooter_ad/notes.md` — **the design intent.** This is the most important
+   document. If it and `CLAUDE.md` disagree, `notes.md` wins and `CLAUDE.md` is
+   stale; say so rather than quietly following the code.
+4. `git log --oneline -15` — the commit messages carry the reasoning behind
+   several non-obvious decisions.
+
+Then `cd shooter_ad && npm ci && npm run build && npm run verify` and look at
+`.verify/screenshot.png`. Do not start until you have seen the game render.
+
+## 2. What the game is now
+
+**DPS golf.** Every few seconds the player is shown three bonuses and must
+judge, before they arrive, which most increases their damage output. The mob,
+the formation and the breach line exist to punish a wrong call and reward a
+right one. Two consequences drive everything:
+
+- A bonus that does not change damage output is noise.
+- A bonus whose value is *obvious* is not a decision.
+
+The current bonus table predates this and is mostly wrong for it.
+
+## 3. Ground rules
+
+- **A typecheck is not verification.** `npm run verify` before claiming anything
+  works, and look at the screenshot.
+- **Never tune balance on one run.** `npm run balance` plays fixed seeds and
+  prints a time series. Read medians. The bot is crude — a floor on difficulty,
+  not a verdict on feel. Probes take ~2.5 min per seed; background them.
+- **`Progression.ts` is the single definition of squad strength.** Par and the
+  player must price every bonus with the same function, or the death screen's
+  "optimal pick" marker lies to the player about their own mistake.
+- **Determinism is a product feature**, not a test convenience — seeds are meant
+  to be shareable. No stray `Math.random()`, nothing gameplay-affecting off
+  wall-clock time.
+- Commit subjects prefixed `shooter_ad:`. Commit and push each phase; do not
+  accumulate a giant diff.
+- Consult `.claude/skills/phaser4-migration/` before using any unfamiliar Phaser
+  API. Model priors skew to Phaser 3 and v3 answers look right and fail at
+  runtime.
+
+## 4. Work in this order — the phases are dependency-ordered
+
+### Phase 0 — unblock everything else (strictly serial, do it yourself)
+
+Nothing downstream is measurable until these land. Do not parallelise this
+phase; it all touches the same two files.
+
+1. **Break `observeGateOffer` ties toward the least harmful option.** Ten-minute
+   fix, and until it lands the difficulty reference is unreliable. See
+   `notes.md` § "The rank ladder saturates".
+2. **Extend the rank ladder past red** with prestige tiers, and reconcile
+   `SQUAD.maxPower` with whatever the ladder now covers. This is a *mechanical*
+   prerequisite, not cosmetics: above 608 power every army-size bonus is a
+   no-op and par goes erratic.
+3. **Rewrite the stat model in `Progression.ts`** for the additive /
+   multiplicative split: `base × (1 + bonusPool) × mult`. See `notes.md`
+   § "Bonus taxonomy" — this is the core mechanic of the whole redesign.
+4. **Rewrite the bonus table** to the new taxonomy. Delete trap gates,
+   time-bound effects and survival-only effects. Value pierce with a fixed
+   ratio, deliberately not live density.
+
+Then **re-baseline**: `PROBE_SECONDS=180 PROBE_SEEDS=1,2,3 npm run balance`,
+and report the series before going further. Expect the old numbers to be
+meaningless — you have changed what the game is.
+
+### Phase 1 — fan out (parallelise with subagents)
+
+These touch mostly disjoint files once Phase 0 is stable. Give each subagent the
+orientation reading from §1, the ground rules from §3, and one item. Require
+each to run `npm run verify` and report its output.
+
+5. **`DecisionLog`** — record each offer: the three options, the progress state
+   at that moment, the pick, and computed DPS deltas for all three. Blocks both
+   the death screen and the halo flash, so do it first among these.
+6. **HUD**: soldiers, player DPS, par DPS. Plus the always-visible active-bonus
+   readout — **ask the user where it goes first**, this is an open question in
+   `notes.md` with a real layout tradeoff.
+7. **Three gates per offer**, and enlarge the leader unit so it is obvious the
+   centre is what selects.
+8. **Gate approach speed scales with wave**; add `×MOVE` and `+TIME` bonuses.
+   Requires slowing base squad movement, or `×MOVE` is worthless.
+
+### Phase 2 — the payoff features
+
+9. **Death screen readout** — every decision as a row of three, pick and optimum
+   marked, tier indicator, and a headline "you played at N% of optimal".
+   Scrollable. This is the feature that makes the whole framing land.
+10. **Pick-quality halo flash** — green / yellow / red on selection, from the
+    same scoring as the death screen.
+11. **Escalating numeric legibility** by wave — round values early, deliberately
+    awkward ones later. The difficulty axis that scales furthest.
+12. **Seed display and seed entry**, with a version tag beside it.
+13. **Help / pause screen** — resume, restart, options, full itemised bonus
+    readout, and an explanation of every bonus type. Must teach the
+    additive-vs-multiplicative distinction or the core mechanic stays hidden.
+14. **Hard mode** — advanced starting gate speed and legibility tier.
+
+### Phase 3 — content and tuning
+
+15. **Soften the mercy clamp** (`DIFFICULTY.maxOverPlayer`), then re-probe
+    across seeds. Losing control should be legible, not prevented. Removing it
+    entirely reproduces a death spiral around wave 7 — this is the constant
+    most likely to make the game miserable if overcorrected.
+16. **Enemy behaviour variety** — five of eight types currently move
+    identically; `charger` is dead code; `shielder`'s armour is
+    direction-independent. Add waypoint movement, limited retreat, diagonal
+    dashes, and **enemies that shoot back** (needs an enemy projectile system
+    and squad damage from fire, not only breaches). Good standalone subagent
+    task — it barely touches the bonus system.
+
+## 5. Decisions that are the user's, not yours
+
+Ask rather than guessing. Each changes the work materially:
+
+- **Where the always-visible bonus readout goes.** A right rail is clearest but
+  the game is 540×960 portrait; widening the canvas shrinks the playfield badly
+  under `Scale.FIT` on a phone. Options in `notes.md` § "Open questions".
+- **Whether `×N` army size survives.** It is the least ambiguous bonus in the
+  new set — instantly rankable from its label — but it drives rank, which drives
+  the shirt-colour progression the user likes.
+- **Whether par is visible before a choice** or only in the death readout.
+  Visible is kinder and may remove the tension the game runs on.
+
+## 6. How to report
+
+After each phase: what landed, what the probe says (with the seeds), what you
+could not verify, and what you would do next. State plainly when a number is
+unmeasured or a claim is unverified — a previous session reported three
+confident balance conclusions that were all wrong for measurement reasons, and
+each cost a full round trip to undo.

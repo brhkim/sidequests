@@ -111,6 +111,42 @@ prevented. Removing it entirely reproduces a reliable death spiral around wave
 Raise `targetFraction` toward 1 to make the game meaner; lower it to make wins
 feel bigger.
 
+## Known-broken, measured, not yet fixed
+
+These came out of `npm run balance` and are load-bearing for the roadmap. Do not
+tune balance around them — fix them first.
+
+- **The rank ladder saturates at 608 power.** `squadDps` depends on power only
+  through each unit's tier, and tier caps at red (32 power-per-unit x 19 units).
+  Above that, extra power changes damage output not at all: every army-size
+  bonus becomes a no-op, and roughly a third of the bonus table goes inert
+  exactly when the late game starts.
+- **Par picks arbitrarily once saturated.** `observeGateOffer` scores options by
+  resulting DPS and keeps the first on a strict `>`. When DPS is flat in power
+  every option ties, so par keeps whatever was evaluated first — including a
+  trap. Two probe seeds show par *halving*. Par is the reference the whole
+  difficulty model and the death-screen scoring depend on, so this must break
+  ties toward the least harmful option.
+- **`SQUAD.maxPower` (40000) is reached in ~2.5 minutes** of probe play. Either
+  the ladder stretches that far or the cap comes down to what the ranks cover.
+- **Five of eight enemy types move identically**, because their `behaviour`
+  cases fall through to `default` in `Enemies.applyBehaviour`. `charger` has a
+  working case no enemy uses. `shielder`'s "frontal armour" is
+  direction-independent, so the name describes nothing.
+
+## Determinism is a product requirement
+
+Seeds are meant to be shareable — replay your run, or hand a friend the same
+one. That makes reproducibility a feature, not a testing convenience:
+
+- Every consumer of randomness goes through the seeded generator from
+  `systems/Rng.ts`. A stray `Math.random()` anywhere breaks it; the squad's
+  firing jitter already caught this once.
+- Nothing gameplay-affecting may read wall-clock or raw frame timing. The
+  simulation advances on a clamped step.
+- **Balance changes change outcomes.** A seed is only comparable within a
+  version, so a version tag travels with it.
+
 ## The ring cap
 
 The formation never exceeds **three hex rings (1 + 6 + 12 = 19 units)**, set by
@@ -156,6 +192,11 @@ see `.claude/skills/phaser4-migration/`.
   and `charger` is dead code — fixing that is on the roadmap.
 - **Bonus**: append to the gate table plus one case in the progression model.
   Every bonus must change damage output and must not be trivially rankable by
-  label alone — see the taxonomy in `notes.md`.
+  label alone — see the taxonomy in `notes.md`. Pierce is valued with a fixed
+  ratio rather than live enemy density, deliberately: density swings across a
+  wave, so a density-derived number scores a pick against a truth that lasted
+  one second. Par and the player must price every bonus with the same function
+  or the death screen's "optimal pick" marker lies to the player about their
+  own mistake.
 - **Army growth**: gates, rescue cages, kill streaks (`STREAK`), wave-clear
   bonuses (`WAVE.clearBonus`). Add another by calling `squad.addPower()`.
