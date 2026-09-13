@@ -123,7 +123,11 @@ export class GameScene extends Phaser.Scene {
     this.fire(dt);
     this.bullets.update(dt);
     const { newWave } = this.enemies.update(dt);
-    this.gates.update(dt, this.enemies.wave.index, this.squad.power);
+    this.gates.update(dt, this.enemies.wave.index, {
+      power: this.squad.power,
+      damageBonus: this.squad.upgrades.damageBonus,
+      rateBonus: this.squad.upgrades.rateBonus,
+    });
 
     if (newWave) {
       this.squad.addPower(WAVE.clearBonus);

@@ -12,9 +12,41 @@ export type BonusAxis = 'army' | 'rate' | 'damage' | 'guns' | 'pierce';
 
 /**
  * The central mechanic. `raw` feeds an additive pool, `mult` multiplies the
- * total, and the crossover between them moves as you build.
+ * total.
+ *
+ * These are NOT a crossover where one form eventually wins. A raw draw is
+ * scaled so its effect matches what the same draw would be worth as a
+ * multiplier at the player's CURRENT pool - see `rawShare` below. Both forms
+ * therefore reach the same span of outcomes at every point in a run, whichever
+ * drew the higher root wins, and the player's job is converting a displayed
+ * percentage against a pool they have to be tracking.
  */
 export type BonusForm = 'raw' | 'mult';
+
+/**
+ * What the offer is measured against. A raw bonus is a share of what you
+ * already hold, so it needs to know what you hold.
+ */
+export interface OfferContext {
+  readonly power: number;
+  readonly damageBonus: number;
+  readonly rateBonus: number;
+}
+
+/**
+ * The additive amount whose effect equals a multiplier of `root` on a stat
+ * currently sitting at `1 + pool`.
+ *
+ *   (1 + pool + a) / (1 + pool) = root   ->   a = (root - 1) * (1 + pool)
+ *
+ * Without this the raw form decays: at a pool of +800% a `+10%` draw moves a
+ * stack of 9.0 to 9.1 while `x1.1` moves it to 9.9, and the model measured the
+ * chance raw is the right pick falling to 3%. The judgement the game is built
+ * on becomes a formality exactly when the player is most invested.
+ */
+export function rawShare(root: number, pool: number): number {
+  return (root - 1) * (1 + pool);
+}
 
 export interface GateType {
   readonly axis: BonusAxis;
@@ -59,7 +91,7 @@ const CANDIDATES: readonly Candidate[] = [
   { axis: 'pierce', form: 'raw',  weight: 26,  minWave: 3 },
 ];
 
-function build(c: Candidate, root: number, sigFigs: number, power: number): GateType {
+function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): GateType {
   const color = AXIS_COLOR[c.axis];
   switch (c.axis) {
     case 'army': {
@@ -68,7 +100,9 @@ function build(c: Candidate, root: number, sigFigs: number, power: number): Gate
       }
       // The draw converts to an absolute against the army you hold right now,
       // which is what keeps a raw bonus from going dead at large armies.
-      const amount = Math.max(1, Math.round(roundSf(power * (root - 1), sigFigs)));
+      // Army needs no pool term: the army itself is the base a multiplier
+      // would scale, so a share of it is already effect-equivalent.
+      const amount = Math.max(1, Math.round(roundSf(ctx.power * (root - 1), sigFigs)));
       return { axis: 'army', form: 'raw', value: amount, label: `+${amount} ARMY`, color };
     }
     case 'rate':
@@ -77,7 +111,10 @@ function build(c: Candidate, root: number, sigFigs: number, power: number): Gate
       if (c.form === 'mult') {
         return { axis: c.axis, form: 'mult', value: root, label: `×${formatRoot(root)} ${word}`, color };
       }
-      const percent = Math.round((root - 1) * 100);
+      // Round the DISPLAYED percentage and derive the effect from it, so the
+      // label and what the player actually gets can never disagree.
+      const pool = c.axis === 'rate' ? ctx.rateBonus : ctx.damageBonus;
+      const percent = Math.max(1, roundSf(rawShare(root, pool) * 100, sigFigs));
       return { axis: c.axis, form: 'raw', value: percent / 100, label: `+${percent}% ${word}`, color };
     }
     case 'guns':
@@ -97,7 +134,7 @@ function build(c: Candidate, root: number, sigFigs: number, power: number): Gate
  * to ask.
  */
 export function rollOffer(
-  count: number, wave: number, power: number, rng: () => number,
+  count: number, wave: number, ctx: OfferContext, rng: () => number,
 ): GateType[] {
   const legibility = legibilityFor(wave);
   const pool = CANDIDATES.filter((c) => c.minWave <= wave);
@@ -109,7 +146,7 @@ export function rollOffer(
     if (available.length === 0) break;
     const c = pickWeighted(available, rng);
     taken.add(c);
-    chosen.push(build(c, drawRoot(legibility, rng), legibility.sigFigs, power));
+    chosen.push(build(c, drawRoot(legibility, rng), legibility.sigFigs, ctx));
   }
   return chosen;
 }
