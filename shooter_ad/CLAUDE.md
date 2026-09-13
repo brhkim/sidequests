@@ -32,6 +32,16 @@ empty build - no multipliers, no guns, no pierce - and the readout beneath the
 red line exists for the state `verify` never reaches. Judge HUD legibility off
 these, not off the verify frame.
 
+`npm run behaviour` is the instrument for the enemy roster. `verify` proves the
+game boots and `balance` proves it is survivable; neither can see eight types
+moving identically, which is a bug this project actually shipped. It spawns a
+cohort of each type directly - the bot does not reliably survive to wave 8 - and
+prints lateral path length, backward travel, direction changes, peak speed and
+net progress per type, then checks that retreat stays bounded, that the
+Shielder's armour really is directional, and that enemy guns land damage on the
+squad. It samples wall-clock frames, so figures wobble a few percent per run; it
+measures movement, not whether that movement is any fun.
+
 `npm run balance` plays several fixed seeds and prints the series. Use it before
 and after any balance change. `PROBE_SECONDS=240 PROBE_SEEDS=1,2,3
 PROBE_VERBOSE=1` for a longer, fuller run.
@@ -135,14 +145,18 @@ feel bigger.
 These came out of `npm run balance` and are load-bearing for the roadmap. Do not
 tune balance around them — fix them first.
 
-- **Five of eight enemy types move identically**, because their `behaviour`
-  cases fall through to `default` in `Enemies.applyBehaviour`. `charger` has a
-  working case no enemy uses. `shielder`'s "frontal armour" is
-  direction-independent, so the name describes nothing.
 - **The probe bot cannot see the decision the game is about.** It ranks gates by
   axis, and the redesign's interesting choice is between two magnitudes of the
   *same* axis. Every balance number is soft until it is rebuilt on real DPS
   deltas with a `PROBE_SKILL` knob.
+
+Fixed: **enemy behaviour variety**. Movement is now a discriminated `motion`
+union in `data/enemies.ts`, one case each in `systems/EnemyMotion.ts`, and every
+kind is used by at least one type - a plain straight-down walker was deleted
+rather than left as another unused case. Non-movement behaviour (`gun`, `heal`,
+`escort`, `splitInto`, `frontArmor`) is now plain optional fields read by
+`Enemies.applyTraits`, so combining them is data rather than a new case.
+`npm run behaviour` is what keeps this honest.
 
 Fixed, and worth knowing why they mattered: the rank ladder used to saturate at
 608 power, which turned every army bonus above it into a measured no-op and left
@@ -197,6 +211,16 @@ matter and are in place:
   tunnel through enemies on a slow frame.
 - Bullet-vs-enemy goes through the uniform `Grid` broad-phase, never a nested
   loop.
+- Enemy-bullet-vs-squad is **swept**: `EnemyBullets.collide` measures each unit
+  against the segment the bullet travelled this frame, not against its endpoint,
+  and movement is additionally split into substeps of at most
+  `ENEMY_FIRE.maxStep`. The squad is a cluster of 8px units, which is the exact
+  geometry an endpoint test slips between.
+
+Squad damage now has two sources, and they are deliberately different: a breach
+costs `SQUAD.breachLoss * enemy.damage` and shakes the camera hard, while a
+bullet costs `SQUAD.fireLoss * gun.damage` and barely nudges it. A breach is a
+failure to kill; fire is a tax on standing still.
 
 ## Art
 

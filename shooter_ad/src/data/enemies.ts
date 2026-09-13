@@ -4,6 +4,11 @@
  * `escort`, `splitInto`, `frontArmor`) off it. Only a genuinely NEW kind of
  * movement needs a case in `systems/EnemyMotion.ts`; everything else here is
  * data the existing cases already read.
+ *
+ * Every kind below is used by at least one type, deliberately. A plain
+ * straight-down walker was removed rather than left unused: this roster already
+ * shipped a `charger` case no enemy referenced, and an unused case is a claim
+ * about the game that nothing on screen backs up.
  */
 
 /**
@@ -12,8 +17,6 @@
  * hiding in the code.
  */
 export type Motion =
-  /** Walks straight down at `speed`. */
-  | { readonly kind: 'straight' }
   /** Weaves laterally while advancing. `amplitude` is px/s at the extreme. */
   | { readonly kind: 'zigzag'; readonly amplitude: number; readonly frequency: number }
   /** Slow approach, then sprints once within `trigger` px of the lane. */

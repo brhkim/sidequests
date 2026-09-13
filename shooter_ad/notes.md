@@ -556,12 +556,21 @@ Carried over from the earlier backlog, reprioritised against the thesis.
    the core mechanic is hidden.
 16. **Prestige ranks past red** — metallic / prismatic / glowing, with texture
     and particle treatment, so long runs keep a visible chase.
-17. **Enemy behaviour variety** — five of eight types currently move identically
-    because their cases fall through to `default`, and `charger` is dead code.
-    Add waypoint movement, limited retreat, diagonal dashes, and **enemies that
-    shoot back** (needs an enemy projectile system and squad damage from fire,
-    not only from breaches). Fix `shielder`, whose "frontal armour" is
-    direction-independent.
+17. **Enemy behaviour variety** — *done*, with one thing deliberately left
+    open. Movement is a `motion` union in the roster with one case each in
+    `EnemyMotion.ts`: zigzag, charger, waypoint, harass (bounded retreat), dash
+    (diagonal), drift. Two new types shoot back — Spitter leads the squad,
+    Lancer hangs back and shells the lane — and bullets cost power through
+    `SQUAD.fireLoss`, which is the second damage source the design wanted.
+
+    The Shielder was kept and made genuinely directional rather than renamed:
+    its `frontArmor` only applies inside the cone it is walking into, so its
+    fast lateral legs are the window where it is soft. That is a real positional
+    ask, which a flat damage reduction never was. **Unmeasured, and the honest
+    caveat**: the squad only ever fires straight up, so the player influences
+    the angle solely by choosing *when* to shoot, not from where. Whether that
+    reads as a skill or as random armour is a question for the author playing
+    it; `npm run behaviour` can only confirm the taper exists.
 
 ---
 

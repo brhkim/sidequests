@@ -3,6 +3,7 @@ import { ENEMY_BY_ID, poolAverageHp, rollEnemy, type EnemyType } from '../data/e
 import type { Difficulty } from './Difficulty';
 import type { EnemyBullets } from './EnemyBullets';
 import { applyMotion, armorAgainst, type Band } from './EnemyMotion';
+import { applyTraits, type TraitContext } from './EnemyTraits';
 
 export interface Enemy {
   x: number; y: number;
@@ -62,12 +63,25 @@ export class Enemies {
   private throttled: { hpMult: number; spawnRate: number } =
     { hpMult: 1, spawnRate: WAVE.baseSpawnRate };
 
+  /** Built once; `targetX`/`targetY` are getters so traits always read the
+   * squad's position for THIS frame rather than the one it was built on. */
+  private readonly traits: TraitContext;
+
   constructor(
     private readonly rng: () => number,
     private readonly difficulty: Difficulty,
-    private readonly fire: EnemyBullets,
+    fire: EnemyBullets,
   ) {
     this.wave = this.buildWave(1);
+    const self = this;
+    this.traits = {
+      items: this.items,
+      fire,
+      get targetX(): number { return self.targetX; },
+      get targetY(): number { return self.targetY; },
+      spawn: (type, x, y, hpScale) => this.spawn(type, x, y, hpScale),
+      rng: this.rng,
+    };
   }
 
   get hpMult(): number { return this.throttled.hpMult; }
@@ -159,7 +173,7 @@ export class Enemies {
       if (!e.active) continue;
       e.timer += dt;
       applyMotion(e, dt, this.band(e.radius));
-      this.applyTraits(e, dt);
+      applyTraits(e, dt, this.traits);
     }
 
     return { newWave };
@@ -181,66 +195,6 @@ export class Enemies {
       if (!c.active) continue;
       c.y += CAGE.speed * dt;
       if (c.y > VIEW.height + 40) c.active = false;
-    }
-  }
-
-  /**
-   * Non-movement behaviour, all of it read from the type table. A new enemy
-   * combines these by declaring the fields; it never needs a case here.
-   */
-  private applyTraits(e: Enemy, dt: number): void {
-    const t = e.type;
-
-    if (t.gun) {
-      e.gunCooldown -= dt;
-      if (e.gunCooldown <= 0 && e.y > ENEMY_FIRE.minFireY && e.y < ARENA.breachY) {
-        e.gunCooldown += t.gun.interval;
-        this.shoot(e);
-      }
-    }
-
-    if (t.heal || t.escort) {
-      e.traitCooldown -= dt;
-      const interval = t.heal?.interval ?? t.escort?.interval ?? 1;
-      if (e.traitCooldown > 0) return;
-      e.traitCooldown += interval;
-      if (t.heal) this.pulseHeal(e, t.heal.radius, t.heal.fraction);
-      if (t.escort) {
-        const child = ENEMY_BY_ID.get(t.escort.spawn);
-        if (child) {
-          for (let i = 0; i < t.escort.count; i++) {
-            this.spawn(child, e.x + (this.rng() - 0.5) * 80, e.y + 20);
-          }
-        }
-      }
-    }
-  }
-
-  private pulseHeal(e: Enemy, radius: number, fraction: number): void {
-    for (const other of this.items) {
-      if (!other.active || other === e) continue;
-      const dx = other.x - e.x, dy = other.y - e.y;
-      if (dx * dx + dy * dy < radius * radius) {
-        other.hp = Math.min(other.maxHp, other.hp + other.maxHp * fraction);
-      }
-    }
-  }
-
-  private shoot(e: Enemy): void {
-    const gun = e.type.gun;
-    if (!gun) return;
-    let base = Math.PI / 2;  // straight down
-    if (gun.aimed) {
-      base = Math.atan2(this.targetY - e.y, this.targetX - e.x);
-    }
-    for (let i = 0; i < gun.count; i++) {
-      const offset = gun.count === 1 ? 0 : (i - (gun.count - 1) / 2) * gun.spread;
-      const a = base + offset;
-      this.fire.spawn(
-        e.x, e.y + e.radius * 0.6,
-        Math.cos(a) * gun.speed, Math.sin(a) * gun.speed,
-        gun.damage,
-      );
     }
   }
 

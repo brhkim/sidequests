@@ -25,9 +25,6 @@ export function applyMotion(e: Enemy, dt: number, band: Band): void {
   let vy = t.speed;
 
   switch (m.kind) {
-    case 'straight':
-      break;
-
     case 'zigzag':
       e.x += Math.sin(e.timer * m.frequency + e.phase) * m.amplitude * dt;
       break;
