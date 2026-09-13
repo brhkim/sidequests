@@ -128,6 +128,37 @@ everything else.
 
 ---
 
+## The rank ladder saturates, and it breaks more than cosmetics
+
+Measured, not theorised. `squadDps` depends on power only through each unit's
+*tier*, and tier caps at red (32 power-per-unit). With a 19-unit ring that is
+**608 total power — above which extra power changes damage output not at all.**
+
+Three consequences, all visible in the probe series:
+
+1. **Every army-size bonus becomes worthless past 608.** `+30` and `x3` are
+   identical no-ops, which quietly deletes a whole bonus axis mid-run.
+2. **Par starts picking at random, including traps.** `observeGateOffer` scores
+   options by resulting DPS; once DPS is flat in power, all three score equal,
+   the strict `>` comparison keeps whichever was evaluated first, and par can
+   take a `/2`. Seeds 1 and 3 both show par *halving* — 1448 to 729 at t=110,
+   40000 to 20000 at t=140. That is not par playing badly, it is par being
+   unable to tell the options apart.
+3. **`hpMult` compensates into absurdity** — up to 155x base HP — because par
+   DPS keeps rising through weapon upgrades while power does nothing.
+
+So prestige ranks past red are **mechanically required, not decoration**. Until
+the ladder extends, roughly a third of the bonus table is inert in the late
+game and the difficulty model's reference player is unreliable.
+
+Two follow-ons regardless of how far the ladder extends:
+
+- Ties in `observeGateOffer` must break deterministically toward the least
+  harmful option, so a saturated par can never take a trap.
+- `SQUAD.maxPower` (40000) is reached inside 2.5 minutes of probe play. Either
+  the ladder must stretch that far or the cap should come down to something the
+  ranks actually cover.
+
 ## Less mercy
 
 `DIFFICULTY.maxOverPlayer` currently caps enemy pressure at 1.35× what the
