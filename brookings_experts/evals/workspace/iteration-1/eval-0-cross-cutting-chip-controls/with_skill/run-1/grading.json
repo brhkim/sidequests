@@ -62,5 +62,11 @@
       "evidence": "gap/also-considered section present"
     }
   ],
-  "score": "10/10"
+  "score": "10/10",
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "total": 10,
+    "pass_rate": 1.0
+  }
 }

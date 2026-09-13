@@ -1,0 +1,17 @@
+{
+  "eval_id": 0,
+  "eval_name": "eval-0-cross-cutting-chip-controls",
+  "prompt": "ok so the semiconductor export control story is everywhere today \u2014 new rules plus allies grumbling about being squeezed. i've got a background call tomorrow afternoon and want to consult a Brookings expert on it. who should i be talking to?",
+  "assertions": [
+    "Recommends 3-5 experts",
+    "Every recommended person is a real Brookings expert in the roster",
+    "Cites at least two linked sources",
+    "No cited URL is dead (404/5xx from a server that answered)",
+    "Uses the memo template's numbered recommendation headings",
+    "Citations carry dates",
+    "States the consult mode it assumed",
+    "Explains the ranking rather than only listing",
+    "Gives an access / availability read",
+    "Notes coverage gaps or also-considered candidates"
+  ]
+}

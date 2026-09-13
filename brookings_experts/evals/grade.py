@@ -200,6 +200,13 @@ def grade(memo_path: Path, roster: list[dict], supplement: list[dict],
         "unreachable_links": unreachable,
         "expectations": expectations,
         "score": f"{sum(e['passed'] for e in expectations)}/{len(expectations)}",
+        # `summary` is the shape skill-creator's aggregate_benchmark.py reads.
+        "summary": {
+            "passed": sum(e["passed"] for e in expectations),
+            "failed": sum(not e["passed"] for e in expectations),
+            "total": len(expectations),
+            "pass_rate": sum(e["passed"] for e in expectations) / len(expectations),
+        },
     }
 
 
@@ -225,7 +232,9 @@ def main() -> int:
             print(f"  {'PASS' if e['passed'] else 'FAIL'}  {e['text']}")
             if not e["passed"]:
                 print(f"        {e['evidence']}")
-        (m.parent / "grading.json").write_text(json.dumps(result, indent=2) + "\n")
+        # The aggregator looks for grading.json beside outputs/, not inside it.
+        run_dir = m.parent.parent if m.parent.name == "outputs" else m.parent
+        (run_dir / "grading.json").write_text(json.dumps(result, indent=2) + "\n")
     return 0
 
 

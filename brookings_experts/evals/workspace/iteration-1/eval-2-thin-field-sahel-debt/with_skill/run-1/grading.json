@@ -1,9 +1,11 @@
 {
-  "memo": "workspace/iteration-1/eval-2-thin-field-sahel-debt/without_skill/outputs/memo.md",
+  "memo": "workspace/iteration-1/eval-2-thin-field-sahel-debt/with_skill/outputs/memo.md",
   "recommended": [
+    "Danielle Resnick",
     "Vera Songwe",
     "Alexander Noyes",
-    "Ahmadou Aly Mbaye"
+    "Brahima Sangafowa Coulibaly",
+    "Landry Sign\u00e9"
   ],
   "unknown_people": [],
   "dead_links": [],
@@ -12,7 +14,7 @@
     {
       "text": "Recommends 3-5 experts",
       "passed": true,
-      "evidence": "3 recommendation headings: ['Vera Songwe', 'Alexander Noyes', 'Ahmadou Aly Mbaye']"
+      "evidence": "5 recommendation headings: ['Danielle Resnick', 'Vera Songwe', 'Alexander Noyes', 'Brahima Sangafowa Coulibaly', 'Landry Sign\u00e9']"
     },
     {
       "text": "Every recommended person is a real Brookings expert in the roster",
@@ -22,7 +24,7 @@
     {
       "text": "Cites at least two linked sources",
       "passed": true,
-      "evidence": "18 markdown links, 18 unique URLs"
+      "evidence": "23 markdown links, 20 unique URLs"
     },
     {
       "text": "No cited URL is dead (404/5xx from a server that answered)",
@@ -37,17 +39,17 @@
     {
       "text": "Citations carry dates",
       "passed": true,
-      "evidence": "26 date mentions"
+      "evidence": "50 date mentions"
     },
     {
       "text": "States the consult mode it assumed",
-      "passed": false,
-      "evidence": "no consult mode stated"
+      "passed": true,
+      "evidence": "mode stated explicitly"
     },
     {
       "text": "Explains the ranking rather than only listing",
-      "passed": false,
-      "evidence": "missing"
+      "passed": true,
+      "evidence": "ordering rationale section present"
     },
     {
       "text": "Gives an access / availability read",
@@ -60,5 +62,11 @@
       "evidence": "gap/also-considered section present"
     }
   ],
-  "score": "8/10"
+  "score": "10/10",
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "total": 10,
+    "pass_rate": 1.0
+  }
 }

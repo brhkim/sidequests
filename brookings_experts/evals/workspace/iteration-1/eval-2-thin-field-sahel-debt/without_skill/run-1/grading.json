@@ -1,10 +1,9 @@
 {
-  "memo": "workspace/iteration-1/eval-1-recency-trap-absenteeism/with_skill/outputs/memo.md",
+  "memo": "workspace/iteration-1/eval-2-thin-field-sahel-debt/without_skill/outputs/memo.md",
   "recommended": [
-    "Rebecca Winthrop",
-    "Michael Hansen",
-    "Jon Valant",
-    "Kenneth K. Wong"
+    "Vera Songwe",
+    "Alexander Noyes",
+    "Ahmadou Aly Mbaye"
   ],
   "unknown_people": [],
   "dead_links": [],
@@ -13,7 +12,7 @@
     {
       "text": "Recommends 3-5 experts",
       "passed": true,
-      "evidence": "4 recommendation headings: ['Rebecca Winthrop', 'Michael Hansen', 'Jon Valant', 'Kenneth K. Wong']"
+      "evidence": "3 recommendation headings: ['Vera Songwe', 'Alexander Noyes', 'Ahmadou Aly Mbaye']"
     },
     {
       "text": "Every recommended person is a real Brookings expert in the roster",
@@ -23,7 +22,7 @@
     {
       "text": "Cites at least two linked sources",
       "passed": true,
-      "evidence": "17 markdown links, 14 unique URLs"
+      "evidence": "18 markdown links, 18 unique URLs"
     },
     {
       "text": "No cited URL is dead (404/5xx from a server that answered)",
@@ -38,17 +37,17 @@
     {
       "text": "Citations carry dates",
       "passed": true,
-      "evidence": "36 date mentions"
+      "evidence": "26 date mentions"
     },
     {
       "text": "States the consult mode it assumed",
-      "passed": true,
-      "evidence": "mode stated explicitly"
+      "passed": false,
+      "evidence": "no consult mode stated"
     },
     {
       "text": "Explains the ranking rather than only listing",
-      "passed": true,
-      "evidence": "ordering rationale section present"
+      "passed": false,
+      "evidence": "missing"
     },
     {
       "text": "Gives an access / availability read",
@@ -61,5 +60,11 @@
       "evidence": "gap/also-considered section present"
     }
   ],
-  "score": "10/10"
+  "score": "8/10",
+  "summary": {
+    "passed": 8,
+    "failed": 2,
+    "total": 10,
+    "pass_rate": 0.8
+  }
 }

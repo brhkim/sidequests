@@ -6,3 +6,7 @@ dist/
 CLAUDE.local.md
 .vite/
 .verify/
+
+# Eval review viewer is a large generated artifact; regenerate with
+# skill-creator's generate_review.py from the workspace files.
+brookings_experts/evals/review-*.html

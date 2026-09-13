@@ -1,11 +1,10 @@
 {
-  "memo": "workspace/iteration-1/eval-2-thin-field-sahel-debt/with_skill/outputs/memo.md",
+  "memo": "workspace/iteration-1/eval-1-recency-trap-absenteeism/without_skill/outputs/memo.md",
   "recommended": [
-    "Danielle Resnick",
-    "Vera Songwe",
-    "Alexander Noyes",
-    "Brahima Sangafowa Coulibaly",
-    "Landry Sign\u00e9"
+    "Rebecca Winthrop",
+    "Michael Hansen",
+    "Lauren Bauer",
+    "Jon Valant"
   ],
   "unknown_people": [],
   "dead_links": [],
@@ -14,7 +13,7 @@
     {
       "text": "Recommends 3-5 experts",
       "passed": true,
-      "evidence": "5 recommendation headings: ['Danielle Resnick', 'Vera Songwe', 'Alexander Noyes', 'Brahima Sangafowa Coulibaly', 'Landry Sign\u00e9']"
+      "evidence": "4 recommendation headings: ['Rebecca Winthrop', 'Michael Hansen', 'Lauren Bauer', 'Jon Valant']"
     },
     {
       "text": "Every recommended person is a real Brookings expert in the roster",
@@ -24,7 +23,7 @@
     {
       "text": "Cites at least two linked sources",
       "passed": true,
-      "evidence": "23 markdown links, 20 unique URLs"
+      "evidence": "16 markdown links, 16 unique URLs"
     },
     {
       "text": "No cited URL is dead (404/5xx from a server that answered)",
@@ -33,28 +32,28 @@
     },
     {
       "text": "Uses the memo template's numbered recommendation headings",
-      "passed": true,
-      "evidence": "numbered headings present"
+      "passed": false,
+      "evidence": "unnumbered headings (format only; not a quality signal)"
     },
     {
       "text": "Citations carry dates",
       "passed": true,
-      "evidence": "50 date mentions"
+      "evidence": "33 date mentions"
     },
     {
       "text": "States the consult mode it assumed",
-      "passed": true,
-      "evidence": "mode stated explicitly"
+      "passed": false,
+      "evidence": "no consult mode stated"
     },
     {
       "text": "Explains the ranking rather than only listing",
-      "passed": true,
-      "evidence": "ordering rationale section present"
+      "passed": false,
+      "evidence": "missing"
     },
     {
       "text": "Gives an access / availability read",
-      "passed": true,
-      "evidence": "access/availability language found"
+      "passed": false,
+      "evidence": "no access or availability discussion found"
     },
     {
       "text": "Notes coverage gaps or also-considered candidates",
@@ -62,5 +61,11 @@
       "evidence": "gap/also-considered section present"
     }
   ],
-  "score": "10/10"
+  "score": "6/10",
+  "summary": {
+    "passed": 6,
+    "failed": 4,
+    "total": 10,
+    "pass_rate": 0.6
+  }
 }

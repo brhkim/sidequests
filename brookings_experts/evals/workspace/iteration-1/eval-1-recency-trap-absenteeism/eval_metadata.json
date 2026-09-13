@@ -1,0 +1,17 @@
+{
+  "eval_id": 1,
+  "eval_name": "eval-1-recency-trap-absenteeism",
+  "prompt": "We're pulling together a panel for a convening in the spring on chronic absenteeism and what districts are actually doing about it post-pandemic. Could you find me a Brookings expert or two who'd be good on stage for that?",
+  "assertions": [
+    "Recommends 3-5 experts",
+    "Every recommended person is a real Brookings expert in the roster",
+    "Cites at least two linked sources",
+    "No cited URL is dead (404/5xx from a server that answered)",
+    "Uses the memo template's numbered recommendation headings",
+    "Citations carry dates",
+    "States the consult mode it assumed",
+    "Explains the ranking rather than only listing",
+    "Gives an access / availability read",
+    "Notes coverage gaps or also-considered candidates"
+  ]
+}

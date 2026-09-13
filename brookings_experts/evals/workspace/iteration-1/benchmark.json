@@ -1,0 +1,473 @@
+{
+  "metadata": {
+    "skill_name": "brookings-expert-finder",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-09-13T22:02:11Z",
+    "evals_run": [
+      0,
+      1,
+      2
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 10,
+        "failed": 0,
+        "total": 10,
+        "time_seconds": 417.1,
+        "tokens": 111080,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends 3-5 experts",
+          "passed": true,
+          "evidence": "5 recommendation headings: ['Kyle Chan', 'Mireya Sol\u00eds', 'Mark MacCarthy', 'Daniel S. Hamilton', 'Jonathan A. Czin']"
+        },
+        {
+          "text": "Every recommended person is a real Brookings expert in the roster",
+          "passed": true,
+          "evidence": "all matched"
+        },
+        {
+          "text": "Cites at least two linked sources",
+          "passed": true,
+          "evidence": "16 markdown links, 14 unique URLs"
+        },
+        {
+          "text": "No cited URL is dead (404/5xx from a server that answered)",
+          "passed": true,
+          "evidence": "skipped (--no-net)"
+        },
+        {
+          "text": "Uses the memo template's numbered recommendation headings",
+          "passed": true,
+          "evidence": "numbered headings present"
+        },
+        {
+          "text": "Citations carry dates",
+          "passed": true,
+          "evidence": "30 date mentions"
+        },
+        {
+          "text": "States the consult mode it assumed",
+          "passed": true,
+          "evidence": "mode stated explicitly"
+        },
+        {
+          "text": "Explains the ranking rather than only listing",
+          "passed": true,
+          "evidence": "ordering rationale section present"
+        },
+        {
+          "text": "Gives an access / availability read",
+          "passed": true,
+          "evidence": "access/availability language found"
+        },
+        {
+          "text": "Notes coverage gaps or also-considered candidates",
+          "passed": true,
+          "evidence": "gap/also-considered section present"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 10,
+        "failed": 0,
+        "total": 10,
+        "time_seconds": 355.8,
+        "tokens": 103667,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends 3-5 experts",
+          "passed": true,
+          "evidence": "4 recommendation headings: ['Rebecca Winthrop', 'Michael Hansen', 'Jon Valant', 'Kenneth K. Wong']"
+        },
+        {
+          "text": "Every recommended person is a real Brookings expert in the roster",
+          "passed": true,
+          "evidence": "all matched"
+        },
+        {
+          "text": "Cites at least two linked sources",
+          "passed": true,
+          "evidence": "17 markdown links, 14 unique URLs"
+        },
+        {
+          "text": "No cited URL is dead (404/5xx from a server that answered)",
+          "passed": true,
+          "evidence": "skipped (--no-net)"
+        },
+        {
+          "text": "Uses the memo template's numbered recommendation headings",
+          "passed": true,
+          "evidence": "numbered headings present"
+        },
+        {
+          "text": "Citations carry dates",
+          "passed": true,
+          "evidence": "36 date mentions"
+        },
+        {
+          "text": "States the consult mode it assumed",
+          "passed": true,
+          "evidence": "mode stated explicitly"
+        },
+        {
+          "text": "Explains the ranking rather than only listing",
+          "passed": true,
+          "evidence": "ordering rationale section present"
+        },
+        {
+          "text": "Gives an access / availability read",
+          "passed": true,
+          "evidence": "access/availability language found"
+        },
+        {
+          "text": "Notes coverage gaps or also-considered candidates",
+          "passed": true,
+          "evidence": "gap/also-considered section present"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 10,
+        "failed": 0,
+        "total": 10,
+        "time_seconds": 433.5,
+        "tokens": 123118,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends 3-5 experts",
+          "passed": true,
+          "evidence": "5 recommendation headings: ['Danielle Resnick', 'Vera Songwe', 'Alexander Noyes', 'Brahima Sangafowa Coulibaly', 'Landry Sign\u00e9']"
+        },
+        {
+          "text": "Every recommended person is a real Brookings expert in the roster",
+          "passed": true,
+          "evidence": "all matched"
+        },
+        {
+          "text": "Cites at least two linked sources",
+          "passed": true,
+          "evidence": "23 markdown links, 20 unique URLs"
+        },
+        {
+          "text": "No cited URL is dead (404/5xx from a server that answered)",
+          "passed": true,
+          "evidence": "skipped (--no-net)"
+        },
+        {
+          "text": "Uses the memo template's numbered recommendation headings",
+          "passed": true,
+          "evidence": "numbered headings present"
+        },
+        {
+          "text": "Citations carry dates",
+          "passed": true,
+          "evidence": "50 date mentions"
+        },
+        {
+          "text": "States the consult mode it assumed",
+          "passed": true,
+          "evidence": "mode stated explicitly"
+        },
+        {
+          "text": "Explains the ranking rather than only listing",
+          "passed": true,
+          "evidence": "ordering rationale section present"
+        },
+        {
+          "text": "Gives an access / availability read",
+          "passed": true,
+          "evidence": "access/availability language found"
+        },
+        {
+          "text": "Notes coverage gaps or also-considered candidates",
+          "passed": true,
+          "evidence": "gap/also-considered section present"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6,
+        "passed": 6,
+        "failed": 4,
+        "total": 10,
+        "time_seconds": 231.5,
+        "tokens": 73018,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends 3-5 experts",
+          "passed": true,
+          "evidence": "4 recommendation headings: ['Christopher A. Thomas', 'Mireya Sol\u00eds', 'Kyle Chan', 'Mark MacCarthy']"
+        },
+        {
+          "text": "Every recommended person is a real Brookings expert in the roster",
+          "passed": true,
+          "evidence": "all matched"
+        },
+        {
+          "text": "Cites at least two linked sources",
+          "passed": true,
+          "evidence": "15 markdown links, 15 unique URLs"
+        },
+        {
+          "text": "No cited URL is dead (404/5xx from a server that answered)",
+          "passed": true,
+          "evidence": "skipped (--no-net)"
+        },
+        {
+          "text": "Uses the memo template's numbered recommendation headings",
+          "passed": false,
+          "evidence": "unnumbered headings (format only; not a quality signal)"
+        },
+        {
+          "text": "Citations carry dates",
+          "passed": true,
+          "evidence": "14 date mentions"
+        },
+        {
+          "text": "States the consult mode it assumed",
+          "passed": false,
+          "evidence": "no consult mode stated"
+        },
+        {
+          "text": "Explains the ranking rather than only listing",
+          "passed": false,
+          "evidence": "missing"
+        },
+        {
+          "text": "Gives an access / availability read",
+          "passed": true,
+          "evidence": "access/availability language found"
+        },
+        {
+          "text": "Notes coverage gaps or also-considered candidates",
+          "passed": false,
+          "evidence": "no gaps or also-considered section"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6,
+        "passed": 6,
+        "failed": 4,
+        "total": 10,
+        "time_seconds": 222.5,
+        "tokens": 70918,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends 3-5 experts",
+          "passed": true,
+          "evidence": "4 recommendation headings: ['Rebecca Winthrop', 'Michael Hansen', 'Lauren Bauer', 'Jon Valant']"
+        },
+        {
+          "text": "Every recommended person is a real Brookings expert in the roster",
+          "passed": true,
+          "evidence": "all matched"
+        },
+        {
+          "text": "Cites at least two linked sources",
+          "passed": true,
+          "evidence": "16 markdown links, 16 unique URLs"
+        },
+        {
+          "text": "No cited URL is dead (404/5xx from a server that answered)",
+          "passed": true,
+          "evidence": "skipped (--no-net)"
+        },
+        {
+          "text": "Uses the memo template's numbered recommendation headings",
+          "passed": false,
+          "evidence": "unnumbered headings (format only; not a quality signal)"
+        },
+        {
+          "text": "Citations carry dates",
+          "passed": true,
+          "evidence": "33 date mentions"
+        },
+        {
+          "text": "States the consult mode it assumed",
+          "passed": false,
+          "evidence": "no consult mode stated"
+        },
+        {
+          "text": "Explains the ranking rather than only listing",
+          "passed": false,
+          "evidence": "missing"
+        },
+        {
+          "text": "Gives an access / availability read",
+          "passed": false,
+          "evidence": "no access or availability discussion found"
+        },
+        {
+          "text": "Notes coverage gaps or also-considered candidates",
+          "passed": true,
+          "evidence": "gap/also-considered section present"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 8,
+        "failed": 2,
+        "total": 10,
+        "time_seconds": 272.8,
+        "tokens": 73751,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recommends 3-5 experts",
+          "passed": true,
+          "evidence": "3 recommendation headings: ['Vera Songwe', 'Alexander Noyes', 'Ahmadou Aly Mbaye']"
+        },
+        {
+          "text": "Every recommended person is a real Brookings expert in the roster",
+          "passed": true,
+          "evidence": "all matched"
+        },
+        {
+          "text": "Cites at least two linked sources",
+          "passed": true,
+          "evidence": "18 markdown links, 18 unique URLs"
+        },
+        {
+          "text": "No cited URL is dead (404/5xx from a server that answered)",
+          "passed": true,
+          "evidence": "skipped (--no-net)"
+        },
+        {
+          "text": "Uses the memo template's numbered recommendation headings",
+          "passed": true,
+          "evidence": "numbered headings present"
+        },
+        {
+          "text": "Citations carry dates",
+          "passed": true,
+          "evidence": "26 date mentions"
+        },
+        {
+          "text": "States the consult mode it assumed",
+          "passed": false,
+          "evidence": "no consult mode stated"
+        },
+        {
+          "text": "Explains the ranking rather than only listing",
+          "passed": false,
+          "evidence": "missing"
+        },
+        {
+          "text": "Gives an access / availability read",
+          "passed": true,
+          "evidence": "access/availability language found"
+        },
+        {
+          "text": "Notes coverage gaps or also-considered candidates",
+          "passed": true,
+          "evidence": "gap/also-considered section present"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 402.1333,
+        "stddev": 40.9551,
+        "min": 355.8,
+        "max": 433.5
+      },
+      "tokens": {
+        "mean": 112621.6667,
+        "stddev": 9816.7155,
+        "min": 103667,
+        "max": 123118
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.6667,
+        "stddev": 0.1155,
+        "min": 0.6,
+        "max": 0.8
+      },
+      "time_seconds": {
+        "mean": 242.2667,
+        "stddev": 26.8228,
+        "min": 222.5,
+        "max": 272.8
+      },
+      "tokens": {
+        "mean": 72562.3333,
+        "stddev": 1470.4409,
+        "min": 70918,
+        "max": 73751
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.33",
+      "time_seconds": "+159.9",
+      "tokens": "+40059"
+    }
+  },
+  "notes": []
+}

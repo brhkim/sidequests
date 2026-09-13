@@ -1,0 +1,17 @@
+{
+  "eval_id": 2,
+  "eval_name": "eval-2-thin-field-sahel-debt",
+  "prompt": "I need to brief our program team next week on sovereign debt distress in the Sahel \u2014 specifically how the security situation is interacting with restructuring talks. Who at Brookings could help me get smart on this? Memo please.",
+  "assertions": [
+    "Recommends 3-5 experts",
+    "Every recommended person is a real Brookings expert in the roster",
+    "Cites at least two linked sources",
+    "No cited URL is dead (404/5xx from a server that answered)",
+    "Uses the memo template's numbered recommendation headings",
+    "Citations carry dates",
+    "States the consult mode it assumed",
+    "Explains the ranking rather than only listing",
+    "Gives an access / availability read",
+    "Notes coverage gaps or also-considered candidates"
+  ]
+}
