@@ -1,20 +1,27 @@
 import Phaser from 'phaser';
-import { ARENA, CAGE, COLORS, GATES, SQUAD, STREAK, VIEW, WAVE, WEAPON } from '../config';
+import {
+  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, SQUAD, STREAK, VIEW, WAVE, WEAPON,
+} from '../config';
 import { TIERS } from '../data/tiers';
 import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
+import { EnemyBullets } from '../systems/EnemyBullets';
 import { Enemies, type Enemy } from '../systems/Enemies';
 import { Gates } from '../systems/Gates';
 import { Difficulty } from '../systems/Difficulty';
 import { Grid } from '../systems/Grid';
 import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
+import { pierceMultiplier } from '../systems/Progression';
+import { RAIL_HEIGHT } from './hud/TopRail';
+import type { HudPayload } from './hud/types';
 
 const SKIN = 0xf2c9a0;
 
 export class GameScene extends Phaser.Scene {
   private squad!: Squad;
   private bullets!: Bullets;
+  private enemyFire!: EnemyBullets;
   private enemies!: Enemies;
   private gates!: Gates;
   private difficulty!: Difficulty;
@@ -24,6 +31,7 @@ export class GameScene extends Phaser.Scene {
   private headPool!: SpritePool;
   private enemyPool!: SpritePool;
   private bulletPool!: SpritePool;
+  private enemyBulletPool!: SpritePool;
   private cagePool!: SpritePool;
 
   private overlay!: Phaser.GameObjects.Graphics;
@@ -49,8 +57,9 @@ export class GameScene extends Phaser.Scene {
     this.rng = rng;
     this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
     this.bullets = new Bullets();
+    this.enemyFire = new EnemyBullets();
     this.difficulty = new Difficulty();
-    this.enemies = new Enemies(this.rng, this.difficulty);
+    this.enemies = new Enemies(this.rng, this.difficulty, this.enemyFire);
     this.gates = new Gates(this.rng, (offer) => this.difficulty.observeGateOffer(offer));
     this.grid = new Grid<Enemy>(48, VIEW.width);
 
@@ -60,6 +69,7 @@ export class GameScene extends Phaser.Scene {
     this.enemyPool = new SpritePool(this, 'dot', 10);
     this.cagePool = new SpritePool(this, 'cage', 11);
     this.bulletPool = new SpritePool(this, 'bullet', 12);
+    this.enemyBulletPool = new SpritePool(this, 'dot', 13);
     this.bodyPool = new SpritePool(this, 'body', 20);
     this.headPool = new SpritePool(this, 'head', 21);
 
@@ -75,8 +85,8 @@ export class GameScene extends Phaser.Scene {
     g.lineBetween(0, ARENA.breachY, VIEW.width, ARENA.breachY);
     // Backing strip so the HUD stays legible as enemies walk in from the top.
     const hud = this.add.graphics().setDepth(30);
-    hud.fillStyle(COLORS.bg, 0.82).fillRect(0, 0, VIEW.width, 134);
-    hud.fillStyle(COLORS.bg, 0.35).fillRect(0, 134, VIEW.width, 14);
+    hud.fillStyle(COLORS.bg, 0.86).fillRect(0, 0, VIEW.width, RAIL_HEIGHT);
+    hud.fillStyle(COLORS.bg, 0.3).fillRect(0, RAIL_HEIGHT, VIEW.width, 12);
   }
 
   private bindInput(): void {
@@ -104,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     this.targetX = VIEW.width / 2;
     this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
     this.bullets = new Bullets();
+    this.enemyFire.reset();
     this.difficulty.reset();
     this.enemies.reset();
     this.gates.reset();
@@ -120,8 +131,11 @@ export class GameScene extends Phaser.Scene {
     this.handleKeys(dt);
     this.squad.update(dt, this.targetX);
     this.enemies.playerDps = this.squad.dps;
+    this.enemies.targetX = this.squad.x;
+    this.enemies.targetY = this.squad.y;
     this.fire(dt);
     this.bullets.update(dt);
+    this.enemyFire.update(dt);
     const { newWave } = this.enemies.update(dt);
     this.gates.update(dt, this.enemies.wave.index, {
       power: this.squad.power,
@@ -138,6 +152,7 @@ export class GameScene extends Phaser.Scene {
     this.collide();
     this.checkGates();
     this.applyBreaches();
+    this.applyIncomingFire();
 
     this.render();
     this.emitHud();
@@ -181,7 +196,8 @@ export class GameScene extends Phaser.Scene {
         const dx = e.x - b.x, dy = e.y - b.y;
         const r = e.radius + WEAPON.bulletRadius;
         if (dx * dx + dy * dy > r * r) return;
-        if (this.enemies.damage(e, b.damage)) this.onKill();
+        const len = Math.hypot(b.vx, b.vy) || 1;
+        if (this.enemies.damage(e, b.damage, b.vx / len, b.vy / len)) this.onKill();
         if (b.pierce > 0) b.pierce--;
         else b.active = false;
       });
@@ -237,6 +253,22 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Squad power destroyed by enemy fire. Separate from `applyBreaches` on
+   * purpose: a breach is a failure to kill, while fire is a tax on standing
+   * still, and the two need to read differently.
+   */
+  private applyIncomingFire(): void {
+    const cost = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius);
+    if (cost <= 0) return;
+    this.squad.addPower(-cost * SQUAD.fireLoss);
+    this.cameras.main.shake(70, 0.003);
+    if (!this.squad.alive) {
+      this.over = true;
+      this.game.events.emit('gameover', { wave: this.enemies.wave.index, kills: this.kills });
+    }
+  }
+
   private toast(text: string): void {
     this.game.events.emit('toast', text);
   }
@@ -266,7 +298,8 @@ export class GameScene extends Phaser.Scene {
       seed: this.seed,
       gates,
     });
-    this.game.events.emit('hud', {
+    const u = this.squad.upgrades;
+    const hud: HudPayload = {
       power: Math.floor(this.squad.power),
       wave: this.enemies.wave.index,
       tier: this.squad.topTier,
@@ -274,7 +307,18 @@ export class GameScene extends Phaser.Scene {
       tierColor: TIERS[this.squad.topTier].shirt,
       kills: this.kills,
       capped: this.squad.power > SQUAD.ringCap,
-    });
+      units: this.squad.units.length,
+      dps: this.squad.dps,
+      parDps: par.parDps,
+      damageBonus: u.damageBonus,
+      damageMult: u.damageMult,
+      rateBonus: u.rateBonus,
+      rateMult: u.rateMult,
+      guns: u.guns,
+      pierce: u.pierce,
+      pierceMult: pierceMultiplier(u.pierce),
+    };
+    this.game.events.emit('hud', hud);
   }
 
   // --- rendering ------------------------------------------------------------
@@ -282,6 +326,7 @@ export class GameScene extends Phaser.Scene {
   private render(): void {
     this.renderEnemies();
     this.renderBullets();
+    this.renderEnemyFire();
     this.renderSquad();
     this.renderGates();
     this.renderOverlay();
@@ -316,6 +361,18 @@ export class GameScene extends Phaser.Scene {
       this.bulletPool.claim().setPosition(b.x, b.y).setTint(COLORS.bullet);
     }
     this.bulletPool.end();
+  }
+
+  private renderEnemyFire(): void {
+    this.enemyBulletPool.begin();
+    for (const b of this.enemyFire.items) {
+      if (!b.active) continue;
+      this.enemyBulletPool.claim()
+        .setPosition(b.x, b.y)
+        .setDisplaySize(ENEMY_FIRE.radius * 2, ENEMY_FIRE.radius * 2)
+        .setTint(COLORS.enemyBullet);
+    }
+    this.enemyBulletPool.end();
   }
 
   private renderSquad(): void {
@@ -408,6 +465,18 @@ export class GameScene extends Phaser.Scene {
   private renderOverlay(): void {
     this.overlay.clear();
     this.renderSelection();
+    // Shield facing. A directional shield the player cannot see is just an
+    // unexplained damage number, so draw where it actually points.
+    for (const e of this.enemies.items) {
+      if (!e.active || !e.type.frontArmor) continue;
+      const nx = -e.fy, ny = e.fx;
+      const r = e.radius + 3;
+      this.overlay.lineStyle(3, COLORS.shield, 0.85);
+      this.overlay.lineBetween(
+        e.x + e.fx * r - nx * e.radius, e.y + e.fy * r - ny * e.radius,
+        e.x + e.fx * r + nx * e.radius, e.y + e.fy * r + ny * e.radius,
+      );
+    }
     // Health bars for anything big enough to be worth aiming at.
     for (const e of this.enemies.items) {
       if (!e.active || e.radius < 14 || e.hp >= e.maxHp) continue;

@@ -338,6 +338,89 @@ for everyone on the same version. Consequences:
   version, so show a version tag beside the seed and treat that pair as the
   shareable unit.
 
+## Sharing: the screenshot is the medium
+
+People share runs by screenshotting them, not by copying links. That single fact
+drives the whole end-screen design, because **a screenshot loses the clipboard**.
+Whatever identifies the match has to survive as pixels somebody can read off a
+photo and type back in.
+
+So a raw URL is the wrong primitive. `.../shooter_ad/?seed=3042291225&mode=hard`
+is unreadable at thumbnail size and miserable to retype.
+
+### Match codes
+
+Encode seed and mode into a short, readable code — base32 over a compact
+alphabet with the ambiguous glyphs dropped (no `0`/`O`, no `1`/`I`/`l`), grouped
+for legibility:
+
+```
+MATCH  7K2P-9XQ4-H
+```
+
+The trailing group carries the mode, so hard runs are visibly different matches
+rather than the same code with a hidden flag. The code is the source of truth;
+the URL is derived from it, not the other way round.
+
+That buys three things at once: it fits on screen at a size readable from a
+photo, it is short enough to type by hand, and it is short enough to say out
+loud.
+
+### The end screen has two jobs
+
+It is both a results page and a piece of social media, and those pull in
+different directions. Resolve it by making the *shareable* version the default
+layout rather than a separate export:
+
+- **Score, enormous.** One number, instantly comparable.
+- **Par delta** right under it — "12% below par" — because a bare number means
+  nothing without the curve it was measured against.
+- **The match code**, large, with a one-line "same match:" label so a stranger
+  seeing the screenshot knows it is playable rather than decorative.
+- **The decision summary** in one line: optimal / middle / worst counts. This is
+  the DPS-golf scorecard in miniature, and it is what makes two runs on one seed
+  worth comparing.
+- A **copy-link button** for people who do copy. It is the convenience path, not
+  the primary one.
+
+The full decision table (every offer, the pick, the optimum) stays available but
+scrolls below the fold. The first screenful must be the part worth
+screenshotting.
+
+### What the score should be
+
+Proposal, open to change: **waves survived** as the headline number. It is
+integer, instantly comparable, and captures both pick quality and positioning.
+Under it, two subtitles:
+
+```
+        WAVE 14
+   played at 82% of optimal
+        18 / 7 / 3
+```
+
+`played at N% of optimal` comes from the `DecisionLog` and is the purest measure
+of the actual skill the game tests. The triple is optimal / middle / worst picks.
+
+Seeds only make runs comparable **within a version**, so a version tag belongs
+on the screen too — small, but present, or people will compare scores from
+different games and conclude the leaderboard is broken.
+
+### Intake
+
+A link carrying a match code opens on the start screen with seed and mode
+already filled in and the code shown, so the player confirms rather than
+configures: one button, "Start match". Never auto-start — a player who follows a
+link should see what they are about to play.
+
+### Known constraint
+
+`navigator.clipboard.writeText` needs a secure context and can be refused inside
+a sandboxed iframe. The copy button therefore cannot be the only path to the
+code, which is the other reason the code has to be legible on screen. Treat a
+clipboard failure as expected: fall back to showing the code large with a "type
+this in" affordance rather than surfacing an error.
+
 ## Hard mode
 
 Start the difficulty settings advanced rather than ramping into them:

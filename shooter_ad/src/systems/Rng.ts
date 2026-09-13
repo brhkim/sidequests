@@ -23,3 +23,18 @@ export function createRng(): { rng: () => number; seed: number } {
     : Math.floor(Math.random() * 0xffffffff);
   return { rng: mulberry32(seed), seed };
 }
+
+/**
+ * Stateless hash in [0, 1). Long-lived entities (waypoint pickers, dash
+ * directions) draw from this against a per-entity seed and a step index rather
+ * than from the shared generator: a live entity that consumed the stream would
+ * make the whole sequence depend on how many frames it happened to survive,
+ * which is exactly the reproducibility a shareable seed promises.
+ */
+export function hash01(seed: number, step: number): number {
+  let t = Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b);
+  t = Math.imul(t ^ (step + 0x165667b1), 0xc2b2ae35);
+  t ^= t >>> 13;
+  t = Math.imul(t, 0x27d4eb2f);
+  return ((t ^ (t >>> 16)) >>> 0) / 4294967296;
+}

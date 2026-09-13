@@ -57,6 +57,12 @@ export const SQUAD = {
   maxPower: MAX_PER_UNIT * RING_CAP,
   /** Power lost when an enemy breaches the line, multiplied by enemy damage. */
   breachLoss: 1,
+  /**
+   * Power lost per enemy bullet that lands, multiplied by the gun's damage.
+   * Deliberately well under `breachLoss`: fire is a steady tax that asks you to
+   * keep moving, while a breach is the punishment for failing to kill.
+   */
+  fireLoss: 0.5,
 } as const;
 
 export const WEAPON = {
@@ -74,6 +80,40 @@ export const WEAPON = {
    * At 0.5, pierce 1/2/3 are worth 1.5x / 1.75x / 1.875x.
    */
   pierceQ: 0.5,
+} as const;
+
+/** Shape of enemy movement that is common to every type; per-type tuning lives
+ * in the `motion` field of `data/enemies.ts`. */
+export const MOTION = {
+  /**
+   * Retreating enemies may never rise above this line. Without it a harasser
+   * that spawned high could reverse straight back off the top of the screen and
+   * park there, unreachable and un-killable.
+   */
+  ceilingY: 90,
+  /**
+   * Second bound on retreat: an enemy can never go back above the deepest point
+   * it has already reached, minus its own `maxRetreat`. Advance always moves
+   * that high-water mark down, so every cycle nets forward progress and no
+   * enemy can oscillate on the spot forever.
+   */
+  minCycleProgress: 8,
+} as const;
+
+/** Enemy projectiles. The squad loses power to these, not only to breaches. */
+export const ENEMY_FIRE = {
+  maxBullets: 240,
+  radius: 5,
+  /** Nothing shoots from off-screen; a gun only opens up below this line. */
+  minFireY: 40,
+  /**
+   * Hard cap on how far a bullet may travel in one frame. Collision is swept
+   * (segment vs unit circle) so this is belt-and-braces rather than the only
+   * guard, but it also keeps the sweep segment short enough to stay accurate.
+   */
+  maxStep: 16,
+  /** Grace after a spawn before its gun can fire, so volleys are staggered. */
+  armDelay: 0.7,
 } as const;
 
 export const WAVE = {
@@ -175,4 +215,6 @@ export const COLORS = {
   bullet: 0xfff3b0,
   text: '#e8ecf8',
   cage: 0xb9a06a,
+  enemyBullet: 0xff8a5c,
+  shield: 0xbcd8ff,
 } as const;
