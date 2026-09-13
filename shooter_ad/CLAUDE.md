@@ -111,6 +111,15 @@ softened substantially** — see `notes.md`; losing control should be legible, n
 prevented. Removing it entirely reproduces a reliable death spiral around wave
 7, so re-probe after touching it.
 
+**Know which of the two regimes you are measuring in.** The clamp takes over
+exactly below `standing = targetFraction / maxOverPlayer` — 0.52 at the current
+constants. Above that the curve is par-driven and skill-responsive; below it,
+enemy pressure is simply 1.35× whatever the player is doing, and neither
+`targetFraction` nor par influences the run at all. The probe's bot lives almost
+entirely below 0.52, so any conclusion about the par-driven regime drawn from
+its numbers is a conclusion about a regime it never entered. Softening the clamp
+moves this threshold up and hands more of the run back to par.
+
 Raise `targetFraction` toward 1 to make the game meaner; lower it to make wins
 feel bigger.
 
