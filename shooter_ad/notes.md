@@ -117,14 +117,25 @@ push `q` below 1:
 This gives natural diminishing returns: at `q = 0.5`, pierce 1 → 1.5×, pierce 2
 → 1.75×, pierce 3 → 1.875×.
 
-**`q` should be derived from live enemy density, not hardcoded.** Something like
-`q = clamp(activeEnemies × enemyWidth / laneWidth, 0, 0.85)`. That makes pierce
-genuinely situational — strong in a dense wave, near-worthless in a thin one —
-which is the most interesting property any bonus in the game can have.
+### Use a fixed `q`, not live density
 
-The important constraint: **par and the player must value pierce with the same
-function**, or the end-screen scoring lies. It goes in `Progression.ts` with
-everything else.
+An earlier draft derived `q` from on-screen enemy density. **Rejected**, and the
+reason generalises: density swings wildly across a wave, so the value measured
+at the instant of a decision is not representative of the run the bonus actually
+lives through. Scoring a pick against a number that was true for one second is
+worse than scoring it against a stable approximation.
+
+So `q` is a tuned constant (start at **0.5**, giving 1.5× / 1.75× / 1.875× for
+pierce 1/2/3). Pierce becomes a clean diminishing-returns axis: strong as a
+first pick, weak as a fourth.
+
+This is an admitted approximation — real pierce value does vary with the board.
+The properties that matter more:
+
+- **Stable**, so the death screen's verdict on a pick is still true a minute later.
+- **Identical for par and player**, or the "optimal pick" marker is a lie.
+
+Both live in `Progression.ts` with everything else.
 
 ---
 
@@ -158,6 +169,65 @@ Two follow-ons regardless of how far the ladder extends:
 - `SQUAD.maxPower` (40000) is reached inside 2.5 minutes of probe play. Either
   the ladder must stretch that far or the cap should come down to something the
   ranks actually cover.
+
+## Numeric legibility as a difficulty axis
+
+The most interesting difficulty lever is not enemy HP — it is **how hard the
+bonuses are to compare**.
+
+Early waves offer round, mentally tractable numbers: `+10% DMG` against
+`×1.1 DMG`. A player can do that in their head. Later waves draw deliberately
+awkward values: `+12% DMG` against `×1.05 DMG`, where the right answer genuinely
+depends on the build you are sitting on and cannot be eyeballed.
+
+Implement as a **legibility tier** that escalates with wave: bonus magnitudes are
+drawn from a pool whose values get less round, and whose additive and
+multiplicative forms sit closer together in value. No mechanic changes — only how
+hard the arithmetic is.
+
+This is the axis that scales furthest, because it never stops being interesting.
+
+## Instant feedback on every pick
+
+A halo flash on the gate the moment you take it:
+
+- **green** — optimal
+- **yellow** — middle
+- **red** — worst of the three
+
+The death screen teaches after the fact; this teaches *during*, which is what
+actually makes players improve. Both read the same `DecisionLog` scoring, so they
+can never disagree.
+
+## Seeds are shareable
+
+Show the seed on the death screen, and let a player enter one when starting a
+game. That turns a run into a challenge: replay your own, or hand a friend the
+exact same sequence of waves and offers and compare scores.
+
+**This makes determinism a hard requirement, not a testing convenience.** The
+same seed must produce the same game — same enemies, same offers, same numbers —
+for everyone on the same version. Consequences:
+
+- Every consumer of randomness routes through the seeded generator. No stray
+  `Math.random()`; the squad's firing jitter already caught this once.
+- Anything that touches gameplay off wall-clock or frame timing breaks
+  reproducibility. Simulation must advance on a clamped, deterministic step.
+- **Balance changes change outcomes.** Seeds are only comparable within a
+  version, so show a version tag beside the seed and treat that pair as the
+  shareable unit.
+
+## Hard mode
+
+Start the difficulty settings advanced rather than ramping into them:
+
+- gate approach speed begins at a later-wave value, so decision time is short
+  from the first offer
+- bonus legibility starts at a higher tier, so awkward numbers arrive immediately
+- optionally a higher `targetFraction`
+
+Deliberately *not* "more enemy HP" — hard mode should test the same skill the
+game is about, harder, rather than a different one.
 
 ## Less mercy
 
@@ -212,21 +282,28 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 ### Now
 1. **Rewrite the bonus table** to the taxonomy above; delete cut bonuses.
 2. **Additive/multiplicative stat model** in `Progression.ts`.
-3. **Density-aware pierce valuation**, shared by squad and par.
+3. **Fixed-`q` pierce valuation**, shared by squad and par.
 4. **HUD**: soldiers, DPS, par DPS.
 5. **Three gates per offer**, and enlarge the leader unit so it is obvious the
    centre is what selects.
 6. **Gate approach speed scales with wave**; add `+TIME` and `×MOVE` bonuses.
 7. **DecisionLog + death screen readout.**
 8. **Soften the mercy clamp**, re-probe.
+9. **Active-bonus readout** — the player cannot judge an offer without knowing
+   what they already hold. Full detail on the pause screen, plus something
+   always-visible. See open questions on where it goes.
+10. **Escalating numeric legibility** by wave.
+11. **Pick-quality halo flash** — green / yellow / red on selection.
+12. **Seed display and seed entry**, with a version tag.
+13. **Hard mode** — advanced starting gate speed and legibility tier.
 
 ### Next
-9. **Help / pause screen** — resume, restart, options, and a full explanation of
+14. **Help / pause screen** — resume, restart, options, and a full explanation of
    every bonus type. Must teach the additive-vs-multiplicative distinction, or
    the core mechanic is hidden.
-10. **Prestige ranks past red** — metallic / prismatic / glowing, with texture
+15. **Prestige ranks past red** — metallic / prismatic / glowing, with texture
     and particle treatment, so long runs keep a visible chase.
-11. **Enemy behaviour variety** — five of eight types currently move identically
+16. **Enemy behaviour variety** — five of eight types currently move identically
     because their cases fall through to `default`, and `charger` is dead code.
     Add waypoint movement, limited retreat, diagonal dashes, and **enemies that
     shoot back** (needs an enemy projectile system and squad damage from fire,
@@ -245,3 +322,10 @@ Carried over from the earlier backlog, reprioritised against the thesis.
   give away too much of the judgment.
 - Should par be visible *before* the choice, or only in the death readout?
   Visible is kinder and might remove the tension the game runs on.
+- **Where does the always-visible bonus readout go?** A dedicated right rail
+  outside the play area is the clearest, but the game is 540×960 portrait and
+  widening the canvas to fit a rail makes the play area shrink badly under
+  `Scale.FIT` on a phone. Candidates: a compact chip row under the HUD (works
+  everywhere, less detail); a rail that only appears on wide screens and
+  collapses to a toggle on narrow; or accepting a smaller playfield. Needs a
+  decision before the readout is built.
