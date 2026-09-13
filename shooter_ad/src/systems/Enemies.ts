@@ -109,8 +109,7 @@ export class Enemies {
     return true;
   }
 
-  update(dt: number, timeScale: number): { newWave: boolean } {
-    const scaled = dt * timeScale;
+  update(dt: number): { newWave: boolean } {
     const newWave = this.advanceWave(dt);
 
     this.difficulty.update(dt, this.playerDps);
@@ -140,13 +139,13 @@ export class Enemies {
 
     for (const e of this.items) {
       if (!e.active) continue;
-      e.timer += scaled;
-      this.applyBehaviour(e, scaled);
+      e.timer += dt;
+      this.applyBehaviour(e, dt);
     }
 
     for (const c of this.cages) {
       if (!c.active) continue;
-      c.y += CAGE.speed * scaled;
+      c.y += CAGE.speed * dt;
       if (c.y > VIEW.height + 40) c.active = false;
     }
 

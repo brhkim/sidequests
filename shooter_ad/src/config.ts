@@ -3,6 +3,8 @@
  * gameplay code.
  */
 
+import { MAX_PER_UNIT } from './data/tiers';
+
 export const VIEW = { width: 540, height: 960 } as const;
 
 /** Bottom strip the squad moves along. */
@@ -24,6 +26,9 @@ export const ARENA = {
   spawnInset: 14,
 } as const;
 
+/** Referenced twice inside SQUAD, so it cannot be a self-reference. */
+const RING_CAP = 19;
+
 export const SQUAD = {
   /**
    * The fix for the classic failure of this genre: the visible formation never
@@ -31,15 +36,20 @@ export const SQUAD = {
    * promoting the units you can already see, so positioning stays readable at
    * any power level.
    */
-  ringCap: 19,
+  ringCap: RING_CAP,
   unitSpacing: 24,
   unitRadius: 8,
   /** How fast units ease toward their formation slot (fraction per second). */
   followLerp: 14,
   moveSpeed: 620,
   startPower: 6,
-  /** Hard ceiling on army power, and the top of the rank ladder. */
-  maxPower: 40000,
+  /**
+   * Hard ceiling on army power, DERIVED from the ladder rather than picked.
+   * A cap above what the ranks cover is a region where power buys no damage at
+   * all, which turns every army bonus into a no-op and leaves the difficulty
+   * model's reference player unable to tell its options apart.
+   */
+  maxPower: MAX_PER_UNIT * RING_CAP,
   /** Power lost when an enemy breaches the line, multiplied by enemy damage. */
   breachLoss: 1,
 } as const;
@@ -54,11 +64,11 @@ export const WEAPON = {
   volleySpread: 0.55,
   maxBullets: 900,
   /**
-   * Each repeat of a stacking weapon upgrade is worth this fraction of the
-   * last. Unbounded additive stacking is what let four DMG+ gates outscale
-   * every enemy curve in the game.
+   * Chance a piercing bullet meets another body after a hit. Tuned constant,
+   * deliberately not live enemy density - see Progression.pierceMultiplier.
+   * At 0.5, pierce 1/2/3 are worth 1.5x / 1.75x / 1.875x.
    */
-  upgradeDiminish: 0.72,
+  pierceQ: 0.5,
 } as const;
 
 export const WAVE = {
@@ -123,12 +133,13 @@ export const DIFFICULTY = {
 } as const;
 
 export const GATES = {
-  /** Seconds between gate pairs descending. */
+  /** Seconds between offers descending. */
   interval: 7.5,
   speed: 108,
   height: 64,
-  /** Gates are always offered in pairs so the choice is the gameplay. */
-  pairGap: 8,
+  /** Options per offer. The choice between them IS the gameplay. */
+  perOffer: 2,
+  gap: 8,
 } as const;
 
 export const CAGE = {
@@ -144,15 +155,6 @@ export const STREAK = {
   /** Every N kills grants power, so aggression compounds. */
   killsPerBonus: 25,
   bonus: 2,
-} as const;
-
-/** Temporary buff durations, in seconds. */
-export const BUFF = {
-  shield: 6,
-  slowmo: 5,
-  slowmoFactor: 0.35,
-  frenzy: 6,
-  frenzyFireRate: 3.2,
 } as const;
 
 export const COLORS = {

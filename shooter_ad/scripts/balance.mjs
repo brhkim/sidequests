@@ -7,11 +7,19 @@
  * - **Fixed seeds.** Balance work is comparison work, and a single unseeded run
  *   varies ~2x on gate luck alone - enough to make a change look like a
  *   regression when nothing changed. Runs differ only by the code under test.
- * - **A bot that plays.** It steers toward the best gate on offer rather than
- *   sweeping blindly, so the series measures the DESIGN rather than whether a
- *   sine wave happened to pass under a x2.
+ * - **A bot that plays.** It steers toward a gate rather than sweeping blindly,
+ *   so the series measures the DESIGN rather than whether a sine wave happened
+ *   to pass under an offer.
  *
- * It is still a crude player: no threat avoidance, no positioning for breaches.
+ * CAVEAT, and it is a large one right now: the bot ranks gates by AXIS, and the
+ * redesign makes that nearly meaningless. The interesting choice is between two
+ * magnitudes of the same axis - `+12% DMG` against `x1.05 DMG` - which a
+ * preference over axes cannot express at all. These numbers say the game runs
+ * and roughly where survival lands, and very little more. Rebuilding the bot on
+ * the DecisionLog's own DPS deltas, with a PROBE_SKILL knob, is what makes the
+ * series trustworthy.
+ *
+ * It is also a crude player: no threat avoidance, no positioning for breaches.
  * Read it as a floor on difficulty, not a verdict on how the game feels.
  */
 import { createServer } from 'node:http';
@@ -25,14 +33,11 @@ const SECONDS = Number(process.env.PROBE_SECONDS ?? 150);
 const SEEDS = (process.env.PROBE_SEEDS ?? '1,2,3').split(',').map(Number);
 const VERBOSE = process.env.PROBE_VERBOSE === '1';
 
-// Gates worth steering into, best first. The bot has no model of the game, so
-// it uses a fixed preference order rather than scoring.
-const PREFERENCE = [
-  'mul', 'add', 'multishot', 'damage', 'firerate', 'pierce',
-  'frenzy', 'shield', 'slowmo',
-];
-const rank = (kind) => {
-  const i = PREFERENCE.indexOf(kind);
+// Placeholder preference over AXES. This cannot see magnitudes and therefore
+// cannot express the decision the game is actually about - see the caveat above.
+const PREFERENCE = ['army', 'damage', 'rate', 'guns', 'pierce'];
+const rank = (axis) => {
+  const i = PREFERENCE.indexOf(axis);
   return i === -1 ? 99 : i;
 };
 
@@ -75,7 +80,7 @@ async function runSeed(seed) {
       // Steer for the best gate that has not yet passed the squad.
       const reachable = (s.gates ?? []).filter((g) => g.y < 820);
       if (reachable.length > 0) {
-        reachable.sort((a, b) => rank(a.kind) - rank(b.kind));
+        reachable.sort((a, b) => rank(a.axis) - rank(b.axis));
         await page.mouse.move(toScreen(reachable[0].x), laneY);
       } else {
         const x = 0.5 + 0.42 * Math.sin(tick / 11);

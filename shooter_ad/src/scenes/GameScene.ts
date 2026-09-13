@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ARENA, BUFF, CAGE, COLORS, GATES, SQUAD, STREAK, VIEW, WAVE, WEAPON } from '../config';
+import { ARENA, CAGE, COLORS, GATES, SQUAD, STREAK, VIEW, WAVE, WEAPON } from '../config';
 import { TIERS } from '../data/tiers';
 import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
@@ -116,15 +116,14 @@ export class GameScene extends Phaser.Scene {
     // Clamp dt: a long frame would otherwise let fast enemies and bullets skip
     // past each other between collision checks.
     const dt = Math.min(delta / 1000, 1 / 30);
-    const timeScale = this.squad.slowTime > 0 ? BUFF.slowmoFactor : 1;
 
     this.handleKeys(dt);
     this.squad.update(dt, this.targetX);
     this.enemies.playerDps = this.squad.dps;
     this.fire(dt);
     this.bullets.update(dt);
-    const { newWave } = this.enemies.update(dt, timeScale);
-    this.gates.update(dt, timeScale, this.enemies.wave.index);
+    const { newWave } = this.enemies.update(dt);
+    this.gates.update(dt, this.enemies.wave.index, this.squad.power);
 
     if (newWave) {
       this.squad.addPower(WAVE.clearBonus);
@@ -152,8 +151,8 @@ export class GameScene extends Phaser.Scene {
     for (const u of this.squad.units) {
       u.cooldown -= dt;
       if (u.cooldown > 0) continue;
-      u.cooldown += this.squad.shotInterval(u.tier);
-      const damage = this.squad.damagePerShot(u.tier);
+      u.cooldown += this.squad.shotInterval(u.share);
+      const damage = this.squad.damagePerShot(u.share);
       for (let g = 0; g < guns; g++) {
         const offset = guns === 1 ? 0 : (g - (guns - 1) / 2) * WEAPON.volleySpread;
         const angle = -Math.PI / 2 + offset * 0.12;
@@ -226,7 +225,6 @@ export class GameScene extends Phaser.Scene {
   private applyBreaches(): void {
     const cost = this.enemies.collectBreaches();
     if (cost <= 0) return;
-    if (this.squad.shieldTime > 0) return;
     this.squad.addPower(-cost * SQUAD.breachLoss);
     this.cameras.main.shake(120, 0.006);
     if (!this.squad.alive) {
@@ -243,7 +241,10 @@ export class GameScene extends Phaser.Scene {
     const par = this.difficulty.snapshot();
     const gates = this.gates.items
       .filter((g) => g.active)
-      .map((g) => ({ x: Math.round(g.x), label: g.type.label, kind: g.type.kind, y: Math.round(g.y) }));
+      .map((g) => ({
+        x: Math.round(g.x), y: Math.round(g.y),
+        label: g.type.label, axis: g.type.axis, form: g.type.form,
+      }));
     this.registry.set('stats', {
       power: Math.floor(this.squad.power),
       parPower: par.parPower,
@@ -358,10 +359,6 @@ export class GameScene extends Phaser.Scene {
 
   private renderOverlay(): void {
     this.overlay.clear();
-    if (this.squad.shieldTime > 0) {
-      this.overlay.lineStyle(3, 0x7fd4ff, 0.5 + 0.3 * Math.sin(this.time.now / 90));
-      this.overlay.strokeCircle(this.squad.x, this.squad.y, 64);
-    }
     // Health bars for anything big enough to be worth aiming at.
     for (const e of this.enemies.items) {
       if (!e.active || e.radius < 14 || e.hp >= e.maxHp) continue;

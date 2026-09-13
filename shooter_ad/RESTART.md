@@ -58,37 +58,29 @@ The current bonus table predates this and is mostly wrong for it.
 
 ## 4. Work in this order — the phases are dependency-ordered
 
-### Phase 0 — unblock everything else (strictly serial, do it yourself)
+### Phase 0 — DONE, do not redo
 
-Nothing downstream is measurable until these land. Do not parallelise this
-phase; it all touches the same two files.
+All four items landed on `claude/laughing-feynman-ghh9r3` (PR #1). Verify before
+building on them, then move to Phase 1:
 
-1. **Break `observeGateOffer` ties toward the least harmful option.** Ten-minute
-   fix, and until it lands the difficulty reference is unreliable. See
-   `notes.md` § "The rank ladder saturates".
-2. **Extend the rank ladder past red** with prestige tiers, and reconcile
-   `SQUAD.maxPower` with whatever the ladder now covers. This is a *mechanical*
-   prerequisite, not cosmetics: above 608 power every army-size bonus is a
-   no-op and par goes erratic.
-3. **Rewrite the stat model in `Progression.ts`** for the additive /
-   multiplicative split: `base × (1 + bonusPool) × mult`. See `notes.md`
-   § "Bonus taxonomy" — this is the core mechanic of the whole redesign.
-4. **Rewrite the bonus table** to the new taxonomy, built on the root-table
-   generator in `notes.md` § "One root table, two presentations" — build the
-   generator first and have every bonus draw from it, rather than hardcoding
-   magnitudes you will have to tear out when legibility tiers land in Phase 2.
-   Delete trap gates, time-bound effects and survival-only effects. Value pierce
-   with a fixed ratio, deliberately not live density.
+1. ~~Break `observeGateOffer` ties~~ — par now breaks ties toward the option
+   leaving the most power.
+2. ~~Extend the rank ladder past red~~ — six ranks past red, and
+   `SQUAD.maxPower` is derived from the top row so the dead region above 608
+   power cannot return.
+3. ~~Rewrite the stat model~~ — additive/multiplicative split is in
+   `Progression.ts`.
+4. ~~Rewrite the bonus table~~ — bonuses now carry `axis` and `form`, drawn from
+   the root-table generator. A live offer looks like `+5% RATE` against
+   `+6 ARMY`.
 
-Then **re-baseline**: `PROBE_SECONDS=180 PROBE_SEEDS=1,2,3 npm run balance`,
-and report the series before going further. Expect the old numbers to be
-meaningless — you have changed what the game is.
+Read `CLAUDE.md` § "Known-broken, measured, not yet fixed" for what is still
+broken, and § "Difficulty is closed-loop" for the **two-regime** note added
+during the re-baseline — it explains why most probe numbers describe a regime
+the par curve never touches. That note changes how you should read any balance
+measurement, so do not skip it.
 
-**Caveat that baseline heavily.** The bot picks gates by a fixed preference over
-bonus *kinds*, which the new taxonomy makes almost meaningless: the interesting
-choices are now between two values of the same kind. So the Phase 0 numbers tell
-you the game still runs and roughly where survival lands, and little more. Item
-6 rebuilds the bot; real balance conclusions wait for that.
+Start at Phase 1 item 5.
 
 ### Phase 1 — fan out (parallelise with subagents)
 
