@@ -62,38 +62,49 @@ is.** That is the game.
 
 Apply the same split to damage, and to army size.
 
-#### Measured: the additive form has a shelf life
+#### The two forms, and why the raw pool must scale
 
-`npm run model` prices both forms out of the game's own `Progression.ts`. Since
-both draw from the same table, additive is the right pick exactly when
-`(ra - 1) > (rm - 1) × (1 + pool)`. That gives:
+A stat is `base × (1 + pool) × mult`. `+10% DMG` adds ten points to the pool;
+`×1.1 DMG` multiplies the base, which the pool then amplifies. Worked, at base
+damage 5 and a pool of +210%:
 
-| Pool | Chance additive is correct (coarse table) | (fine table) |
-| --- | --- | --- |
-| +0% | 42% | 49% |
-| +50% | 36% | 30% |
-| +100% | 22% | 20% |
-| +400% | 8% | 4% |
+| | pool | base | total |
+| --- | --- | --- | --- |
+| now | 210% | 5 | 15.50 |
+| after `+10% DMG` | 220% | 5 | **16.00** |
+| after `×1.1 DMG` | 210% | 5.5 | **17.05** |
 
-So the claim above is **half right**. Additive does start as a live coin flip
-and multiplicative does take over — but the late end is not a crossover where
-both stay interesting. It is the additive form becoming *strictly* wrong, which
-is the "bonus whose value is obvious" this document cuts elsewhere.
+The multiplicative form scales the whole stack; the additive form adds ten
+points to a stack already at 310. That gap widens with the pool, and `npm run
+model` measures the consequence — the chance the additive form is the right pick
+falls from 42% at an empty pool to 22% at +100% and **3% at +800%**. Left alone,
+the central judgement of the game becomes a formality exactly when the player is
+most invested.
 
-Two things keep it from being a bug:
+**The fix is at the draw pool, not the formula.** Keep the mechanics above
+untouched. Instead, give the raw form a draw range whose *effects* match the
+multiplicative form's at the player's current pool. If `×N` draws a root from
+`[1.05, 1.50]`, then raw draws:
 
-- **It is self-stabilising.** The pool only grows when the player takes additive
-  bonuses, so a player picking correctly holds the pool near zero and keeps the
-  choice live. Reaching +400% means having repeatedly chosen the form that was
-  already losing.
-- **It is axis-dependent.** On damage and rate, both forms present as
-  percentages, so at a small pool the comparison is easy arithmetic. On army,
-  raw presents as an *absolute* against current size, so the conversion is
-  required no matter what the pool is doing.
+```
+a = (root − 1) × (1 + pool)        displayed as +{a × 100}% 
+```
 
-Open, and a real decision rather than a tuning knob: whether to leave this as a
-legible punishment for over-investing in one form, or to keep both forms live
-for the whole run by drawing them from different sub-ranges of the table.
+At a pool of +210%, a root of 1.1 becomes `+31% DMG` and is worth exactly ×1.10
+— the same as `×1.1`. Both forms now reach the same span of outcomes, so:
+
+- **Neither form is ever dominant or dead.** Whichever drew the higher root
+  wins, which is a coin flip across offers rather than a slow slide into one
+  answer.
+- **The conversion is the skill.** The player sees `+31% DMG` against
+  `×1.25 DMG` and must know their pool is 210% to work out which is bigger. That
+  arithmetic is the test, and it is why the pool has to be legible in the HUD.
+- **The draws settle it, not the forms.** Two independent draws from
+  effect-equivalent pools, so the answer genuinely varies offer to offer.
+
+Apply the same treatment to rate. Army already works this way in spirit — raw
+presents as an absolute against current size — so it needs the same scaling
+against its own growth, not against a bonus pool.
 
 #### One root table, two presentations
 
