@@ -24,7 +24,7 @@
       "Bash(git log:*)"
     ],
     "deny": [
-      "Read(./**/dist/**/*)",
+      "Read(./**/*.map)",
       "Read(./**/node_modules/**/*)"
     ]
   }
