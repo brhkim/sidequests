@@ -41,6 +41,11 @@ export const SQUAD = {
   unitRadius: 8,
   /** How fast units ease toward their formation slot (fraction per second). */
   followLerp: 14,
+  /**
+   * The leader is drawn larger than the rest of the ring. The centre unit is
+   * what actually selects a gate, and nothing else on screen says so.
+   */
+  leaderScale: 1.5,
   moveSpeed: 620,
   startPower: 6,
   /**
@@ -52,6 +57,12 @@ export const SQUAD = {
   maxPower: MAX_PER_UNIT * RING_CAP,
   /** Power lost when an enemy breaches the line, multiplied by enemy damage. */
   breachLoss: 1,
+  /**
+   * Power lost per enemy bullet that lands, multiplied by the gun's damage.
+   * Deliberately well under `breachLoss`: fire is a steady tax that asks you to
+   * keep moving, while a breach is the punishment for failing to kill.
+   */
+  fireLoss: 0.5,
 } as const;
 
 export const WEAPON = {
@@ -69,6 +80,40 @@ export const WEAPON = {
    * At 0.5, pierce 1/2/3 are worth 1.5x / 1.75x / 1.875x.
    */
   pierceQ: 0.5,
+} as const;
+
+/** Shape of enemy movement that is common to every type; per-type tuning lives
+ * in the `motion` field of `data/enemies.ts`. */
+export const MOTION = {
+  /**
+   * Retreating enemies may never rise above this line. Without it a harasser
+   * that spawned high could reverse straight back off the top of the screen and
+   * park there, unreachable and un-killable.
+   */
+  ceilingY: 90,
+  /**
+   * Second bound on retreat: an enemy can never go back above the deepest point
+   * it has already reached, minus its own `maxRetreat`. Advance always moves
+   * that high-water mark down, so every cycle nets forward progress and no
+   * enemy can oscillate on the spot forever.
+   */
+  minCycleProgress: 8,
+} as const;
+
+/** Enemy projectiles. The squad loses power to these, not only to breaches. */
+export const ENEMY_FIRE = {
+  maxBullets: 240,
+  radius: 5,
+  /** Nothing shoots from off-screen; a gun only opens up below this line. */
+  minFireY: 40,
+  /**
+   * Hard cap on how far a bullet may travel in one frame. Collision is swept
+   * (segment vs unit circle) so this is belt-and-braces rather than the only
+   * guard, but it also keeps the sweep segment short enough to stay accurate.
+   */
+  maxStep: 16,
+  /** Grace after a spawn before its gun can fire, so volleys are staggered. */
+  armDelay: 0.7,
 } as const;
 
 export const WAVE = {
@@ -138,8 +183,14 @@ export const GATES = {
   speed: 108,
   height: 64,
   /** Options per offer. The choice between them IS the gameplay. */
-  perOffer: 2,
+  perOffer: 3,
   gap: 8,
+  /**
+   * Label size. Three lanes across 540px leaves ~175px each, so this is sized
+   * to fit the longest label the generator can produce (`+180% DMG` at a high
+   * pool, `×1.05 ARMY`) without truncation.
+   */
+  labelSize: 21,
 } as const;
 
 export const CAGE = {
@@ -164,4 +215,6 @@ export const COLORS = {
   bullet: 0xfff3b0,
   text: '#e8ecf8',
   cage: 0xb9a06a,
+  enemyBullet: 0xff8a5c,
+  shield: 0xbcd8ff,
 } as const;

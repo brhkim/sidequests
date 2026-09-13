@@ -1,37 +1,29 @@
 import Phaser from 'phaser';
-import { COLORS, SQUAD, VIEW } from '../config';
-
-interface HudPayload {
-  power: number; wave: number; tier: number; tierName: string;
-  tierColor: number; kills: number; capped: boolean;
-}
+import { COLORS, VIEW } from '../config';
+import { BonusStrip } from './hud/BonusStrip';
+import { TopRail } from './hud/TopRail';
+import type { HudPayload } from './hud/types';
 
 /**
  * HUD in its own scene so it never inherits the game camera's shake, and so
  * gameplay never has to reason about text layout.
+ *
+ * Two readouts, both load-bearing rather than decorative: the top rail carries
+ * your DPS against par so falling behind is visible while it happens, and the
+ * strip beneath the red line carries the bonus pools without which the
+ * raw-versus-multiplicative choice cannot be worked out at all.
  */
 export class UIScene extends Phaser.Scene {
-  private power!: Phaser.GameObjects.Text;
-  private rank!: Phaser.GameObjects.Text;
-  private wave!: Phaser.GameObjects.Text;
+  private rail!: TopRail;
+  private strip!: BonusStrip;
   private toastText!: Phaser.GameObjects.Text;
   private gameOver!: Phaser.GameObjects.Container;
 
   constructor() { super('UI'); }
 
   create(): void {
-    this.power = this.add.text(VIEW.width / 2, 44, '', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '52px',
-      color: COLORS.text, fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    this.rank = this.add.text(VIEW.width / 2, 84, '', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '19px', fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    this.wave = this.add.text(VIEW.width / 2, 112, '', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '16px', color: '#8f9ab5',
-    }).setOrigin(0.5);
+    this.rail = new TopRail(this);
+    this.strip = new BonusStrip(this);
 
     this.toastText = this.add.text(VIEW.width / 2, 620, '', {
       fontFamily: 'system-ui, sans-serif', fontSize: '34px',
@@ -43,11 +35,12 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on('hud', this.onHud, this);
     this.game.events.on('toast', this.onToast, this);
     this.game.events.on('gameover', this.onGameOver, this);
-    this.game.events.on('restart', () => this.gameOver.setVisible(false), this);
+    this.game.events.on('restart', this.onRestart, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('hud', this.onHud, this);
       this.game.events.off('toast', this.onToast, this);
       this.game.events.off('gameover', this.onGameOver, this);
+      this.game.events.off('restart', this.onRestart, this);
     });
   }
 
@@ -72,11 +65,13 @@ export class UIScene extends Phaser.Scene {
   }
 
   private onHud(h: HudPayload): void {
-    this.power.setText(String(h.power));
-    this.rank.setText(h.tierName.toUpperCase())
-      .setColor('#' + h.tierColor.toString(16).padStart(6, '0'));
-    const capNote = h.capped ? `  ·  ring ${SQUAD.ringCap}/${SQUAD.ringCap}` : '';
-    this.wave.setText(`WAVE ${h.wave}  ·  ${h.kills} KILLS${capNote}`);
+    this.rail.update(h);
+    this.strip.update(h);
+  }
+
+  private onRestart(): void {
+    this.gameOver.setVisible(false);
+    this.strip.reset();
   }
 
   private onToast(text: string): void {

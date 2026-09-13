@@ -23,6 +23,22 @@ and its own `CLAUDE.md`.
   `CLAUDE.md` is the mechanics. If they disagree, `notes.md` wins and the
   `CLAUDE.md` is stale — say so rather than quietly following the code.
 
+## Subagents share this working tree
+
+Agents spawned here do **not** get isolated worktrees by default — they edit the
+same checkout, concurrently. Two consequences, both hit in practice:
+
+- **Never `git add -A` while an agent is running.** A commit meant to carry a
+  documentation change once swept 976 lines of two agents' half-finished code
+  into itself, under a message that said "notes only". Stage explicit paths.
+- **The tree may not typecheck at any given moment**, because someone else's
+  file is mid-edit. Verify against an isolated copy, or wait, rather than
+  concluding the branch is broken.
+
+Give each agent a disjoint file set and say plainly which paths it must not
+touch. Where genuinely parallel work is worth the risk, prefer
+`isolation: "worktree"`.
+
 ## Measuring before tuning
 
 Any change justified by a number — balance, performance, difficulty — needs an

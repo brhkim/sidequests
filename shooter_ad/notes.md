@@ -62,38 +62,49 @@ is.** That is the game.
 
 Apply the same split to damage, and to army size.
 
-#### Measured: the additive form has a shelf life
+#### The two forms, and why the raw pool must scale
 
-`npm run model` prices both forms out of the game's own `Progression.ts`. Since
-both draw from the same table, additive is the right pick exactly when
-`(ra - 1) > (rm - 1) × (1 + pool)`. That gives:
+A stat is `base × (1 + pool) × mult`. `+10% DMG` adds ten points to the pool;
+`×1.1 DMG` multiplies the base, which the pool then amplifies. Worked, at base
+damage 5 and a pool of +210%:
 
-| Pool | Chance additive is correct (coarse table) | (fine table) |
-| --- | --- | --- |
-| +0% | 42% | 49% |
-| +50% | 36% | 30% |
-| +100% | 22% | 20% |
-| +400% | 8% | 4% |
+| | pool | base | total |
+| --- | --- | --- | --- |
+| now | 210% | 5 | 15.50 |
+| after `+10% DMG` | 220% | 5 | **16.00** |
+| after `×1.1 DMG` | 210% | 5.5 | **17.05** |
 
-So the claim above is **half right**. Additive does start as a live coin flip
-and multiplicative does take over — but the late end is not a crossover where
-both stay interesting. It is the additive form becoming *strictly* wrong, which
-is the "bonus whose value is obvious" this document cuts elsewhere.
+The multiplicative form scales the whole stack; the additive form adds ten
+points to a stack already at 310. That gap widens with the pool, and `npm run
+model` measures the consequence — the chance the additive form is the right pick
+falls from 42% at an empty pool to 22% at +100% and **3% at +800%**. Left alone,
+the central judgement of the game becomes a formality exactly when the player is
+most invested.
 
-Two things keep it from being a bug:
+**The fix is at the draw pool, not the formula.** Keep the mechanics above
+untouched. Instead, give the raw form a draw range whose *effects* match the
+multiplicative form's at the player's current pool. If `×N` draws a root from
+`[1.05, 1.50]`, then raw draws:
 
-- **It is self-stabilising.** The pool only grows when the player takes additive
-  bonuses, so a player picking correctly holds the pool near zero and keeps the
-  choice live. Reaching +400% means having repeatedly chosen the form that was
-  already losing.
-- **It is axis-dependent.** On damage and rate, both forms present as
-  percentages, so at a small pool the comparison is easy arithmetic. On army,
-  raw presents as an *absolute* against current size, so the conversion is
-  required no matter what the pool is doing.
+```
+a = (root − 1) × (1 + pool)        displayed as +{a × 100}% 
+```
 
-Open, and a real decision rather than a tuning knob: whether to leave this as a
-legible punishment for over-investing in one form, or to keep both forms live
-for the whole run by drawing them from different sub-ranges of the table.
+At a pool of +210%, a root of 1.1 becomes `+31% DMG` and is worth exactly ×1.10
+— the same as `×1.1`. Both forms now reach the same span of outcomes, so:
+
+- **Neither form is ever dominant or dead.** Whichever drew the higher root
+  wins, which is a coin flip across offers rather than a slow slide into one
+  answer.
+- **The conversion is the skill.** The player sees `+31% DMG` against
+  `×1.25 DMG` and must know their pool is 210% to work out which is bigger. That
+  arithmetic is the test, and it is why the pool has to be legible in the HUD.
+- **The draws settle it, not the forms.** Two independent draws from
+  effect-equivalent pools, so the answer genuinely varies offer to offer.
+
+Apply the same treatment to rate. Army already works this way in spirit — raw
+presents as an absolute against current size — so it needs the same scaling
+against its own growth, not against a bonus pool.
 
 #### One root table, two presentations
 
@@ -327,6 +338,89 @@ for everyone on the same version. Consequences:
   version, so show a version tag beside the seed and treat that pair as the
   shareable unit.
 
+## Sharing: the screenshot is the medium
+
+People share runs by screenshotting them, not by copying links. That single fact
+drives the whole end-screen design, because **a screenshot loses the clipboard**.
+Whatever identifies the match has to survive as pixels somebody can read off a
+photo and type back in.
+
+So a raw URL is the wrong primitive. `.../shooter_ad/?seed=3042291225&mode=hard`
+is unreadable at thumbnail size and miserable to retype.
+
+### Match codes
+
+Encode seed and mode into a short, readable code — base32 over a compact
+alphabet with the ambiguous glyphs dropped (no `0`/`O`, no `1`/`I`/`l`), grouped
+for legibility:
+
+```
+MATCH  7K2P-9XQ4-H
+```
+
+The trailing group carries the mode, so hard runs are visibly different matches
+rather than the same code with a hidden flag. The code is the source of truth;
+the URL is derived from it, not the other way round.
+
+That buys three things at once: it fits on screen at a size readable from a
+photo, it is short enough to type by hand, and it is short enough to say out
+loud.
+
+### The end screen has two jobs
+
+It is both a results page and a piece of social media, and those pull in
+different directions. Resolve it by making the *shareable* version the default
+layout rather than a separate export:
+
+- **Score, enormous.** One number, instantly comparable.
+- **Par delta** right under it — "12% below par" — because a bare number means
+  nothing without the curve it was measured against.
+- **The match code**, large, with a one-line "same match:" label so a stranger
+  seeing the screenshot knows it is playable rather than decorative.
+- **The decision summary** in one line: optimal / middle / worst counts. This is
+  the DPS-golf scorecard in miniature, and it is what makes two runs on one seed
+  worth comparing.
+- A **copy-link button** for people who do copy. It is the convenience path, not
+  the primary one.
+
+The full decision table (every offer, the pick, the optimum) stays available but
+scrolls below the fold. The first screenful must be the part worth
+screenshotting.
+
+### What the score should be
+
+Proposal, open to change: **waves survived** as the headline number. It is
+integer, instantly comparable, and captures both pick quality and positioning.
+Under it, two subtitles:
+
+```
+        WAVE 14
+   played at 82% of optimal
+        18 / 7 / 3
+```
+
+`played at N% of optimal` comes from the `DecisionLog` and is the purest measure
+of the actual skill the game tests. The triple is optimal / middle / worst picks.
+
+Seeds only make runs comparable **within a version**, so a version tag belongs
+on the screen too — small, but present, or people will compare scores from
+different games and conclude the leaderboard is broken.
+
+### Intake
+
+A link carrying a match code opens on the start screen with seed and mode
+already filled in and the code shown, so the player confirms rather than
+configures: one button, "Start match". Never auto-start — a player who follows a
+link should see what they are about to play.
+
+### Known constraint
+
+`navigator.clipboard.writeText` needs a secure context and can be refused inside
+a sandboxed iframe. The copy button therefore cannot be the only path to the
+code, which is the other reason the code has to be legible on screen. Treat a
+clipboard failure as expected: fall back to showing the code large with a "type
+this in" affordance rather than surfacing an error.
+
 ## Hard mode
 
 Start the difficulty settings advanced rather than ramping into them:
@@ -436,17 +530,20 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 - **Prestige ranks past red**, mechanically — and tier stats interpolated
   between rows, without which army bonuses stay mostly no-ops.
 - **Par's ties break toward the least harmful option.**
+- **HUD top rail** — wave, army power, soldiers, DPS and par DPS, with par
+  permanently on screen and a standing bar marked at `targetFraction`.
+- **Active-bonus readout** beneath the red line — damage pool and mult, rate
+  pool and mult, guns, and pierce priced by the shared valuation. The pool is
+  the big number in each cell because it is what the raw-versus-multiplicative
+  conversion actually needs; an axis at identity fades out. Full itemised
+  detail still belongs on the pause screen, which does not exist yet.
 
 ### Now
-4. **HUD**: soldiers, DPS, par DPS.
 5. **Three gates per offer**, and enlarge the leader unit so it is obvious the
    centre is what selects.
 6. **Gate approach speed scales with wave**; add `+TIME` and `×MOVE` bonuses.
 7. **DecisionLog + death screen readout.**
 8. **Soften the mercy clamp**, re-probe.
-9. **Active-bonus readout** — the player cannot judge an offer without knowing
-   what they already hold. Full detail on the pause screen, plus something
-   always-visible. See open questions on where it goes.
 10. **Escalating numeric legibility** by wave.
 11. **Pick-quality halo flash** — green / yellow / red on selection.
 12. **Seed display and seed entry**, with a version tag.
@@ -459,12 +556,21 @@ Carried over from the earlier backlog, reprioritised against the thesis.
    the core mechanic is hidden.
 16. **Prestige ranks past red** — metallic / prismatic / glowing, with texture
     and particle treatment, so long runs keep a visible chase.
-17. **Enemy behaviour variety** — five of eight types currently move identically
-    because their cases fall through to `default`, and `charger` is dead code.
-    Add waypoint movement, limited retreat, diagonal dashes, and **enemies that
-    shoot back** (needs an enemy projectile system and squad damage from fire,
-    not only from breaches). Fix `shielder`, whose "frontal armour" is
-    direction-independent.
+17. **Enemy behaviour variety** — *done*, with one thing deliberately left
+    open. Movement is a `motion` union in the roster with one case each in
+    `EnemyMotion.ts`: zigzag, charger, waypoint, harass (bounded retreat), dash
+    (diagonal), drift. Two new types shoot back — Spitter leads the squad,
+    Lancer hangs back and shells the lane — and bullets cost power through
+    `SQUAD.fireLoss`, which is the second damage source the design wanted.
+
+    The Shielder was kept and made genuinely directional rather than renamed:
+    its `frontArmor` only applies inside the cone it is walking into, so its
+    fast lateral legs are the window where it is soft. That is a real positional
+    ask, which a flat damage reduction never was. **Unmeasured, and the honest
+    caveat**: the squad only ever fires straight up, so the player influences
+    the angle solely by choosing *when* to shoot, not from where. Whether that
+    reads as a skill or as random armour is a question for the author playing
+    it; `npm run behaviour` can only confirm the taper exists.
 
 ---
 

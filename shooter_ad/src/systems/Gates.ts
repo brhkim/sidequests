@@ -1,5 +1,5 @@
 import { GATES, VIEW } from '../config';
-import { rollOffer, type GateType } from '../data/gates';
+import { rollOffer, type GateType, type OfferContext } from '../data/gates';
 
 export interface Gate {
   x: number; y: number;
@@ -27,14 +27,15 @@ export class Gates {
   ) {}
 
   /**
-   * `power` is the army the offer is presented against: a raw bonus converts
-   * its draw into an absolute number at the moment it is rolled.
+   * `ctx` is the state the offer is measured against: raw bonuses are a share
+   * of what the player already holds, so they are rolled against the live army
+   * and bonus pools rather than as fixed numbers.
    */
-  update(dt: number, wave: number, power: number): void {
+  update(dt: number, wave: number, ctx: OfferContext): void {
     this.accum += dt;
     if (this.accum >= GATES.interval) {
       this.accum = 0;
-      this.spawnOffer(wave, power);
+      this.spawnOffer(wave, ctx);
     }
     for (const g of this.items) {
       if (!g.active) continue;
@@ -43,8 +44,8 @@ export class Gates {
     }
   }
 
-  private spawnOffer(wave: number, power: number): void {
-    const offer = rollOffer(GATES.perOffer, wave, power, this.rng);
+  private spawnOffer(wave: number, ctx: OfferContext): void {
+    const offer = rollOffer(GATES.perOffer, wave, ctx, this.rng);
     if (offer.length === 0) return;
     this.onOffer(offer);
     const pair = this.nextPair++;

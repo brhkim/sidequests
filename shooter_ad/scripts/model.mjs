@@ -20,6 +20,7 @@ const { squadDps, freshUpgrades, applyGate, cloneProgress, pierceMultiplier } =
   await import('../src/systems/Progression.ts');
 const { SQUAD } = await import('../src/config.ts');
 const { tierFor, TIERS } = await import('../src/data/tiers.ts');
+const { rawShare } = await import('../src/data/gates.ts');
 
 const state = (power, over = {}) => ({
   power, upgrades: { ...freshUpgrades(), ...over },
@@ -40,41 +41,48 @@ for (let i = 0; i <= 4; i++) {
   console.log(`  pierce ${i}: x${pierceMultiplier(i).toFixed(3)}`);
 }
 
-console.log('\n=== the additive / multiplicative crossover (damage, root 1.2) ===');
-console.log('  pool   +20% DMG   x1.2 DMG   winner');
-for (const pool of [0, 0.2, 0.5, 1, 2, 3, 5]) {
+// Both forms drawing the SAME root must be worth the same thing at every pool.
+// That is what keeps either form from becoming the obvious answer late, and it
+// is the property the raw scaling exists to guarantee - so assert it rather
+// than eyeball it.
+console.log('\n=== same root, both forms, at every pool (damage, root 1.2) ===');
+console.log('  pool    raw label   raw effect   x1.2 effect');
+let equalityGap = 0;
+for (const pool of [0, 0.2, 0.5, 1, 2, 3, 5, 8]) {
   const p = state(200, { damageBonus: pool });
-  const raw = delta(p, gate('damage', 'raw', 0.2));
+  const share = rawShare(1.2, pool);
+  const raw = delta(p, gate('damage', 'raw', share));
   const mult = delta(p, gate('damage', 'mult', 1.2));
-  const winner = raw > mult ? 'additive' : 'multiplicative';
+  equalityGap = Math.max(equalityGap, Math.abs(raw - mult));
   console.log(
     `  +${String(Math.round(pool * 100)).padStart(4)}%`,
-    `${(raw * 100).toFixed(2).padStart(8)}%`,
-    `${(mult * 100).toFixed(2).padStart(9)}%`,
-    ` ${winner}`,
+    `${('+' + Math.round(share * 100) + '%').padStart(10)}`,
+    `${(raw * 100).toFixed(2).padStart(11)}%`,
+    `${(mult * 100).toFixed(2).padStart(11)}%`,
   );
 }
 
-// How often is the additive form actually the right pick? Both forms draw from
-// the same root table independently, so this is a property of the MODEL, not of
-// luck: additive wins exactly when (ra - 1) > (rm - 1) * (1 + pool). At pool 0
-// that is "the bigger root wins" and the offer is a coin flip; as the pool
-// grows, the additive form needs a proportionally larger draw to stay live.
-//
-// If this collapses toward zero, the additive form has become a bonus whose
-// value is obvious - the failure the whole redesign exists to remove.
+// How often is the additive form actually the right pick? Scored through the
+// game's own rawShare, so this measures the shipped rule rather than a
+// restatement of it. Both forms should stay a coin flip at every pool: if this
+// slides toward 0% the additive form has become a bonus whose value is obvious,
+// which is the failure the whole redesign exists to remove.
 const { LEGIBILITY } = await import('../src/data/roots.ts');
 console.log('\n=== how live is the additive/multiplicative choice? ===');
 console.log('  pool    coarse table   fine table   (chance additive is the right pick)');
+const liveness = [[], []];
 for (const pool of [0, 0.25, 0.5, 1, 2, 4, 8]) {
   const rates = [LEGIBILITY[0], LEGIBILITY[2]].map((tier) => {
     let wins = 0, total = 0;
     for (const ra of tier.roots) for (const rm of tier.roots) {
       total++;
-      if (ra - 1 > (rm - 1) * (1 + pool)) wins++;
+      const p = state(200, { damageBonus: pool });
+      if (delta(p, gate('damage', 'raw', rawShare(ra, pool)))
+          > delta(p, gate('damage', 'mult', rm))) wins++;
     }
     return wins / total;
   });
+  rates.forEach((r, i) => liveness[i].push(r));
   console.log(
     `  +${String(Math.round(pool * 100)).padStart(4)}%`,
     `${(rates[0] * 100).toFixed(0).padStart(12)}%`,
@@ -103,5 +111,30 @@ console.log(`\n  smallest army-bonus effect anywhere: ${(worst * 100).toFixed(2)
 if (!(worst > 0.01)) {
   console.error('FAIL: an army bonus is worth ~nothing somewhere on the ladder');
   process.exit(1);
+}
+
+// The two guards that keep the central mechanic from quietly dying. Both
+// regressed once before and neither is visible in play until far into a run.
+if (equalityGap > 1e-9) {
+  console.error(
+    `FAIL: the same root is worth different amounts in each form (gap ${equalityGap})`,
+    '\n      raw scaling has drifted from the multiplicative effect it mirrors',
+  );
+  process.exit(1);
+}
+// Compare each table against ITSELF across pools. The coarse and fine tables
+// legitimately differ from each other (42% vs 49%, a function of how often two
+// draws tie), so comparing them to one another would flag a non-problem.
+for (const [i, series] of liveness.entries()) {
+  const spread = Math.max(...series) - Math.min(...series);
+  if (spread > 0.02) {
+    console.error(
+      `FAIL: the ${i === 0 ? 'coarse' : 'fine'} table's choice is not equally live at every pool`,
+      `\n      chance additive is correct ranges ${(Math.min(...series) * 100).toFixed(0)}%`,
+      `to ${(Math.max(...series) * 100).toFixed(0)}% across pools`,
+      '\n      a slide toward 0% means the raw form has become the obvious wrong answer',
+    );
+    process.exit(1);
+  }
 }
 console.log('PASS');

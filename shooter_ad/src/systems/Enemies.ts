@@ -1,15 +1,35 @@
-import { ARENA, CAGE, VIEW, WAVE } from '../config';
+import { ARENA, CAGE, ENEMY_FIRE, VIEW, WAVE } from '../config';
 import { ENEMY_BY_ID, poolAverageHp, rollEnemy, type EnemyType } from '../data/enemies';
 import type { Difficulty } from './Difficulty';
+import type { EnemyBullets } from './EnemyBullets';
+import { applyMotion, armorAgainst, type Band } from './EnemyMotion';
+import { applyTraits, type TraitContext } from './EnemyTraits';
 
 export interface Enemy {
   x: number; y: number;
   hp: number; maxHp: number;
   type: EnemyType;
   radius: number;
-  /** Per-enemy phase so zigzag movement is not synchronised across the wave. */
+  /** Per-enemy phase so wave-shaped movement is not synchronised. */
   phase: number;
+  /** Per-enemy seed for `hash01`, so long-lived motion never touches the
+   * shared generator. Derived from `phase`, so spawning still costs one draw. */
+  seed: number;
+  /** Age in seconds. Every motion case reads it; nothing resets it. */
   timer: number;
+  /** Facing, from last frame's displacement. Drives directional armour. */
+  fx: number; fy: number;
+  /** Waypoint motion: current lateral target and how many legs have been run. */
+  waypoint: number | null;
+  leg: number;
+  /** Harass/dash: index of the movement cycle currently running. */
+  cycle: number;
+  /** Deepest y reached, ratcheted forward - the floor retreat cannot cross. */
+  anchor: number;
+  /** Dash lateral direction, +1 or -1. */
+  dir: number;
+  gunCooldown: number;
+  traitCooldown: number;
   active: boolean;
 }
 
@@ -34,19 +54,45 @@ export class Enemies {
   private spawnAccum = 0;
   private cageAccum = 0;
 
+  /** Set by GameScene each frame: what the squad can actually destroy. */
+  playerDps = 1;
+  /** Set by GameScene each frame: where aimed guns lead. */
+  targetX: number = VIEW.width / 2;
+  targetY: number = ARENA.laneY;
+
+  private throttled: { hpMult: number; spawnRate: number } =
+    { hpMult: 1, spawnRate: WAVE.baseSpawnRate };
+
+  /** Built once; `targetX`/`targetY` are getters so traits always read the
+   * squad's position for THIS frame rather than the one it was built on. */
+  private readonly traits: TraitContext;
+
   constructor(
     private readonly rng: () => number,
     private readonly difficulty: Difficulty,
+    fire: EnemyBullets,
   ) {
     this.wave = this.buildWave(1);
+    const self = this;
+    this.traits = {
+      items: this.items,
+      fire,
+      get targetX(): number { return self.targetX; },
+      get targetY(): number { return self.targetY; },
+      spawn: (type, x, y, hpScale) => this.spawn(type, x, y, hpScale),
+      rng: this.rng,
+    };
   }
+
+  get hpMult(): number { return this.throttled.hpMult; }
+  get spawnRate(): number { return this.throttled.spawnRate; }
 
   /**
    * Horizontal band enemies may occupy: only where the squad's CENTRE can
    * reach. Outside it, targets drift past columns the central mass can never
    * line up on.
    */
-  private band(radius: number): { min: number; max: number } {
+  private band(radius: number): Band {
     const inset = ARENA.spawnInset + radius;
     return { min: ARENA.minX + inset, max: ARENA.maxX - inset };
   }
@@ -67,22 +113,18 @@ export class Enemies {
     };
   }
 
-  /** Current HP multiplier, set by the closed-loop difficulty model. */
-  /** Set by GameScene each frame: what the squad can actually destroy. */
-  playerDps = 1;
-  /** Budget split for this frame, recomputed in update(). */
-  private throttled: { hpMult: number; spawnRate: number } =
-    { hpMult: 1, spawnRate: WAVE.baseSpawnRate };
-
-  get hpMult(): number { return this.throttled.hpMult; }
-  get spawnRate(): number { return this.throttled.spawnRate; }
-
   private spawn(type: EnemyType, x: number, y: number, hpScale = 1): void {
     const hp = type.hp * this.hpMult * hpScale;
+    const phase = this.rng() * Math.PI * 2;
     const free = this.items.find((e) => !e.active);
     const enemy: Enemy = {
       x, y, hp, maxHp: hp, type, radius: type.radius,
-      phase: this.rng() * Math.PI * 2, timer: 0, active: true,
+      phase, seed: Math.floor(phase * 1e6) | 0,
+      timer: 0, fx: 0, fy: 1,
+      waypoint: null, leg: 0, cycle: -1, anchor: y, dir: 1,
+      gunCooldown: ENEMY_FIRE.armDelay + phase * 0.12,
+      traitCooldown: 0,
+      active: true,
     };
     if (free) Object.assign(free, enemy);
     else this.items.push(enemy);
@@ -125,6 +167,19 @@ export class Enemies {
       this.difficulty.observeSpawn();
     }
 
+    this.updateCages(dt);
+
+    for (const e of this.items) {
+      if (!e.active) continue;
+      e.timer += dt;
+      applyMotion(e, dt, this.band(e.radius));
+      applyTraits(e, dt, this.traits);
+    }
+
+    return { newWave };
+  }
+
+  private updateCages(dt: number): void {
     this.cageAccum += dt;
     if (this.cageAccum > this.wave.duration && this.rng() < CAGE.chancePerWave) {
       this.cageAccum = 0;
@@ -136,73 +191,24 @@ export class Enemies {
       if (cage) Object.assign(cage, fresh);
       else this.cages.push(fresh);
     }
-
-    for (const e of this.items) {
-      if (!e.active) continue;
-      e.timer += dt;
-      this.applyBehaviour(e, dt);
-    }
-
     for (const c of this.cages) {
       if (!c.active) continue;
       c.y += CAGE.speed * dt;
       if (c.y > VIEW.height + 40) c.active = false;
     }
-
-    return { newWave };
   }
 
-  private applyBehaviour(e: Enemy, dt: number): void {
-    const t = e.type;
-    let speed = t.speed;
-
-    switch (t.behaviour) {
-      case 'zigzag':
-        e.x += Math.sin(e.timer * 3.4 + e.phase) * 78 * dt;
-        break;
-      case 'charger':
-        if (e.y > ARENA.laneY - 320) speed *= 2.6;
-        break;
-      case 'healer': {
-        if (e.timer > 1.4) {
-          e.timer = 0;
-          for (const other of this.items) {
-            if (!other.active || other === e) continue;
-            const dx = other.x - e.x, dy = other.y - e.y;
-            if (dx * dx + dy * dy < 110 * 110) {
-              other.hp = Math.min(other.maxHp, other.hp + other.maxHp * 0.12);
-            }
-          }
-        }
-        break;
-      }
-      case 'boss': {
-        e.x += Math.sin(e.timer * 0.8 + e.phase) * 42 * dt;
-        if (e.timer > 2.2) {
-          e.timer = 0;
-          const escort = ENEMY_BY_ID.get('runner');
-          if (escort) {
-            this.spawn(escort, e.x + (this.rng() - 0.5) * 80, e.y + 20);
-          }
-        }
-        break;
-      }
-      default:
-        break;
-    }
-
-    e.y += speed * dt;
-    const { min, max } = this.band(e.radius);
-    e.x = Math.max(min, Math.min(max, e.x));
-  }
-
-  /** Applies armour and returns true if the hit killed the enemy. */
-  damage(e: Enemy, amount: number): boolean {
-    e.hp -= amount * (1 - e.type.armor);
+  /**
+   * Applies armour and returns true if the hit killed the enemy. `(dx, dy)` is
+   * the direction the shot was travelling, which is what a directional shield
+   * is measured against.
+   */
+  damage(e: Enemy, amount: number, dx = 0, dy = -1): boolean {
+    e.hp -= amount * (1 - armorAgainst(e, dx, dy));
     if (e.hp > 0) return false;
     e.active = false;
     const t = e.type;
-    if (t.behaviour === 'splitter' && t.splitInto) {
+    if (t.splitInto) {
       const child = ENEMY_BY_ID.get(t.splitInto);
       if (child) {
         const n = t.splitCount ?? 2;
