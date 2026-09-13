@@ -62,33 +62,55 @@ is.** That is the game.
 
 Apply the same split to damage, and to army size.
 
-#### Army size stays, but scales
+#### One root table, two presentations
 
-`×N ARMY` survives the cut, made small enough to sit alongside the others
-(`×1.1 ARMY`). The additive form is **derived from current army size** so it
-never becomes the dead bonus it is today — something like
-`+round5(armySize × 0.1)`, shown as an absolute (`+50`).
+**This is the generator for every bonus magnitude in the game.**
 
-**The trap to avoid:** if `+N` is computed as exactly `armySize × 0.1` and the
-alternative is `×1.1`, the two are *identical* and the decision is fake. Three
-things keep them apart, and at least one must be deliberate:
+Each legibility tier owns a **root multiplier table**. Early tiers are coarse
+and mentally tractable:
 
-1. **Different ratios.** Derive the additive at 0.1 and offer the multiplicative
-   at 1.15 — so the comparison is "10% of what I had" against "15% of what I
-   have".
-2. **Fixed at spawn, applied at pickup.** Compute `+N` when the gate spawns and
-   leave it fixed on the label; `×1.1` resolves when you drive through. Between
-   those moments you kill, take streak bonuses, and maybe breach. Grown since?
-   the multiplier wins. Shrunk? the flat number wins. The gap is small, real,
-   and unknowable without paying attention — which is exactly the texture this
-   game wants.
-3. **Asymmetric cognitive load.** `×1.1` describes itself. `+50` requires
-   knowing your army is 504 and doing the division. That asymmetry is a feature:
-   it is the arithmetic the game is testing, and it is why the active-bonus
-   readout has to be legible at a glance.
+```
+{ 1.05, 1.1, 1.2, 1.3, 1.4, 1.5 }
+```
 
-Rounding should stay coarse (nearest 5, or nearest 10 at large sizes) so the
-label reads as a game number rather than a computed one.
+Later tiers are fine — any hundredth in `[1.05, 1.50]`.
+
+**Every bonus draws a multiplier from that table independently**, then presents
+it according to its form:
+
+| Form | Draws | Shows |
+| --- | --- | --- |
+| Multiplicative | `1.2` | `×1.2 ARMY` |
+| Raw / additive | `1.2` | `+{round(army × 0.2)} ARMY`, e.g. `+100` |
+
+Two properties fall straight out, and both are the point:
+
+- **Raw bonuses stay proportionally relevant at any army size.** A flat `+50`
+  goes dead once the army is in the thousands; a draw of `1.2` never does. This
+  is what stops the additive form becoming the no-op it is today.
+- **The draws are independent, so the two forms in one offer are usually not
+  the same underlying value.** The player cannot assume `+100` and `×1.2` are
+  equivalent — they have to divide. That mental conversion *is* the test.
+
+The asymmetry in cognitive load is deliberate: `×1.2` describes itself, while
+`+100` means nothing until you know your army is 504. It is also exactly why the
+active-bonus readout beneath the red line has to be legible at a glance.
+
+Apply the same generator to rate and damage. A draw of `1.2` becomes
+`+20% RATE` in additive form and `×1.2 RATE` in multiplicative form — where the
+additive goes into the bonus pool and the multiplicative onto the total, so
+those two also diverge compositionally (see above), not only in presentation.
+
+#### Rounding is part of the legibility axis
+
+Round raw values to **significant figures, not to a fixed step** — nearest-5
+stops reading as a game number once armies reach the thousands. Two significant
+figures gives `+50`, `+120`, `+1300`: recognisably authored at any scale.
+
+Then make the rounding itself escalate. Early tiers round to 2 significant
+figures; later tiers round to 3 (`+127`), which is harder to convert in your
+head and harder to compare against `×1.24`. The legibility axis gets a second
+dial for free.
 
 ### Axes
 
@@ -208,10 +230,11 @@ Early waves offer round, mentally tractable numbers: `+10% DMG` against
 awkward values: `+12% DMG` against `×1.05 DMG`, where the right answer genuinely
 depends on the build you are sitting on and cannot be eyeballed.
 
-Implement as a **legibility tier** that escalates with wave: bonus magnitudes are
-drawn from a pool whose values get less round, and whose additive and
-multiplicative forms sit closer together in value. No mechanic changes — only how
-hard the arithmetic is.
+Implement as a **legibility tier** that escalates with wave, owning the root
+multiplier table every bonus draws from (see "One root table, two
+presentations"). Early tiers offer six round values; later tiers offer every
+hundredth in the range, and round raw numbers to more significant figures. No
+mechanic changes — only how hard the arithmetic is.
 
 This is the axis that scales furthest, because it never stops being interesting.
 
@@ -388,5 +411,6 @@ Carried over from the earlier backlog, reprioritised against the thesis.
   static label undersells it. A live "≈1.6×" readout might be better — or might
   give away too much of the judgment.
 - Nothing currently blocked on a decision.
-- Rounding rule for derived `+N ARMY` at very large armies — nearest 5 stops
-  reading as a game number once the army is in the thousands.
+- Whether the root table's *upper bound* should also escalate with difficulty,
+  or only its granularity. Widening the range makes picks swingier; keeping it
+  fixed at `[1.05, 1.50]` keeps the game about precision rather than luck.

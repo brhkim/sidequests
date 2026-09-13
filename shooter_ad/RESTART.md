@@ -73,9 +73,12 @@ phase; it all touches the same two files.
 3. **Rewrite the stat model in `Progression.ts`** for the additive /
    multiplicative split: `base × (1 + bonusPool) × mult`. See `notes.md`
    § "Bonus taxonomy" — this is the core mechanic of the whole redesign.
-4. **Rewrite the bonus table** to the new taxonomy. Delete trap gates,
-   time-bound effects and survival-only effects. Value pierce with a fixed
-   ratio, deliberately not live density.
+4. **Rewrite the bonus table** to the new taxonomy, built on the root-table
+   generator in `notes.md` § "One root table, two presentations" — build the
+   generator first and have every bonus draw from it, rather than hardcoding
+   magnitudes you will have to tear out when legibility tiers land in Phase 2.
+   Delete trap gates, time-bound effects and survival-only effects. Value pierce
+   with a fixed ratio, deliberately not live density.
 
 Then **re-baseline**: `PROBE_SECONDS=180 PROBE_SEEDS=1,2,3 npm run balance`,
 and report the series before going further. Expect the old numbers to be
@@ -150,14 +153,25 @@ each to run `npm run verify` and report its output.
 - **Bonus readout sits beneath the red line.** Not a right rail; portrait
   layout makes a rail cost too much playfield.
 - **Par is always visible on the top rail.**
-- **`×N ARMY` stays**, scaled small (`×1.1`), with the additive form derived
-  from current army size so it never goes dead. **Read `notes.md`
-  § "Army size stays, but scales" before implementing** — the naive version
-  makes `+N` and `×1.1` mathematically identical and the choice fake. Three
-  ways to keep them apart are documented there; pick deliberately.
+- **`×N ARMY` stays**, and every bonus magnitude in the game comes from one
+  generator. **Read `notes.md` § "One root table, two presentations" before
+  writing the bonus table** — it is the single most load-bearing section for
+  Phase 0 item 4.
 
-Genuinely open, ask if you hit it: the rounding rule for derived `+N ARMY` once
-armies reach the thousands, where "nearest 5" stops reading as a game number.
+  In short: each legibility tier owns a root multiplier table (coarse early,
+  every hundredth later). Every bonus draws from it *independently*, then
+  presents according to form — multiplicative shows `×1.2`, raw converts to an
+  absolute against current army (`+round2sf(army × 0.2)`). Raw bonuses
+  therefore never go dead at large armies, and because the draws are
+  independent the two forms in one offer are usually not equivalent, so the
+  player has to convert rather than assume. That conversion is the test.
+
+  Round to significant figures, not a fixed step, and escalate the figure count
+  with the legibility tier — 2sf early (`+120`), 3sf later (`+127`).
+
+Genuinely open, ask if you hit it: whether the root table's upper bound should
+widen with difficulty or only its granularity. Widening makes picks swingier;
+holding it at `[1.05, 1.50]` keeps the game about precision rather than luck.
 
 ## 6. How to report
 
