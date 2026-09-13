@@ -97,13 +97,14 @@ server.close();
 for (const r of results) {
   console.log(`\n=== seed ${r.seed} — survived ${r.survived}s, reached wave ${r.wave} ===`);
   if (VERBOSE || results.length === 1) {
-    console.log('  t   wave  power    par  stand   dps   hpMult   rate  kills');
+    console.log('  t   wave  power    par   dps  parDps  stand  hpMult   rate  kills');
     for (const s of r.rows) {
       console.log(
         String(s.t).padStart(4), String(s.wave).padStart(5),
         String(s.power).padStart(7), String(s.parPower).padStart(6),
-        String(s.standing).padStart(6), String(s.dps).padStart(6),
-        String(s.hpMult).padStart(7), String(s.rate).padStart(6),
+        String(s.dps).padStart(6), String(s.parDps).padStart(7),
+        String(s.standing).padStart(6), String(s.hpMult).padStart(7),
+        String(s.rate).padStart(6),
         String(s.kills).padStart(6), s.over ? ' OVER' : '');
     }
   } else {

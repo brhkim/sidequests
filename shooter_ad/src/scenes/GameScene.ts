@@ -247,7 +247,8 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('stats', {
       power: Math.floor(this.squad.power),
       parPower: par.parPower,
-      standing: Number(this.difficulty.standing(this.squad.power).toFixed(3)),
+      standing: Number(this.difficulty.standing(this.squad.dps).toFixed(3)),
+      parDps: par.parDps,
       dps: Math.round(this.squad.dps),
       hpMult: Number(this.enemies.hpMult.toFixed(2)),
       rate: Number(this.enemies.spawnRate.toFixed(2)),

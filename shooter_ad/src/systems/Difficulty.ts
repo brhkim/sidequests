@@ -51,9 +51,18 @@ export class Difficulty {
     this.smoothedTarget += (target - this.smoothedTarget) * ease;
   }
 
-  /** How the real player is doing, as a fraction of par. 1.0 = perfect play. */
-  standing(power: number): number {
-    return this.ideal.power > 0 ? power / this.ideal.power : 1;
+  /**
+   * How the real player is doing, as a fraction of par. 1.0 = perfect play.
+   *
+   * Measured in DAMAGE OUTPUT, not power. Par optimises for DPS, so it will
+   * happily take DMG+ over +30 and sit on a small, potent squad; comparing its
+   * power against a player who stacked multiplier gates compares two different
+   * quantities and produced standings above 20. DPS is also exactly what the
+   * difficulty budget is denominated in, so this is the ratio that matters.
+   */
+  standing(playerDps: number): number {
+    const par = this.parDps;
+    return par > 0 ? playerDps / par : 1;
   }
 
   /**
