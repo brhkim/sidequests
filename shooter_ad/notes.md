@@ -530,17 +530,20 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 - **Prestige ranks past red**, mechanically — and tier stats interpolated
   between rows, without which army bonuses stay mostly no-ops.
 - **Par's ties break toward the least harmful option.**
+- **HUD top rail** — wave, army power, soldiers, DPS and par DPS, with par
+  permanently on screen and a standing bar marked at `targetFraction`.
+- **Active-bonus readout** beneath the red line — damage pool and mult, rate
+  pool and mult, guns, and pierce priced by the shared valuation. The pool is
+  the big number in each cell because it is what the raw-versus-multiplicative
+  conversion actually needs; an axis at identity fades out. Full itemised
+  detail still belongs on the pause screen, which does not exist yet.
 
 ### Now
-4. **HUD**: soldiers, DPS, par DPS.
 5. **Three gates per offer**, and enlarge the leader unit so it is obvious the
    centre is what selects.
 6. **Gate approach speed scales with wave**; add `+TIME` and `×MOVE` bonuses.
 7. **DecisionLog + death screen readout.**
 8. **Soften the mercy clamp**, re-probe.
-9. **Active-bonus readout** — the player cannot judge an offer without knowing
-   what they already hold. Full detail on the pause screen, plus something
-   always-visible. See open questions on where it goes.
 10. **Escalating numeric legibility** by wave.
 11. **Pick-quality halo flash** — green / yellow / red on selection.
 12. **Seed display and seed entry**, with a version tag.

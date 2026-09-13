@@ -7,18 +7,25 @@ export const RAIL_HEIGHT = 72;
 
 const LABEL = '#6f7b99';
 const VALUE = '#e8ecf8';
-const COLUMNS = ['WAVE', 'KILLS', 'SQUAD', 'DPS', 'PAR'] as const;
+
+/**
+ * Five columns, ordered by how load-bearing they are rather than by tradition.
+ *
+ * ARMY carries power, not kills, because a `+4 ARMY` gate is drawn as a share
+ * of the power you are holding - so power is a conversion input exactly like
+ * the damage pool is, and kills are flavour. Kills survive as WAVE's sub-line.
+ */
+const COLUMNS = ['WAVE', 'ARMY', 'SQUAD', 'DPS', 'PAR'] as const;
 
 /**
  * Par DPS is on screen permanently rather than saved for the death readout.
  * Watching yourself fall behind the curve while three gates descend is the
- * feedback that makes the next pick mean something; after the run it is only
- * a post-mortem.
+ * feedback that makes the next pick mean something; after the run it is only a
+ * post-mortem.
  */
 export class TopRail {
   private readonly values: Phaser.GameObjects.Text[] = [];
-  private readonly rank: Phaser.GameObjects.Text;
-  private readonly ratioText: Phaser.GameObjects.Text;
+  private readonly subs: Phaser.GameObjects.Text[] = [];
   private readonly barFill: Phaser.GameObjects.Rectangle;
 
   constructor(scene: Phaser.Scene) {
@@ -35,19 +42,14 @@ export class TopRail {
         fontFamily: 'system-ui, sans-serif', fontSize: '23px',
         color: VALUE, fontStyle: 'bold',
       }).setOrigin(0.5, 0));
+
+      // Sub-lines sit on one baseline under non-adjacent columns, so no two of
+      // them can ever grow into each other.
+      this.subs.push(scene.add.text(cx, 50, '', {
+        fontFamily: 'system-ui, sans-serif', fontSize: '11px', fontStyle: 'bold',
+        color: LABEL,
+      }).setOrigin(0.5, 0).setLetterSpacing(1));
     });
-
-    // Rank sits under SQUAD because it is what the count is worth, not a
-    // separate statistic.
-    this.rank = scene.add.text(lane * 2 + lane / 2, 50, '', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '11px', fontStyle: 'bold',
-    }).setOrigin(0.5, 0).setLetterSpacing(1);
-
-    // Under DPS, because "48% OF PAR" is the number the columns are asking you
-    // to compute and nobody should be dividing mid-wave.
-    this.ratioText = scene.add.text(lane * 3 + lane / 2, 50, '', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '11px', fontStyle: 'bold',
-    }).setOrigin(0.5, 0).setLetterSpacing(1);
 
     const barY = RAIL_HEIGHT - 6;
     scene.add.rectangle(0, barY, VIEW.width, 6, 0x1b2236).setOrigin(0, 0);
@@ -64,14 +66,17 @@ export class TopRail {
     const color = standingColor(ratio);
 
     this.values[0].setText(String(h.wave));
-    this.values[1].setText(compact(h.kills));
+    this.values[1].setText(compact(h.power));
     this.values[2].setText(`${h.units}/${SQUAD.ringCap}`);
     this.values[3].setText(compact(h.dps)).setColor(color);
     this.values[4].setText(compact(h.parDps));
 
-    this.rank.setText(`${h.tierName.toUpperCase()} · ${compact(h.power)}`)
-      .setColor(hex(h.tierColor));
-    this.ratioText.setText(`${Math.round(ratio * 100)}% OF PAR`).setColor(color);
+    this.subs[0].setText(`${compact(h.kills)} KILLS`);
+    this.subs[1].setText(h.tierName.toUpperCase()).setColor(hex(h.tierColor));
+    // Past 999% the exact number has stopped being information, and the column
+    // is 108px wide.
+    const percent = Math.round(ratio * 100);
+    this.subs[3].setText(percent > 999 ? '>999% PAR' : `${percent}% PAR`).setColor(color);
 
     this.barFill.width = Math.max(1, Math.min(1, ratio) * VIEW.width);
     this.barFill.fillColor = Phaser.Display.Color.HexStringToColor(color).color;

@@ -17,6 +17,7 @@ npm run dev     # vite dev server, hot reload
 npm run build   # typecheck + production build to dist/
 npm run verify  # REQUIRED before claiming a change works
 npm run balance # time series of power, DPS, par DPS, standing, enemy knobs
+npm run hud     # screenshots the HUD in early / mid / late upgrade states
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -24,6 +25,12 @@ plays the game headlessly with simulated input, and fails on any console error,
 a blank frame, zero kills, a stalled wave counter, or a ring over cap. The
 screenshot lands in `.verify/screenshot.png` — **look at it**, don't just trust
 the exit code.
+
+`npm run hud` forces the squad into fixed progress states and photographs each
+one into `.verify/`. `verify` plays from scratch, so it only ever photographs an
+empty build - no multipliers, no guns, no pierce - and the readout beneath the
+red line exists for the state `verify` never reaches. Judge HUD legibility off
+these, not off the verify frame.
 
 `npm run balance` plays several fixed seeds and prints the series. Use it before
 and after any balance change. `PROBE_SECONDS=240 PROBE_SEEDS=1,2,3

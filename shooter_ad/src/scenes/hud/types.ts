@@ -34,7 +34,10 @@ export function compact(value: number): string {
   if (v < 1000) return String(v);
   if (v < 10_000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
   if (v < 1_000_000) return Math.round(v / 1000) + 'k';
-  return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (v < 10_000_000) return (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (v < 1_000_000_000) return Math.round(v / 1e6) + 'M';
+  if (v < 10_000_000_000) return (v / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+  return Math.round(v / 1e9) + 'B';
 }
 
 /** Multipliers read to two decimals until they get big enough not to need it. */
