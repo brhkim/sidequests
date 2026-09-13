@@ -323,11 +323,55 @@ export class GameScene extends Phaser.Scene {
     this.headPool.begin();
     for (const u of this.squad.units) {
       const tier = TIERS[u.tier];
-      this.bodyPool.claim().setPosition(u.x, u.y + 2).setTint(tier.shirt);
-      this.headPool.claim().setPosition(u.x, u.y - 10).setTint(SKIN);
+      // Slot 0 is the centre of the formation and the unit that actually
+      // selects a gate. Drawing it larger is the only cue that says so.
+      const lead = u.slot === 0;
+      const scale = lead ? SQUAD.leaderScale : 1;
+      this.bodyPool.claim()
+        .setPosition(u.x, u.y + (lead ? 3 : 2))
+        .setScale(scale)
+        .setTint(tier.shirt);
+      this.headPool.claim()
+        .setPosition(u.x, u.y - 10 * scale)
+        .setScale(scale)
+        .setTint(SKIN);
     }
     this.bodyPool.end();
     this.headPool.end();
+  }
+
+  /**
+   * Which gate the squad is about to take, drawn as a line from the leader up
+   * to the offer.
+   *
+   * The selection rule - the CENTRE of the formation is what passes through a
+   * gate - is invisible otherwise. A player watching a nineteen-unit ring drift
+   * across three lanes has no way to know which one counts, and finds out only
+   * after committing. The leader is also drawn larger; this says the same thing
+   * a second way, at the moment it matters.
+   */
+  private renderSelection(): void {
+    let target: { x: number; y: number; color: number } | null = null;
+    for (const g of this.gates.items) {
+      if (!g.active || g.y > this.squad.y) continue;
+      if (Math.abs(g.x - this.squad.x) > g.width / 2) continue;
+      if (target === null || g.y > target.y) {
+        target = { x: g.x, y: g.y, color: g.type.color };
+      }
+    }
+    if (target === null) return;
+
+    // Fades in as the offer closes, so it guides without nagging.
+    const nearness = Phaser.Math.Clamp(
+      1 - (this.squad.y - target.y) / 520, 0.12, 0.55,
+    );
+    this.overlay.lineStyle(2, target.color, nearness);
+    this.overlay.lineBetween(
+      this.squad.x, this.squad.y - 18,
+      this.squad.x, target.y + GATES.height / 2,
+    );
+    this.overlay.lineStyle(2, target.color, nearness + 0.2);
+    this.overlay.strokeCircle(this.squad.x, this.squad.y - 2, 15);
   }
 
   private renderGates(): void {
@@ -340,7 +384,7 @@ export class GameScene extends Phaser.Scene {
           rect: this.add.rectangle(0, 0, 10, GATES.height, 0xffffff, 0.22).setDepth(4),
           label: this.add.text(0, 0, '', {
             fontFamily: 'system-ui, sans-serif',
-            fontSize: '26px',
+            fontSize: `${GATES.labelSize}px`,
             color: COLORS.text,
             fontStyle: 'bold',
           }).setOrigin(0.5).setDepth(5),
@@ -363,6 +407,7 @@ export class GameScene extends Phaser.Scene {
 
   private renderOverlay(): void {
     this.overlay.clear();
+    this.renderSelection();
     // Health bars for anything big enough to be worth aiming at.
     for (const e of this.enemies.items) {
       if (!e.active || e.radius < 14 || e.hp >= e.maxHp) continue;

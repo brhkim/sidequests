@@ -41,6 +41,11 @@ export const SQUAD = {
   unitRadius: 8,
   /** How fast units ease toward their formation slot (fraction per second). */
   followLerp: 14,
+  /**
+   * The leader is drawn larger than the rest of the ring. The centre unit is
+   * what actually selects a gate, and nothing else on screen says so.
+   */
+  leaderScale: 1.5,
   moveSpeed: 620,
   startPower: 6,
   /**
@@ -138,8 +143,14 @@ export const GATES = {
   speed: 108,
   height: 64,
   /** Options per offer. The choice between them IS the gameplay. */
-  perOffer: 2,
+  perOffer: 3,
   gap: 8,
+  /**
+   * Label size. Three lanes across 540px leaves ~175px each, so this is sized
+   * to fit the longest label the generator can produce (`+180% DMG` at a high
+   * pool, `×1.05 ARMY`) without truncation.
+   */
+  labelSize: 21,
 } as const;
 
 export const CAGE = {
