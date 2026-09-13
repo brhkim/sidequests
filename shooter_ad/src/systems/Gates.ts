@@ -1,19 +1,19 @@
 import { GATES, VIEW } from '../config';
-import { rollGatePair, type GateType } from '../data/gates';
+import { rollOffer, type GateType } from '../data/gates';
 
 export interface Gate {
   x: number; y: number;
   width: number;
   type: GateType;
-  /** Pair id, so taking one gate consumes its partner. */
+  /** Offer id, so taking one gate consumes the others beside it. */
   pair: number;
   active: boolean;
 }
 
 /**
- * Descending pairs of powerup gates. The player drives the squad through one;
- * the other vanishes. Offering exactly two is what makes the lane movement a
- * decision rather than a dodge.
+ * Descending offers of bonus gates. The player drives the squad through one;
+ * the rest vanish. Offering a choice rather than a single pickup is what makes
+ * the lane movement a decision rather than a dodge.
  */
 export class Gates {
   readonly items: Gate[] = [];
@@ -26,26 +26,33 @@ export class Gates {
     private readonly onOffer: (gates: readonly GateType[]) => void = () => {},
   ) {}
 
-  update(dt: number, timeScale: number, wave: number): void {
+  /**
+   * `power` is the army the offer is presented against: a raw bonus converts
+   * its draw into an absolute number at the moment it is rolled.
+   */
+  update(dt: number, wave: number, power: number): void {
     this.accum += dt;
     if (this.accum >= GATES.interval) {
       this.accum = 0;
-      this.spawnPair(wave);
+      this.spawnOffer(wave, power);
     }
     for (const g of this.items) {
       if (!g.active) continue;
-      g.y += GATES.speed * dt * timeScale;
+      g.y += GATES.speed * dt;
       if (g.y > VIEW.height + GATES.height) g.active = false;
     }
   }
 
-  private spawnPair(wave: number): void {
-    const [left, right] = rollGatePair(wave, this.rng);
-    this.onOffer([left, right]);
-    const half = (VIEW.width - GATES.pairGap) / 2;
+  private spawnOffer(wave: number, power: number): void {
+    const offer = rollOffer(GATES.perOffer, wave, power, this.rng);
+    if (offer.length === 0) return;
+    this.onOffer(offer);
     const pair = this.nextPair++;
-    this.push({ x: half / 2, width: half, type: left, pair });
-    this.push({ x: VIEW.width - half / 2, width: half, type: right, pair });
+    const lane = (VIEW.width - GATES.gap * (offer.length - 1)) / offer.length;
+    for (let i = 0; i < offer.length; i++) {
+      const x = i * (lane + GATES.gap) + lane / 2;
+      this.push({ x, width: lane, type: offer[i], pair });
+    }
   }
 
   private push(spec: { x: number; width: number; type: GateType; pair: number }): void {
@@ -55,7 +62,7 @@ export class Gates {
     else this.items.push(gate);
   }
 
-  /** Consumes both halves of a pair once one is entered. */
+  /** Consumes the whole offer once one of its gates is entered. */
   consumePair(pair: number): void {
     for (const g of this.items) if (g.pair === pair) g.active = false;
   }

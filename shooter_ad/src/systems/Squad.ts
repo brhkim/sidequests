@@ -1,9 +1,9 @@
-import { ARENA, SQUAD, BUFF, WEAPON } from '../config';
-import { TIERS, tierFor } from '../data/tiers';
+import { ARENA, SQUAD, WEAPON } from '../config';
+import { tierFor, unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { SLOTS } from './Formation';
 import {
-  applyGate, freshUpgrades, squadDps, unitShares,
+  applyGate, damageFactor, freshUpgrades, rateFactor, squadDps, unitShares,
   type Progress, type Upgrades,
 } from './Progression';
 
@@ -11,7 +11,10 @@ export interface Unit {
   x: number; y: number;
   /** Formation slot this unit eases toward. */
   slot: number;
+  /** Visible rank. Stats come from `share`, which moves continuously. */
   tier: number;
+  /** Power this unit holds, which is what its damage and rate are read from. */
+  share: number;
   /** Seconds until this unit's next shot. */
   cooldown: number;
 }
@@ -29,9 +32,6 @@ export class Squad {
   readonly y: number;
   readonly progress: Progress;
   units: Unit[] = [];
-  shieldTime = 0;
-  frenzyTime = 0;
-  slowTime = 0;
 
   constructor(
     x: number, y: number, power: number,
@@ -70,13 +70,14 @@ export class Squad {
       const s = SLOTS[slot] ?? SLOTS[0];
       this.units.push({
         x: this.x + s.x, y: this.y + s.y,
-        slot, tier: 0, cooldown: this.rng() * 0.4,
+        slot, tier: 0, share: 1, cooldown: this.rng() * 0.4,
       });
     }
     if (this.units.length > count) this.units.length = count;
 
     for (let i = 0; i < count; i++) {
       this.units[i].slot = i;
+      this.units[i].share = shares[i];
       this.units[i].tier = tierFor(shares[i]);
     }
   }
@@ -90,32 +91,22 @@ export class Squad {
       u.x += (this.x + s.x - u.x) * ease;
       u.y += (this.y + s.y - u.y) * ease;
     }
-
-    this.shieldTime = Math.max(0, this.shieldTime - dt);
-    this.frenzyTime = Math.max(0, this.frenzyTime - dt);
-    this.slowTime = Math.max(0, this.slowTime - dt);
   }
 
-  damagePerShot(tier: number): number {
-    return WEAPON.baseDamage * TIERS[tier].damage * this.progress.upgrades.damageMult;
+  damagePerShot(share: number): number {
+    return WEAPON.baseDamage * unitStats(share).damage * damageFactor(this.progress.upgrades);
   }
 
-  shotInterval(tier: number): number {
-    const frenzy = this.frenzyTime > 0 ? BUFF.frenzyFireRate : 1;
-    const rate = WEAPON.baseFireRate * TIERS[tier].fireRate
-      * this.progress.upgrades.fireRateMult * frenzy;
+  shotInterval(share: number): number {
+    const rate = WEAPON.baseFireRate * unitStats(share).fireRate
+      * rateFactor(this.progress.upgrades);
     return 1 / rate;
   }
 
   /** Applies a gate and returns the floating feedback label. */
   applyGate(gate: GateType): string {
     const label = applyGate(this.progress, gate);
-    switch (gate.kind) {
-      case 'shield': this.shieldTime = BUFF.shield; break;
-      case 'slowmo': this.slowTime = BUFF.slowmo; break;
-      case 'frenzy': this.frenzyTime = BUFF.frenzy; break;
-      default: this.rebuild(); break;
-    }
+    this.rebuild();
     return label;
   }
 }

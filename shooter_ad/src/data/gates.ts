@@ -1,68 +1,125 @@
+import { drawRoot, formatRoot, legibilityFor, roundSf } from './roots';
+
 /**
- * Gates descend in pairs and the player drives through one of them. Adding a
- * powerup means appending an entry here plus one case in Squad.applyGate.
+ * Gates descend as an offer and the player drives through one of them. Every
+ * bonus must (a) change damage output and (b) have a magnitude that is not
+ * obvious from the label alone - see notes.md. Traps, time-bound effects and
+ * survival-only effects are deliberately absent: "avoid the bad one" is not a
+ * judgment, and an effect worth whatever the next five seconds hold cannot be
+ * reasoned about beforehand or scored afterwards.
  */
-export type GateKind =
-  | 'add' | 'mul' | 'sub' | 'div'
-  | 'firerate' | 'damage' | 'multishot' | 'pierce'
-  | 'shield' | 'slowmo' | 'frenzy';
+export type BonusAxis = 'army' | 'rate' | 'damage' | 'guns' | 'pierce';
+
+/**
+ * The central mechanic. `raw` feeds an additive pool, `mult` multiplies the
+ * total, and the crossover between them moves as you build.
+ */
+export type BonusForm = 'raw' | 'mult';
 
 export interface GateType {
-  readonly kind: GateKind;
-  /** Magnitude; meaning depends on kind. */
+  readonly axis: BonusAxis;
+  readonly form: BonusForm;
+  /** Magnitude, already in the units `applyGate` wants for this axis and form. */
   readonly value: number;
   readonly label: string;
   readonly color: number;
-  /** Good gates are green-ish, traps red-ish. Used only for tinting. */
-  readonly hostile: boolean;
+}
+
+/**
+ * Colour names the AXIS and nothing else: `+120 ARMY` and `×1.2 ARMY` are the
+ * same green. Tinting the forms differently would hand the player a shortcut
+ * past the raw-versus-multiplicative conversion, which is the decision the
+ * whole game is built to ask.
+ */
+export const AXIS_COLOR: Record<BonusAxis, number> = {
+  army: 0x3ecf7a,
+  rate: 0xffc93c,
+  damage: 0xff6b4a,
+  guns: 0xb56bff,
+  pierce: 0x6be8d4,
+};
+
+interface Candidate {
+  readonly axis: BonusAxis;
+  readonly form: BonusForm;
   readonly weight: number;
   readonly minWave: number;
 }
 
-export const GATE_TYPES: readonly GateType[] = [
-  // --- army size: the main growth lever -------------------------------------
-  { kind: 'add', value: 5,  label: '+5',   color: 0x3ecf7a, hostile: false, weight: 100, minWave: 1 },
-  { kind: 'add', value: 12, label: '+12',  color: 0x3ecf7a, hostile: false, weight: 70,  minWave: 3 },
-  { kind: 'add', value: 30, label: '+30',  color: 0x3ecf7a, hostile: false, weight: 45,  minWave: 6 },
-  { kind: 'mul', value: 2,  label: 'x2',   color: 0x35b8ff, hostile: false, weight: 55,  minWave: 2 },
-  { kind: 'mul', value: 3,  label: 'x3',   color: 0x35b8ff, hostile: false, weight: 26,  minWave: 5 },
-
-  // --- traps: the bait half of a pair ---------------------------------------
-  { kind: 'sub', value: 10, label: '-10',  color: 0xff5566, hostile: true,  weight: 60,  minWave: 2 },
-  { kind: 'div', value: 2,  label: '/2',   color: 0xff5566, hostile: true,  weight: 45,  minWave: 4 },
-
-  // --- weapon upgrades: permanent ------------------------------------------
-  { kind: 'firerate',  value: 0.18, label: 'RATE+',  color: 0xffc93c, hostile: false, weight: 55, minWave: 2 },
-  { kind: 'damage',    value: 0.25, label: 'DMG+',   color: 0xff8a3c, hostile: false, weight: 55, minWave: 2 },
-  { kind: 'multishot', value: 1,    label: '+1 GUN', color: 0xb56bff, hostile: false, weight: 30, minWave: 4 },
-  { kind: 'pierce',    value: 1,    label: 'PIERCE', color: 0x6be8d4, hostile: false, weight: 28, minWave: 5 },
-
-  // --- temporary effects ----------------------------------------------------
-  { kind: 'shield', value: 1, label: 'SHIELD', color: 0x7fd4ff, hostile: false, weight: 26, minWave: 3 },
-  { kind: 'slowmo', value: 1, label: 'SLOW',   color: 0x9ec9ff, hostile: false, weight: 24, minWave: 4 },
-  { kind: 'frenzy', value: 1, label: 'FRENZY', color: 0xff5fa2, hostile: false, weight: 22, minWave: 6 },
+const CANDIDATES: readonly Candidate[] = [
+  { axis: 'army',   form: 'raw',  weight: 100, minWave: 1 },
+  { axis: 'army',   form: 'mult', weight: 100, minWave: 1 },
+  { axis: 'damage', form: 'raw',  weight: 85,  minWave: 1 },
+  { axis: 'damage', form: 'mult', weight: 85,  minWave: 2 },
+  { axis: 'rate',   form: 'raw',  weight: 85,  minWave: 1 },
+  { axis: 'rate',   form: 'mult', weight: 85,  minWave: 2 },
+  // Large, discrete and obvious on purpose: a baseline to judge the rest
+  // against, offered sparingly so it never becomes the whole decision.
+  { axis: 'guns',   form: 'raw',  weight: 24,  minWave: 4 },
+  { axis: 'pierce', form: 'raw',  weight: 26,  minWave: 3 },
 ];
 
-function pick(pool: readonly GateType[], rng: () => number): GateType {
-  const total = pool.reduce((sum, g) => sum + g.weight, 0);
-  let roll = rng() * total;
-  for (const g of pool) {
-    roll -= g.weight;
-    if (roll <= 0) return g;
+function build(c: Candidate, root: number, sigFigs: number, power: number): GateType {
+  const color = AXIS_COLOR[c.axis];
+  switch (c.axis) {
+    case 'army': {
+      if (c.form === 'mult') {
+        return { axis: 'army', form: 'mult', value: root, label: `×${formatRoot(root)} ARMY`, color };
+      }
+      // The draw converts to an absolute against the army you hold right now,
+      // which is what keeps a raw bonus from going dead at large armies.
+      const amount = Math.max(1, Math.round(roundSf(power * (root - 1), sigFigs)));
+      return { axis: 'army', form: 'raw', value: amount, label: `+${amount} ARMY`, color };
+    }
+    case 'rate':
+    case 'damage': {
+      const word = c.axis === 'rate' ? 'RATE' : 'DMG';
+      if (c.form === 'mult') {
+        return { axis: c.axis, form: 'mult', value: root, label: `×${formatRoot(root)} ${word}`, color };
+      }
+      const percent = Math.round((root - 1) * 100);
+      return { axis: c.axis, form: 'raw', value: percent / 100, label: `+${percent}% ${word}`, color };
+    }
+    case 'guns':
+      return { axis: 'guns', form: 'raw', value: 1, label: '+1 GUN', color };
+    case 'pierce':
+      return { axis: 'pierce', form: 'raw', value: 1, label: '+1 PIERCE', color };
   }
-  return pool[0];
 }
 
 /**
- * A pair always offers a real choice: never two identical gates, and never two
- * traps, so there is always something worth driving into.
+ * One offer: `count` distinct options, each drawing its magnitude from the
+ * wave's root table independently.
+ *
+ * No axis/form pair repeats within an offer, so the three are always genuinely
+ * different picks - but the same AXIS may appear twice in different forms,
+ * because `+20% DMG` against `×1.3 DMG` is exactly the decision the game wants
+ * to ask.
  */
-export function rollGatePair(wave: number, rng: () => number): [GateType, GateType] {
-  const pool = GATE_TYPES.filter((g) => g.minWave <= wave);
-  const left = pick(pool, rng);
-  const candidates = pool.filter(
-    (g) => g !== left && !(g.hostile && left.hostile),
-  );
-  const right = candidates.length > 0 ? pick(candidates, rng) : left;
-  return rng() < 0.5 ? [left, right] : [right, left];
+export function rollOffer(
+  count: number, wave: number, power: number, rng: () => number,
+): GateType[] {
+  const legibility = legibilityFor(wave);
+  const pool = CANDIDATES.filter((c) => c.minWave <= wave);
+  const chosen: GateType[] = [];
+  const taken = new Set<Candidate>();
+
+  for (let i = 0; i < count; i++) {
+    const available = pool.filter((c) => !taken.has(c));
+    if (available.length === 0) break;
+    const c = pickWeighted(available, rng);
+    taken.add(c);
+    chosen.push(build(c, drawRoot(legibility, rng), legibility.sigFigs, power));
+  }
+  return chosen;
+}
+
+function pickWeighted(pool: readonly Candidate[], rng: () => number): Candidate {
+  const total = pool.reduce((sum, c) => sum + c.weight, 0);
+  let roll = rng() * total;
+  for (const c of pool) {
+    roll -= c.weight;
+    if (roll <= 0) return c;
+  }
+  return pool[pool.length - 1];
 }

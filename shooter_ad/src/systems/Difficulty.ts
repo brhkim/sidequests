@@ -4,6 +4,9 @@ import {
   applyGate, cloneProgress, freshUpgrades, squadDps, type Progress,
 } from './Progression';
 
+/** Two options within this relative distance in DPS count as tied. */
+const TIE_EPSILON = 1e-9;
+
 /**
  * Closed-loop difficulty.
  *
@@ -68,17 +71,29 @@ export class Difficulty {
   /**
    * A gate set has been offered. Par takes whichever option leaves it
    * strongest, judged by resulting DPS rather than raw power - otherwise a
-   * flat `+30` would always beat `DMG+` no matter how many units are already
-   * on the field.
+   * flat `+30` would always beat a damage bonus no matter how many units are
+   * already on the field.
+   *
+   * Ties break toward the option that leaves the most power, then toward the
+   * first offered, and the comparison is RELATIVE rather than exact. Par is the
+   * reference the difficulty model and the death screen's scoring both depend
+   * on, so it must never be decided by float noise or by evaluation order: on a
+   * strict `>` against a flat DPS curve, par kept whatever it happened to score
+   * first and two seeds showed it halving its own army.
    */
   observeGateOffer(gates: readonly GateType[]): void {
     let best: Progress | null = null;
-    let bestDps = -1;
+    let bestDps = 0;
     for (const gate of gates) {
       const candidate = cloneProgress(this.ideal);
       applyGate(candidate, gate);
       const dps = squadDps(candidate);
-      if (dps > bestDps) { bestDps = dps; best = candidate; }
+      if (best === null) { best = candidate; bestDps = dps; continue; }
+      const tied = Math.abs(dps - bestDps) <= bestDps * TIE_EPSILON;
+      if (tied ? candidate.power > best.power : dps > bestDps) {
+        best = candidate;
+        if (!tied) bestDps = dps;
+      }
     }
     if (best) this.ideal = best;
   }
