@@ -132,10 +132,31 @@ prevented. Removing it entirely reproduces a reliable death spiral around wave
 exactly below `standing = targetFraction / maxOverPlayer` — 0.52 at the current
 constants. Above that the curve is par-driven and skill-responsive; below it,
 enemy pressure is simply 1.35× whatever the player is doing, and neither
-`targetFraction` nor par influences the run at all. The probe's bot lives almost
-entirely below 0.52, so any conclusion about the par-driven regime drawn from
-its numbers is a conclusion about a regime it never entered. Softening the clamp
-moves this threshold up and hands more of the run back to par.
+`targetFraction` nor par influences the run at all. Softening the clamp moves
+this threshold up and hands more of the run back to par.
+
+The bot used to live almost entirely below 0.52, which made every conclusion
+about the par-driven regime a conclusion about a regime it never entered. **That
+changed when par stopped being credited at gate spawn.** Offers were handed to
+par about eight seconds before the player could reach them, so par banked every
+bonus a full interval early and ran ahead of any achievable play. Measured
+across seeds 1-5, before and after:
+
+| | survival median | mean | standing, seeds 3/4/5 |
+| --- | --- | --- | --- |
+| credited at spawn | 45s | 43s | 0.71 / 0.44 / 0.51 |
+| credited on arrival | 45s | 49s | 0.72 / 0.59 / 0.54 |
+
+Median survival did not move. The number that matters is standing: two of the
+three seeds crossed **from below 0.52 to above it**, which means those runs moved
+out of the mercy-clamped regime and into the par-driven one. The curve is now
+doing the job it was designed for on seeds where it was previously bypassed
+entirely.
+
+Read that as a regime shift, not as "the game got easier" — and read it as a
+floor, since the bot still cannot see the decision it is making. Five seeds is
+also a small sample for the mean; the median moving not at all is the honest
+headline.
 
 Raise `targetFraction` toward 1 to make the game meaner; lower it to make wins
 feel bigger.
