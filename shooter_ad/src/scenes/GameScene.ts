@@ -35,6 +35,12 @@ export class GameScene extends Phaser.Scene {
   private cagePool!: SpritePool;
 
   private overlay!: Phaser.GameObjects.Graphics;
+  /**
+   * The selection guide, on its own layer ABOVE the squad and every
+   * projectile. On the shared overlay it sat under the bullet stream and was
+   * unreadable exactly when it mattered - mid-wave, with an offer closing.
+   */
+  private selection!: Phaser.GameObjects.Graphics;
   private gateVisuals: {
     rect: Phaser.GameObjects.Rectangle;
     label: Phaser.GameObjects.Text;
@@ -65,6 +71,8 @@ export class GameScene extends Phaser.Scene {
 
     this.drawBackground();
     this.overlay = this.add.graphics().setDepth(6);
+    // 25: above the squad (21), below the HUD backing strip (30).
+    this.selection = this.add.graphics().setDepth(25);
 
     this.enemyPool = new SpritePool(this, 'dot', 10);
     this.cagePool = new SpritePool(this, 'cage', 11);
@@ -330,6 +338,9 @@ export class GameScene extends Phaser.Scene {
     this.renderSquad();
     this.renderGates();
     this.renderOverlay();
+    // Last, and on the topmost gameplay layer: the guide has to survive a
+    // screen full of bullets.
+    this.renderSelection();
   }
 
   private renderEnemies(): void {
@@ -408,6 +419,7 @@ export class GameScene extends Phaser.Scene {
    * a second way, at the moment it matters.
    */
   private renderSelection(): void {
+    this.selection.clear();
     let target: { x: number; y: number; color: number } | null = null;
     for (const g of this.gates.items) {
       if (!g.active || g.y > this.squad.y) continue;
@@ -422,13 +434,14 @@ export class GameScene extends Phaser.Scene {
     const nearness = Phaser.Math.Clamp(
       1 - (this.squad.y - target.y) / 520, 0.12, 0.55,
     );
-    this.overlay.lineStyle(2, target.color, nearness);
-    this.overlay.lineBetween(
+    this.selection.lineStyle(3, target.color, nearness);
+    this.selection.lineBetween(
       this.squad.x, this.squad.y - 18,
-      this.squad.x, target.y + GATES.height / 2,
+      // Never draw up into the rail, for the same reason gates fade in below it.
+      this.squad.x, Math.max(target.y + GATES.height / 2, RAIL_HEIGHT + 6),
     );
-    this.overlay.lineStyle(2, target.color, nearness + 0.2);
-    this.overlay.strokeCircle(this.squad.x, this.squad.y - 2, 15);
+    this.selection.lineStyle(3, target.color, nearness + 0.25);
+    this.selection.strokeCircle(this.squad.x, this.squad.y - 2, 16);
   }
 
   private renderGates(): void {
@@ -448,11 +461,15 @@ export class GameScene extends Phaser.Scene {
         };
         this.gateVisuals.push(v);
       }
-      v.rect.setVisible(true).setPosition(g.x, g.y)
+      // Fade in clear of the top rail. Gates spawn above the screen and would
+      // otherwise slide through the HUD numbers, putting two unrelated sets of
+      // figures on top of each other exactly where the player reads par.
+      const reveal = Phaser.Math.Clamp((g.y - RAIL_HEIGHT - 6) / 44, 0, 1);
+      v.rect.setVisible(reveal > 0).setPosition(g.x, g.y)
         .setSize(g.width - 4, GATES.height)
-        .setFillStyle(g.type.color, 0.22)
-        .setStrokeStyle(3, g.type.color, 0.9);
-      v.label.setVisible(true).setPosition(g.x, g.y);
+        .setFillStyle(g.type.color, 0.22 * reveal)
+        .setStrokeStyle(3, g.type.color, 0.9 * reveal);
+      v.label.setVisible(reveal > 0).setPosition(g.x, g.y).setAlpha(reveal);
       if (v.label.text !== g.type.label) v.label.setText(g.type.label);
       used++;
     }
@@ -464,7 +481,6 @@ export class GameScene extends Phaser.Scene {
 
   private renderOverlay(): void {
     this.overlay.clear();
-    this.renderSelection();
     // Shield facing. A directional shield the player cannot see is just an
     // unexplained damage number, so draw where it actually points.
     for (const e of this.enemies.items) {
