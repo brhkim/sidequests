@@ -1,0 +1,30 @@
+{
+  "skill_name": "brookings-expert-finder",
+  "notes": "Each prompt targets a specific failure mode named in SKILL.md. Prompts are written the way the workshop lead actually talks: a link or a headline plus a casual ask.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "cross-cutting-chip-controls",
+      "prompt": "ok so the semiconductor export control story is everywhere today — new rules plus allies grumbling about being squeezed. i've got a background call tomorrow afternoon and want to consult a Brookings expert on it. who should i be talking to?",
+      "expected_output": "Ranked memo of 3-5 experts spanning at least two of {technology policy, China/Asia, trade enforcement} rather than clustering in one program. Recency verified with dated links. Consult mode read as media comment.",
+      "targets_failure_mode": "single-dimension clustering",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "recency-trap-absenteeism",
+      "prompt": "We're pulling together a panel for a convening in the spring on chronic absenteeism and what districts are actually doing about it post-pandemic. Could you find me a Brookings expert or two who'd be good on stage for that?",
+      "expected_output": "Memo reading the mode as speaking/convening (prominence and range weighted up). Should distinguish scholars with current K-12 work from well-known education names whose recent output is elsewhere, with dated evidence for the distinction.",
+      "targets_failure_mode": "roster tag mistaken for current activity; fame over fit",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "thin-field-sahel-debt",
+      "prompt": "I need to brief our program team next week on sovereign debt distress in the Sahel — specifically how the security situation is interacting with restructuring talks. Who at Brookings could help me get smart on this? Memo please.",
+      "expected_output": "Memo read as decision briefing. Should surface Global Economy and Development / Africa scholars, and — if the field is genuinely thin — say so and flag gaps rather than padding with weak matches.",
+      "targets_failure_mode": "padding a thin field; failing to report coverage gaps",
+      "files": []
+    }
+  ]
+}
