@@ -81,6 +81,12 @@ Then **re-baseline**: `PROBE_SECONDS=180 PROBE_SEEDS=1,2,3 npm run balance`,
 and report the series before going further. Expect the old numbers to be
 meaningless — you have changed what the game is.
 
+**Caveat that baseline heavily.** The bot picks gates by a fixed preference over
+bonus *kinds*, which the new taxonomy makes almost meaningless: the interesting
+choices are now between two values of the same kind. So the Phase 0 numbers tell
+you the game still runs and roughly where survival lands, and little more. Item
+6 rebuilds the bot; real balance conclusions wait for that.
+
 ### Phase 1 — fan out (parallelise with subagents)
 
 These touch mostly disjoint files once Phase 0 is stable. Give each subagent the
@@ -90,54 +96,68 @@ each to run `npm run verify` and report its output.
 5. **`DecisionLog`** — record each offer: the three options, the progress state
    at that moment, the pick, and computed DPS deltas for all three. Blocks both
    the death screen and the halo flash, so do it first among these.
-6. **HUD**: soldiers, player DPS, par DPS. Plus the always-visible active-bonus
-   readout — **ask the user where it goes first**, this is an open question in
-   `notes.md` with a real layout tradeoff.
-7. **Three gates per offer**, and enlarge the leader unit so it is obvious the
+6. **Rebuild the probe bot** on the `DecisionLog` scoring, and add a
+   `PROBE_SKILL` knob — the probability of taking the best option, otherwise
+   picking at random. Its current preference-over-kinds ranking cannot express a
+   choice between `+12% DMG` and `×1.05 DMG`, so until this lands every balance
+   number is soft. `PROBE_SKILL` also closes the loop with design:
+   `DIFFICULTY.targetFraction` is a claim about what fraction of optimal the
+   game expects, and this is how you test it. Probing at 0.5 / 0.7 / 0.9 should
+   produce visibly different runs; if it does not, the curve is not responding
+   to skill and something upstream is wrong. **Re-baseline again once this is
+   in** — those are the first trustworthy numbers of the redesign.
+7. **HUD**: soldiers, player DPS, par DPS on the top rail, with **par always
+   visible** — not saved for the death screen. Plus the active-bonus readout in
+   the strip **directly beneath the red line**, where the player's eye already
+   is. Placement is decided; the hard part is that the strip is wide and short,
+   so the readout must be genuinely parsimonious. Expect to iterate on it, and
+   show the user a screenshot rather than declaring it done.
+8. **Three gates per offer**, and enlarge the leader unit so it is obvious the
    centre is what selects.
-8. **Gate approach speed scales with wave**; add `×MOVE` and `+TIME` bonuses.
+9. **Gate approach speed scales with wave**; add `×MOVE` and `+TIME` bonuses.
    Requires slowing base squad movement, or `×MOVE` is worthless.
 
 ### Phase 2 — the payoff features
 
-9. **Death screen readout** — every decision as a row of three, pick and optimum
+10. **Death screen readout** — every decision as a row of three, pick and optimum
    marked, tier indicator, and a headline "you played at N% of optimal".
    Scrollable. This is the feature that makes the whole framing land.
-10. **Pick-quality halo flash** — green / yellow / red on selection, from the
+11. **Pick-quality halo flash** — green / yellow / red on selection, from the
     same scoring as the death screen.
-11. **Escalating numeric legibility** by wave — round values early, deliberately
+12. **Escalating numeric legibility** by wave — round values early, deliberately
     awkward ones later. The difficulty axis that scales furthest.
-12. **Seed display and seed entry**, with a version tag beside it.
-13. **Help / pause screen** — resume, restart, options, full itemised bonus
+13. **Seed display and seed entry**, with a version tag beside it.
+14. **Help / pause screen** — resume, restart, options, full itemised bonus
     readout, and an explanation of every bonus type. Must teach the
     additive-vs-multiplicative distinction or the core mechanic stays hidden.
-14. **Hard mode** — advanced starting gate speed and legibility tier.
+15. **Hard mode** — advanced starting gate speed and legibility tier.
 
 ### Phase 3 — content and tuning
 
-15. **Soften the mercy clamp** (`DIFFICULTY.maxOverPlayer`), then re-probe
+16. **Soften the mercy clamp** (`DIFFICULTY.maxOverPlayer`), then re-probe
     across seeds. Losing control should be legible, not prevented. Removing it
     entirely reproduces a death spiral around wave 7 — this is the constant
     most likely to make the game miserable if overcorrected.
-16. **Enemy behaviour variety** — five of eight types currently move
+17. **Enemy behaviour variety** — five of eight types currently move
     identically; `charger` is dead code; `shielder`'s armour is
     direction-independent. Add waypoint movement, limited retreat, diagonal
     dashes, and **enemies that shoot back** (needs an enemy projectile system
     and squad damage from fire, not only breaches). Good standalone subagent
     task — it barely touches the bonus system.
 
-## 5. Decisions that are the user's, not yours
+## 5. Already decided — do not relitigate
 
-Ask rather than guessing. Each changes the work materially:
+- **Bonus readout sits beneath the red line.** Not a right rail; portrait
+  layout makes a rail cost too much playfield.
+- **Par is always visible on the top rail.**
+- **`×N ARMY` stays**, scaled small (`×1.1`), with the additive form derived
+  from current army size so it never goes dead. **Read `notes.md`
+  § "Army size stays, but scales" before implementing** — the naive version
+  makes `+N` and `×1.1` mathematically identical and the choice fake. Three
+  ways to keep them apart are documented there; pick deliberately.
 
-- **Where the always-visible bonus readout goes.** A right rail is clearest but
-  the game is 540×960 portrait; widening the canvas shrinks the playfield badly
-  under `Scale.FIT` on a phone. Options in `notes.md` § "Open questions".
-- **Whether `×N` army size survives.** It is the least ambiguous bonus in the
-  new set — instantly rankable from its label — but it drives rank, which drives
-  the shirt-colour progression the user likes.
-- **Whether par is visible before a choice** or only in the death readout.
-  Visible is kinder and may remove the tension the game runs on.
+Genuinely open, ask if you hit it: the rounding rule for derived `+N ARMY` once
+armies reach the thousands, where "nearest 5" stops reading as a game number.
 
 ## 6. How to report
 

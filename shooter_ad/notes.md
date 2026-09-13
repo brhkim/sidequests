@@ -60,7 +60,35 @@ while `×1.05` adds 5% of a 3× total — fifteen hundredths of base. **There is
 crossover point, it moves as you build, and the player has to feel where it
 is.** That is the game.
 
-Apply the same split to damage, and to army size (`+12` vs `×1.5`).
+Apply the same split to damage, and to army size.
+
+#### Army size stays, but scales
+
+`×N ARMY` survives the cut, made small enough to sit alongside the others
+(`×1.1 ARMY`). The additive form is **derived from current army size** so it
+never becomes the dead bonus it is today — something like
+`+round5(armySize × 0.1)`, shown as an absolute (`+50`).
+
+**The trap to avoid:** if `+N` is computed as exactly `armySize × 0.1` and the
+alternative is `×1.1`, the two are *identical* and the decision is fake. Three
+things keep them apart, and at least one must be deliberate:
+
+1. **Different ratios.** Derive the additive at 0.1 and offer the multiplicative
+   at 1.15 — so the comparison is "10% of what I had" against "15% of what I
+   have".
+2. **Fixed at spawn, applied at pickup.** Compute `+N` when the gate spawns and
+   leave it fixed on the label; `×1.1` resolves when you drive through. Between
+   those moments you kill, take streak bonuses, and maybe breach. Grown since?
+   the multiplier wins. Shrunk? the flat number wins. The gap is small, real,
+   and unknowable without paying attention — which is exactly the texture this
+   game wants.
+3. **Asymmetric cognitive load.** `×1.1` describes itself. `+50` requires
+   knowing your army is 504 and doing the division. That asymmetry is a feature:
+   it is the arithmetic the game is testing, and it is why the active-bonus
+   readout has to be legible at a glance.
+
+Rounding should stay coarse (nearest 5, or nearest 10 at large sizes) so the
+label reads as a game number rather than a computed one.
 
 ### Axes
 
@@ -262,18 +290,58 @@ Consider surfacing a single headline number: **"you played at 82% of optimal."**
 
 ---
 
-## HUD
+## HUD and layout — decided
 
-Expose three numbers, not one:
+**Top rail** carries the numbers, par always visible:
 
-- **soldiers** — the visible count, capped at the ring
+- **soldiers** — visible count, capped at the ring
 - **your DPS**
 - **par DPS**
 
-The player should be able to see themselves falling behind the curve in real
-time, because that is the feedback that makes the next decision meaningful.
+Par is permanently on screen, not saved for the death readout. Seeing yourself
+fall behind in real time is the feedback that makes the next decision mean
+something.
+
+**Directly beneath the red line** sits the active-bonus readout. The player's
+eye is already there — it is where the threat resolves — so it costs no extra
+attention. Chosen over a right rail because the game is 540×960 portrait and
+widening the canvas shrinks the playfield badly under `Scale.FIT` on a phone,
+which is the device this genre is played on.
+
+That placement buys space at a cost: the strip is **wide and short**, so the
+readout has to be genuinely parsimonious. This is real design work, not a
+label dump. Every held bonus must be readable at a glance, mid-wave, while
+three gates descend. Expect to iterate on it. Full itemised detail lives on the
+pause screen; the strip is the glanceable summary.
 
 ---
+
+## The probe bot needs rebuilding too
+
+Today the bot steers toward a gate by a **fixed preference order over bonus
+kinds**. Under the new taxonomy that is worthless: the whole point is that
+`+12% DMG` and `×1.05 DMG` are the same *kind* and differ in value, so ranking
+by kind cannot express a choice. It would measure nothing.
+
+Rebuild it around the scoring the game already has to compute for the
+`DecisionLog`: expose a DPS delta per active gate, and let the bot choose from
+those.
+
+Then add the knob that matters: **`PROBE_SKILL`**, the probability of taking the
+best option, otherwise picking at random among the three. That closes the loop
+between design and measurement — `DIFFICULTY.targetFraction` is a claim about
+what fraction of optimal the game expects, and `PROBE_SKILL` lets you actually
+test the curve against a *defined* skill level instead of against whatever a
+sine wave happened to do. Probing at 0.5, 0.7 and 0.9 should produce three
+visibly different difficulty experiences; if it does not, the curve is not
+responding to skill and something upstream is wrong.
+
+Smaller improvement: when no gate is in reach, steer toward the densest enemy
+column rather than sweeping, so kill rate stops being an accident of phase.
+
+Still worth stating in any report: the bot has no threat avoidance and does not
+position for breaches. It is a floor on difficulty. **The design needs the
+author playing it**, and no amount of instrumentation substitutes.
 
 ## Roadmap
 
@@ -296,14 +364,15 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 11. **Pick-quality halo flash** — green / yellow / red on selection.
 12. **Seed display and seed entry**, with a version tag.
 13. **Hard mode** — advanced starting gate speed and legibility tier.
+14. **Rebuild the probe bot** on real gate scoring, with a `PROBE_SKILL` knob.
 
 ### Next
-14. **Help / pause screen** — resume, restart, options, and a full explanation of
+15. **Help / pause screen** — resume, restart, options, and a full explanation of
    every bonus type. Must teach the additive-vs-multiplicative distinction, or
    the core mechanic is hidden.
-15. **Prestige ranks past red** — metallic / prismatic / glowing, with texture
+16. **Prestige ranks past red** — metallic / prismatic / glowing, with texture
     and particle treatment, so long runs keep a visible chase.
-16. **Enemy behaviour variety** — five of eight types currently move identically
+17. **Enemy behaviour variety** — five of eight types currently move identically
     because their cases fall through to `default`, and `charger` is dead code.
     Add waypoint movement, limited retreat, diagonal dashes, and **enemies that
     shoot back** (needs an enemy projectile system and squad damage from fire,
@@ -314,18 +383,10 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 
 ## Open questions
 
-- Does army size stay a bonus axis at all? It drives rank, which drives DPS, so
-  it is on-thesis — but `×N` army is the *least* ambiguous bonus in the set and
-  may be the next thing to cut.
+
 - How is pierce shown to the player? Its value swings with the board, so a
   static label undersells it. A live "≈1.6×" readout might be better — or might
   give away too much of the judgment.
-- Should par be visible *before* the choice, or only in the death readout?
-  Visible is kinder and might remove the tension the game runs on.
-- **Where does the always-visible bonus readout go?** A dedicated right rail
-  outside the play area is the clearest, but the game is 540×960 portrait and
-  widening the canvas to fit a rail makes the play area shrink badly under
-  `Scale.FIT` on a phone. Candidates: a compact chip row under the HUD (works
-  everywhere, less detail); a rail that only appears on wide screens and
-  collapses to a toggle on narrow; or accepting a smaller playfield. Needs a
-  decision before the readout is built.
+- Nothing currently blocked on a decision.
+- Rounding rule for derived `+N ARMY` at very large armies — nearest 5 stops
+  reading as a game number once the army is in the thousands.
