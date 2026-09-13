@@ -46,9 +46,12 @@ measurement reasons rather than game reasons. Before trusting any number:
   standings above 20.
 - **One run proves nothing.** Read medians across seeds.
 
-The probe's bot is crude: it steers toward a preferred gate kind and has no
-threat avoidance or positioning. Treat its numbers as a floor on difficulty, not
-a verdict on how the game feels.
+The probe's bot is crude: it steers by a preference over bonus *axes* and has no
+threat avoidance or positioning. Under the current taxonomy that is barely a
+player at all — the decision the game asks is between two magnitudes of the same
+axis, which a preference over axes cannot express. Treat its numbers as a floor
+on difficulty, not a verdict on how the game feels, and treat anything that
+depends on picking *well* as unmeasured until the bot is rebuilt.
 
 ## Architecture
 
@@ -116,23 +119,22 @@ feel bigger.
 These came out of `npm run balance` and are load-bearing for the roadmap. Do not
 tune balance around them — fix them first.
 
-- **The rank ladder saturates at 608 power.** `squadDps` depends on power only
-  through each unit's tier, and tier caps at red (32 power-per-unit x 19 units).
-  Above that, extra power changes damage output not at all: every army-size
-  bonus becomes a no-op, and roughly a third of the bonus table goes inert
-  exactly when the late game starts.
-- **Par picks arbitrarily once saturated.** `observeGateOffer` scores options by
-  resulting DPS and keeps the first on a strict `>`. When DPS is flat in power
-  every option ties, so par keeps whatever was evaluated first — including a
-  trap. Two probe seeds show par *halving*. Par is the reference the whole
-  difficulty model and the death-screen scoring depend on, so this must break
-  ties toward the least harmful option.
-- **`SQUAD.maxPower` (40000) is reached in ~2.5 minutes** of probe play. Either
-  the ladder stretches that far or the cap comes down to what the ranks cover.
 - **Five of eight enemy types move identically**, because their `behaviour`
   cases fall through to `default` in `Enemies.applyBehaviour`. `charger` has a
   working case no enemy uses. `shielder`'s "frontal armour" is
   direction-independent, so the name describes nothing.
+- **The probe bot cannot see the decision the game is about.** It ranks gates by
+  axis, and the redesign's interesting choice is between two magnitudes of the
+  *same* axis. Every balance number is soft until it is rebuilt on real DPS
+  deltas with a `PROBE_SKILL` knob.
+
+Fixed, and worth knowing why they mattered: the rank ladder used to saturate at
+608 power, which turned every army bonus above it into a measured no-op and left
+par unable to tell its options apart — it kept whatever it scored first on a
+strict `>`, including a trap, and two seeds showed it halving its own army. The
+ladder now runs six ranks past red, `SQUAD.maxPower` is derived from the top row
+so that dead region cannot return, and par breaks ties toward the option leaving
+the most power.
 
 ## Determinism is a product requirement
 
@@ -156,12 +158,18 @@ army becomes an unmanageable blob and positioning stops mattering.
 `Squad.power` drives both size and strength: visible units = `min(power,
 ringCap)`, and power beyond the cap is dealt evenly across those units as
 power-per-unit, which maps to a shirt colour in `data/tiers.ts` (grey → green →
-blue → purple → orange → red). The remainder goes to innermost units first, so
+blue → purple → orange → red, then six prestige ranks: bronze → silver → gold →
+platinum → diamond → prismatic). The remainder goes to innermost units first, so
 the leader ranks up before the outer ring — which is why a mid-run squad shows
 two colours at once.
 
-Thresholds are power-per-unit, so with 19 units the army totals per colour are
-19 / 38 / 76 / 152 / 304 / 608.
+Thresholds double per rank, from 1 to 2048 power-per-unit; `SQUAD.maxPower` is
+derived as that top threshold × `ringCap`, so there is no power range the ranks
+do not cover. **Damage and fire rate interpolate geometrically between rows
+rather than stepping at them** — bonus magnitudes are drawn from `[1.05, 1.50]`
+and thresholds double, so a stepped ladder would make a `×1.2 ARMY` worth
+nothing most of the time. The tier row is the visible rank; the stats are
+continuous in power.
 
 ## Collision is bespoke, not Arcade or Matter
 
@@ -190,7 +198,12 @@ see `.claude/skills/phaser4-migration/`.
   movement needs a case in `Enemies.applyBehaviour`. Note five of the eight
   current types move identically because their cases fall through to `default`,
   and `charger` is dead code — fixing that is on the roadmap.
-- **Bonus**: append to the gate table plus one case in the progression model.
+- **Bonus**: append to `CANDIDATES` in `data/gates.ts` plus one case in the
+  progression model. Magnitudes are never hardcoded — every bonus draws from the
+  root table in `data/roots.ts` and presents the draw according to its form.
+  Colour names the axis and both forms of an axis share it, so the player cannot
+  read the raw-versus-multiplicative choice off the tint instead of doing the
+  conversion.
   Every bonus must change damage output and must not be trivially rankable by
   label alone — see the taxonomy in `notes.md`. Pierce is valued with a fixed
   ratio rather than live enemy density, deliberately: density swings across a

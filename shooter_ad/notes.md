@@ -62,6 +62,39 @@ is.** That is the game.
 
 Apply the same split to damage, and to army size.
 
+#### Measured: the additive form has a shelf life
+
+`npm run model` prices both forms out of the game's own `Progression.ts`. Since
+both draw from the same table, additive is the right pick exactly when
+`(ra - 1) > (rm - 1) × (1 + pool)`. That gives:
+
+| Pool | Chance additive is correct (coarse table) | (fine table) |
+| --- | --- | --- |
+| +0% | 42% | 49% |
+| +50% | 36% | 30% |
+| +100% | 22% | 20% |
+| +400% | 8% | 4% |
+
+So the claim above is **half right**. Additive does start as a live coin flip
+and multiplicative does take over — but the late end is not a crossover where
+both stay interesting. It is the additive form becoming *strictly* wrong, which
+is the "bonus whose value is obvious" this document cuts elsewhere.
+
+Two things keep it from being a bug:
+
+- **It is self-stabilising.** The pool only grows when the player takes additive
+  bonuses, so a player picking correctly holds the pool near zero and keeps the
+  choice live. Reaching +400% means having repeatedly chosen the form that was
+  already losing.
+- **It is axis-dependent.** On damage and rate, both forms present as
+  percentages, so at a small pool the comparison is easy arithmetic. On army,
+  raw presents as an *absolute* against current size, so the conversion is
+  required no matter what the pool is doing.
+
+Open, and a real decision rather than a tuning knob: whether to leave this as a
+legible punishment for over-investing in one form, or to keep both forms live
+for the whole run by drawing them from different sub-ranges of the table.
+
 #### One root table, two presentations
 
 **This is the generator for every bonus magnitude in the game.**
@@ -100,6 +133,24 @@ Apply the same generator to rate and damage. A draw of `1.2` becomes
 `+20% RATE` in additive form and `×1.2 RATE` in multiplicative form — where the
 additive goes into the bonus pool and the multiplicative onto the total, so
 those two also diverge compositionally (see above), not only in presentation.
+
+#### Colour names the axis, never the form
+
+One colour per axis, shared by both of its forms: `+120 ARMY` and `×1.2 ARMY`
+are the same green, `+20% DMG` and `×1.2 DMG` the same orange. Tinting the forms
+apart would hand the player a shortcut past the raw-versus-multiplicative
+conversion, which is the decision the whole game exists to ask.
+
+Labels take one grammar — magnitude, then axis — with `+` and `×` as the only
+form signal:
+
+| Axis | Raw | Multiplicative |
+| --- | --- | --- |
+| Army | `+120 ARMY` | `×1.2 ARMY` |
+| Damage | `+20% DMG` | `×1.2 DMG` |
+| Fire rate | `+20% RATE` | `×1.2 RATE` |
+| Guns | `+1 GUN` | — |
+| Pierce | `+1 PIERCE` | — |
 
 #### Rounding is part of the legibility axis
 
@@ -211,6 +262,14 @@ Three consequences, all visible in the probe series:
 So prestige ranks past red are **mechanically required, not decoration**. Until
 the ladder extends, roughly a third of the bonus table is inert in the late
 game and the difficulty model's reference player is unreliable.
+
+**Extending the ladder is necessary but not sufficient.** Thresholds double,
+while bonus magnitudes are drawn from `[1.05, 1.50]` — so on a ladder whose
+stats *step* at each row, a `×1.2 ARMY` crosses a threshold only occasionally
+and is worth exactly nothing the rest of the time. That is the same "bonus that
+does not change damage output" the thesis cuts, arriving by a different route.
+Damage and fire rate therefore interpolate geometrically *between* rows, and the
+tier row survives as the visible rank only.
 
 Two follow-ons regardless of how far the ladder extends:
 
@@ -370,10 +429,15 @@ author playing it**, and no amount of instrumentation substitutes.
 
 Carried over from the earlier backlog, reprioritised against the thesis.
 
+### Done
+- **Rewrite the bonus table** to the taxonomy above; delete cut bonuses.
+- **Additive/multiplicative stat model** in `Progression.ts`.
+- **Fixed-`q` pierce valuation**, shared by squad and par.
+- **Prestige ranks past red**, mechanically — and tier stats interpolated
+  between rows, without which army bonuses stay mostly no-ops.
+- **Par's ties break toward the least harmful option.**
+
 ### Now
-1. **Rewrite the bonus table** to the taxonomy above; delete cut bonuses.
-2. **Additive/multiplicative stat model** in `Progression.ts`.
-3. **Fixed-`q` pierce valuation**, shared by squad and par.
 4. **HUD**: soldiers, DPS, par DPS.
 5. **Three gates per offer**, and enlarge the leader unit so it is obvious the
    centre is what selects.
@@ -411,6 +475,7 @@ Carried over from the earlier backlog, reprioritised against the thesis.
   static label undersells it. A live "≈1.6×" readout might be better — or might
   give away too much of the judgment.
 - Nothing currently blocked on a decision.
-- Whether the root table's *upper bound* should also escalate with difficulty,
-  or only its granularity. Widening the range makes picks swingier; keeping it
-  fixed at `[1.05, 1.50]` keeps the game about precision rather than luck.
+- **Settled: the root table's range does not widen with difficulty.** It stays
+  fixed at `[1.05, 1.50]` at every legibility tier; only granularity and
+  significant-figure rounding escalate. Widening it would make picks swingier,
+  and the game is about precision rather than luck.
