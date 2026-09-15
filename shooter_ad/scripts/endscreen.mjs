@@ -98,6 +98,85 @@ for (const run of RUNS) {
   await page.close();
 }
 
+// The pause/help screen, at two very different pools. It is the only place the
+// additive-versus-multiplicative rule is taught, and its whole teaching block is
+// DERIVED from the player's current pools - so a shot at an empty pool and a
+// shot deep into a run are two different screens, and only the second one
+// exercises the conversion the screen exists to explain.
+// Each shot also leaves the screen by a different button, because a pause with
+// no way out is worse than no pause at all.
+const PAUSE_SHOTS = [
+  { name: 'pause-early', play: 2, exit: 'restart' },
+  { name: 'pause-mid', play: 40, exit: 'resume' },
+];
+for (const shot of PAUSE_SHOTS) {
+  const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
+  page.on('pageerror', (e) => { console.log(`  ERROR ${e.message}`); errors++; });
+  page.on('console', (m) => { if (m.type() === 'error') { console.log(`  ERROR ${m.text()}`); errors++; } });
+  await page.goto(`http://127.0.0.1:${port}/?seed=11`, { waitUntil: 'load' });
+
+  const box = await page.locator('canvas').boundingBox();
+  const laneY = box.y + box.height * 0.84;
+  await page.mouse.move(box.x + box.width / 2, laneY);
+  await page.mouse.down();
+  const chosen = new Map();
+  for (let tick = 0; tick < shot.play * 10; tick++) {
+    const s = await page.evaluate(() =>
+      window.game?.scene?.getScene('Game')?.registry?.get('stats') ?? null);
+    if (s?.over) break;
+    const reachable = (s?.gates ?? []).filter((g) => g.y < 820);
+    if (reachable.length > 0) {
+      const pair = reachable.reduce((a, b) => (b.y > a.y ? b : a)).pair;
+      const offer = reachable.filter((g) => g.pair === pair);
+      if (!chosen.has(pair)) chosen.set(pair, (offer.find((g) => g.best) ?? offer[0]).x);
+      await page.mouse.move(box.x + (chosen.get(pair) / 540) * box.width, laneY);
+    }
+    await page.waitForTimeout(100);
+  }
+  await page.mouse.up();
+
+  // Tap the real control at its real coordinates, so the hit test GameScene
+  // owns is what is exercised rather than an event fired past it.
+  const scale = box.width / 540;
+  await page.mouse.click(box.x + 486 * scale, box.y + 100 * scale);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(OUT_DIR, `${shot.name}.png`) });
+
+  const state = await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    return { paused: g.paused, elapsed: g.elapsed, stats: g.registry.get('stats') };
+  });
+  console.log(`${shot.name}: paused = ${state.paused}, wave ${state.stats.wave}`);
+  if (state.paused !== true) {
+    console.log('  ERROR the pause button did not pause the game');
+    errors++;
+  }
+
+  // Leave by the button, and check the simulation did what the button says. A
+  // frozen simulation that never restarts looks identical to a working one in
+  // a screenshot.
+  await page.mouse.click(
+    box.x + 270 * scale, box.y + (shot.exit === 'resume' ? 714 : 794) * scale,
+  );
+  await page.waitForTimeout(900);
+  const after = await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    return { paused: g.paused, elapsed: g.elapsed, stats: g.registry.get('stats') };
+  });
+  console.log(
+    `${shot.name}: ${shot.exit} -> paused ${after.paused},`,
+    `wave ${after.stats.wave}, power ${after.stats.power}, ${after.elapsed.toFixed(1)}s`,
+  );
+  if (after.paused !== false) { console.log(`  ERROR ${shot.exit} did not unpause`); errors++; }
+  if (shot.exit === 'resume' && !(after.elapsed > state.elapsed)) {
+    console.log('  ERROR resume did not restart the simulation clock'); errors++;
+  }
+  if (shot.exit === 'restart' && !(after.stats.wave === 1 && after.stats.kills === 0)) {
+    console.log('  ERROR restart did not reset the run'); errors++;
+  }
+  await page.close();
+}
+
 // The start screen is reached only WITHOUT ?seed=, which is the form every
 // other script passes - so without this shot it would be a user-facing screen
 // no automated check has ever seen. That is exactly how the end screen got to

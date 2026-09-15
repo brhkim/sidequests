@@ -17,6 +17,7 @@ import { createRng } from '../systems/Rng';
 import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
 import { VERSION } from '../version';
 import { pierceMultiplier } from '../systems/Progression';
+import { PAUSE_BUTTON } from './hud/PauseScreen';
 import { RAIL_HEIGHT } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
 
@@ -71,6 +72,8 @@ export class GameScene extends Phaser.Scene {
   private over = false;
   /** Held at the start screen until the player commits. */
   private waiting = true;
+  /** Frozen on the pause/help screen. */
+  private paused = false;
 
   private seed = 0;
   private mode: MatchMode = 'normal';
@@ -163,13 +166,35 @@ export class GameScene extends Phaser.Scene {
       };
     }
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (p.isDown) this.targetX = p.worldX;
+      if (p.isDown && !this.paused) this.targetX = p.worldX;
     });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // The pause control is hit-tested HERE, not as an interactive object in
+      // the UI scene: a tap reaching both scenes would pause the game and also
+      // order the squad to the button's x, which it walks to on resume.
+      if (!this.over && !this.waiting && inPauseButton(p.worldX, p.worldY)) {
+        this.setPaused(!this.paused);
+        return;
+      }
+      if (this.paused) return;
       if (this.over) this.restart();
       else this.targetX = p.worldX;
     });
     this.input.keyboard?.on('keydown-SPACE', () => { if (this.over) this.restart(); });
+    const toggle = () => { if (!this.over && !this.waiting) this.setPaused(!this.paused); };
+    this.input.keyboard?.on('keydown-ESC', toggle);
+    this.input.keyboard?.on('keydown-P', toggle);
+    // The pause screen holds no state of its own - it reads the last published
+    // HUD frame - so resume and restart are requests back into the simulation.
+    this.game.events.on('setpaused', (on: boolean) => this.setPaused(on));
+    this.game.events.on('restartrequest', () => { this.paused = false; this.restart(); });
+  }
+
+  /** Freezes the simulation and tells the HUD to raise (or drop) the screen. */
+  private setPaused(on: boolean): void {
+    if (this.paused === on) return;
+    this.paused = on;
+    this.game.events.emit('paused', on);
   }
 
   private restart(): void {
@@ -195,7 +220,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   override update(_time: number, delta: number): void {
-    if (this.over || this.waiting) return;
+    if (this.over || this.waiting || this.paused) return;
     // Clamp dt: a long frame would otherwise let fast enemies and bullets skip
     // past each other between collision checks.
     const dt = Math.min(delta / 1000, 1 / 30);
@@ -670,4 +695,10 @@ export class GameScene extends Phaser.Scene {
       );
     }
   }
+}
+
+/** Shared with the UI scene, which draws the control this rectangle describes. */
+function inPauseButton(x: number, y: number): boolean {
+  return Math.abs(x - PAUSE_BUTTON.x) <= PAUSE_BUTTON.width / 2
+    && Math.abs(y - PAUSE_BUTTON.y) <= PAUSE_BUTTON.height / 2;
 }

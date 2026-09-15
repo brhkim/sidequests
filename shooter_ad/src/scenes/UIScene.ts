@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { VIEW } from '../config';
 import { BonusStrip } from './hud/BonusStrip';
 import { EndScreen, type EndPayload } from './hud/EndScreen';
+import { PauseScreen, PAUSE_BUTTON } from './hud/PauseScreen';
 import { StartScreen, type StartPayload } from './hud/StartScreen';
 import { TopRail } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
@@ -21,6 +22,10 @@ export class UIScene extends Phaser.Scene {
   private toastText!: Phaser.GameObjects.Text;
   private end!: EndScreen;
   private start!: StartScreen;
+  private pause!: PauseScreen;
+  /** The last frame the game published. The pause screen reads from it, because
+   *  a paused GameScene stops publishing. */
+  private lastHud: HudPayload | null = null;
 
   constructor() { super('UI'); }
 
@@ -39,6 +44,13 @@ export class UIScene extends Phaser.Scene {
       this.game.events.emit('startmatch');
     });
 
+    this.pause = new PauseScreen(
+      this,
+      () => this.game.events.emit('setpaused', false),
+      () => this.game.events.emit('restartrequest'),
+    );
+    this.drawPauseButton();
+
     this.game.events.on('hud', this.onHud, this);
     this.game.events.on('toast', this.onToast, this);
     this.game.events.on('gameover', this.onGameOver, this);
@@ -47,24 +59,46 @@ export class UIScene extends Phaser.Scene {
     // announces the match - see the note there.
     this.game.events.emit('uiready');
     this.game.events.on('restart', this.onRestart, this);
+    this.game.events.on('paused', this.onPaused, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('hud', this.onHud, this);
       this.game.events.off('toast', this.onToast, this);
       this.game.events.off('gameover', this.onGameOver, this);
       this.game.events.off('showstart', this.onShowStart, this);
       this.game.events.off('restart', this.onRestart, this);
+      this.game.events.off('paused', this.onPaused, this);
     });
   }
 
-
+  /**
+   * The pause control, drawn here rather than in the rail because the rail's
+   * five columns are full. GameScene owns the hit test - see PAUSE_BUTTON -
+   * so one tap cannot both pause and order the squad across the lane.
+   */
+  private drawPauseButton(): void {
+    const { x, y, width, height } = PAUSE_BUTTON;
+    this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.72)
+      .setStrokeStyle(1, 0x6f7a94, 0.7).setDepth(40);
+    this.add.text(x, y, 'PAUSE', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '13px',
+      color: '#8f9ab5', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(40).setLetterSpacing(1);
+  }
 
   private onHud(h: HudPayload): void {
+    this.lastHud = h;
     this.rail.update(h);
     this.strip.update(h);
   }
 
+  private onPaused(paused: boolean): void {
+    if (paused && this.lastHud) this.pause.show(this.lastHud);
+    else this.pause.hide();
+  }
+
   private onRestart(): void {
     this.end.hide();
+    this.pause.hide();
     this.strip.reset();
   }
 
