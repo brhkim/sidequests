@@ -54,10 +54,14 @@ export class DecisionLog {
     this.open.set(pair, { wave, time, offer: scoreOffer(from, gates) });
   }
 
-  /** Resolves an offer. `taken` is -1 when it was allowed to pass. */
-  resolve(pair: number, taken: number): void {
+  /**
+   * Resolves an offer. `taken` is -1 when it was allowed to pass. Returns where
+   * the pick ranked (0 best, 1 worst), or null if there was nothing to resolve,
+   * so the halo flash can colour from the same grade the death screen will show.
+   */
+  resolve(pair: number, taken: number): number | null {
     const pending = this.open.get(pair);
-    if (!pending) return;
+    if (!pending) return null;
     this.open.delete(pair);
     const { offer, wave, time } = pending;
     this.decisions.push({
@@ -70,6 +74,7 @@ export class DecisionLog {
       best: offer.best,
       rank: pickRank(offer, taken),
     });
+    return this.decisions[this.decisions.length - 1].rank;
   }
 
   /**

@@ -269,7 +269,8 @@ export class GameScene extends Phaser.Scene {
       // before applyGate, so the options are priced from the state the player
       // was actually deciding in.
       this.gates.consumePair(g.pair);
-      this.log.resolve(g.pair, g.index);
+      const rank = this.log.resolve(g.pair, g.index);
+      if (rank !== null) this.flashPick(g.x, g.y, rank);
       this.toast(this.squad.applyGate(g.type));
     }
   }
@@ -299,6 +300,27 @@ export class GameScene extends Phaser.Scene {
       this.over = true;
       this.game.events.emit('gameover', { wave: this.enemies.wave.index, kills: this.kills });
     }
+  }
+
+  /**
+   * Green / amber / red on the gate you just took, graded by the same scoring
+   * the death screen will use - so instant feedback and the post-mortem can
+   * never disagree about the same pick.
+   *
+   * The death screen teaches after the fact; this teaches during, which is what
+   * actually makes players improve. Graded on the SPREAD of the offer, so
+   * taking the second of three near-identical bonuses does not read as a
+   * blunder.
+   */
+  private flashPick(x: number, y: number, rank: number): void {
+    const color = rank <= 0.001 ? 0x3ecf7a : rank >= 0.999 ? 0xff4757 : 0xffc93c;
+    const halo = this.add.circle(x, y, 34, color, 0.5).setDepth(26);
+    this.tweens.add({
+      targets: halo,
+      scale: 2.6, alpha: 0,
+      duration: 420, ease: 'Quad.easeOut',
+      onComplete: () => halo.destroy(),
+    });
   }
 
   private toast(text: string): void {
