@@ -18,6 +18,8 @@ npm run build   # typecheck + production build to dist/
 npm run verify  # REQUIRED before claiming a change works
 npm run balance # time series of power, DPS, par DPS, standing, enemy knobs
 npm run hud     # screenshots the HUD in early / mid / late upgrade states
+npm run endscreen  # screenshots the end screen after a real run
+npm run matchcode  # round-trips share codes; pure logic, fast
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -31,6 +33,18 @@ one into `.verify/`. `verify` plays from scratch, so it only ever photographs an
 empty build - no multipliers, no guns, no pierce - and the readout beneath the
 red line exists for the state `verify` never reaches. Judge HUD legibility off
 these, not off the verify frame.
+
+`npm run endscreen` plays a real run, ends it, and photographs the end screen at
+two qualities of play. `verify` stops while the squad is still alive, so the
+screen carrying the score, the decision tally and the match code - the entire
+shareable artefact - is never otherwise seen by any automated check, and it is
+the screen most likely to be wrong because it is the only one built from values
+that do not exist until a run ends.
+
+`npm run matchcode` round-trips share codes, including every 32-bit boundary and
+the ways a person mistypes one off a screenshot. A sharing code that loses a bit
+is worse than no sharing: two people compare scores on what they believe is one
+match, and nothing on screen says otherwise.
 
 `npm run behaviour` is the instrument for the enemy roster. `verify` proves the
 game boots and `balance` proves it is survivable; neither can see eight types
@@ -63,12 +77,20 @@ measurement reasons rather than game reasons. Before trusting any number:
   standings above 20.
 - **One run proves nothing.** Read medians across seeds.
 
-The probe's bot is crude: it steers by a preference over bonus *axes* and has no
-threat avoidance or positioning. Under the current taxonomy that is barely a
-player at all — the decision the game asks is between two magnitudes of the same
-axis, which a preference over axes cannot express. Treat its numbers as a floor
-on difficulty, not a verdict on how the game feels, and treat anything that
-depends on picking *well* as unmeasured until the bot is rebuilt.
+The probe's bot now chooses from the game's own `scoreOffer`, so it answers the
+question the game actually asks. `PROBE_SKILL` is the probability of reaching
+for the best option, otherwise picking at random; its RNG is seeded per run, and
+it commits once per offer rather than re-rolling each tick, which would average
+the knob away.
+
+Read `optimal` and `PROBE_SKILL` as different quantities. Skill is an INPUT -
+the chance of reaching for the best option. `optimal` is the OUTPUT: the share
+of achievable damage growth actually captured, after misreached gates and missed
+offers. They will not match, and should not be expected to.
+
+It is still a crude player: no threat avoidance, no positioning for breaches,
+and it cannot dodge enemy fire at all. A floor on difficulty, not a verdict on
+how the game feels.
 
 ## Architecture
 
@@ -90,6 +112,26 @@ large files badly. Past ~250 lines, split before adding.
 **Content lives in tables, not `if` chains.** Adding an enemy or a bonus should
 be an append to `data/`. Editing a `switch` to add content means the design is
 wrong.
+
+### `Scoring.ts` prices every offer, exactly once
+
+Par takes its pick from it, `DecisionLog` grades the player with it, the halo
+flash colours from it, and the probe bot chooses with it. Two implementations
+would drift, and the failure is silent and nasty: the death screen telling a
+player they made a mistake the difficulty curve never charged them for, or
+charging them for one it refuses to name.
+
+Ties break toward the option leaving the most power, then toward the first
+offered, and the comparison is relative rather than exact. That is load-bearing
+rather than fussy - on a strict `>` against a flat DPS curve, par kept whatever
+it scored first and two seeds showed it halving its own army.
+
+`DecisionLog` measures each option against the state the player was ACTUALLY in
+when the offer arrived, not against a counterfactual perfect run. Missed offers
+are logged as decisions with no pick, because driving past three gates should
+show up in the score. One ordering trap, already paid for: `consumePair` is what
+opens the log entry for a gate taken before it reaches the lane line, so
+resolving before it silently left every such decision unrecorded.
 
 ### `Progression.ts` is the single definition of squad strength
 
@@ -165,11 +207,6 @@ feel bigger.
 
 These came out of `npm run balance` and are load-bearing for the roadmap. Do not
 tune balance around them — fix them first.
-
-- **The probe bot cannot see the decision the game is about.** It ranks gates by
-  axis, and the redesign's interesting choice is between two magnitudes of the
-  *same* axis. Every balance number is soft until it is rebuilt on real DPS
-  deltas with a `PROBE_SKILL` knob.
 
 Fixed: **enemy behaviour variety**. Movement is now a discriminated `motion`
 union in `data/enemies.ts`, one case each in `systems/EnemyMotion.ts`, and every

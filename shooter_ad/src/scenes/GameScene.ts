@@ -14,6 +14,8 @@ import { scoreOffer } from '../systems/Scoring';
 import { Grid } from '../systems/Grid';
 import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
+import { encodeMatch, matchUrl, type MatchMode } from '../systems/MatchCode';
+import { VERSION } from '../version';
 import { pierceMultiplier } from '../systems/Progression';
 import { RAIL_HEIGHT } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
@@ -59,6 +61,7 @@ export class GameScene extends Phaser.Scene {
   private over = false;
 
   private seed = 0;
+  private mode: MatchMode = 'normal';
 
   constructor() { super('Game'); }
 
@@ -282,7 +285,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(120, 0.006);
     if (!this.squad.alive) {
       this.over = true;
-      this.game.events.emit('gameover', { wave: this.enemies.wave.index, kills: this.kills });
+      this.emitGameOver();
     }
   }
 
@@ -298,7 +301,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(70, 0.003);
     if (!this.squad.alive) {
       this.over = true;
-      this.game.events.emit('gameover', { wave: this.enemies.wave.index, kills: this.kills });
+      this.emitGameOver();
     }
   }
 
@@ -320,6 +323,24 @@ export class GameScene extends Phaser.Scene {
       scale: 2.6, alpha: 0,
       duration: 420, ease: 'Quad.easeOut',
       onComplete: () => halo.destroy(),
+    });
+  }
+
+  /**
+   * The end screen's whole payload, including the match code, because that
+   * screen is a shareable artefact rather than a summary - see hud/EndScreen.
+   */
+  private emitGameOver(): void {
+    const match = { seed: this.seed, mode: this.mode };
+    this.game.events.emit('gameover', {
+      wave: this.enemies.wave.index,
+      kills: this.kills,
+      optimal: this.log.fractionOfOptimal,
+      tally: this.log.tally,
+      decisions: this.log.count,
+      code: encodeMatch(match),
+      version: VERSION,
+      link: matchUrl(match, window.location.href),
     });
   }
 

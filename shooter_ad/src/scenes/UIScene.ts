@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { COLORS, VIEW } from '../config';
+import { VIEW } from '../config';
 import { BonusStrip } from './hud/BonusStrip';
+import { EndScreen, type EndPayload } from './hud/EndScreen';
 import { TopRail } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
 
@@ -17,7 +18,7 @@ export class UIScene extends Phaser.Scene {
   private rail!: TopRail;
   private strip!: BonusStrip;
   private toastText!: Phaser.GameObjects.Text;
-  private gameOver!: Phaser.GameObjects.Container;
+  private end!: EndScreen;
 
   constructor() { super('UI'); }
 
@@ -30,7 +31,7 @@ export class UIScene extends Phaser.Scene {
       color: '#ffe9a8', fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0);
 
-    this.buildGameOver();
+    this.end = new EndScreen(this);
 
     this.game.events.on('hud', this.onHud, this);
     this.game.events.on('toast', this.onToast, this);
@@ -44,25 +45,7 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  private buildGameOver(): void {
-    const panel = this.add.rectangle(
-      VIEW.width / 2, VIEW.height / 2, VIEW.width, VIEW.height, 0x05070f, 0.86,
-    );
-    const title = this.add.text(VIEW.width / 2, VIEW.height / 2 - 70, 'OVERRUN', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '54px',
-      color: '#ff5566', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    const stats = this.add.text(VIEW.width / 2, VIEW.height / 2, '', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '22px',
-      color: COLORS.text, align: 'center',
-    }).setOrigin(0.5).setName('stats');
-    const hint = this.add.text(VIEW.width / 2, VIEW.height / 2 + 80, 'tap to try again', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#8f9ab5',
-    }).setOrigin(0.5);
 
-    this.gameOver = this.add.container(0, 0, [panel, title, stats, hint])
-      .setDepth(50).setVisible(false);
-  }
 
   private onHud(h: HudPayload): void {
     this.rail.update(h);
@@ -70,7 +53,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   private onRestart(): void {
-    this.gameOver.setVisible(false);
+    this.end.hide();
     this.strip.reset();
   }
 
@@ -85,9 +68,8 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  private onGameOver(payload: { wave: number; kills: number }): void {
-    const stats = this.gameOver.getByName('stats') as Phaser.GameObjects.Text;
-    stats.setText(`reached wave ${payload.wave}\n${payload.kills} enemies destroyed`);
-    this.gameOver.setVisible(true);
+  private onGameOver(payload: EndPayload & { link: string }): void {
+    this.end.show(payload, payload.link);
   }
+
 }
