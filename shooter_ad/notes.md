@@ -333,7 +333,10 @@ for everyone on the same version. Consequences:
 - Every consumer of randomness routes through the seeded generator. No stray
   `Math.random()`; the squad's firing jitter already caught this once.
 - Anything that touches gameplay off wall-clock or frame timing breaks
-  reproducibility. Simulation must advance on a clamped, deterministic step.
+  reproducibility. **Done**: the simulation advances on a fixed 1/60s step
+  (`SIM` in `config.ts`) and a seed now reproduces a run exactly, which
+  `npm run repeat` asserts. The instrument had to move too - a bot steering on
+  wall-clock input made a deterministic game measure as nondeterministic.
 - **Balance changes change outcomes.** Seeds are only comparable within a
   version, so show a version tag beside the seed and treat that pair as the
   shareable unit.

@@ -189,6 +189,35 @@ export const DIFFICULTY = {
   minSpawnRateFactor: 0.35,
 } as const;
 
+/**
+ * The simulation clock.
+ *
+ * Gameplay advances in FIXED increments, never on the real frame delta. Two
+ * measured reasons, both of which cost this project a retracted result:
+ *
+ * - **A seed did not reproduce a run.** Three repeats of one seed gave 40.2s,
+ *   41.1s and 40.2s of simulated time. The content was identical every time;
+ *   only collision resolution wobbled, because it resolved against a slightly
+ *   different dt each frame. Seeds are a product feature here, so "same
+ *   offers, different outcome" is a broken feature rather than test noise.
+ * - **Simulated and wall-clock time diverged with render load.** Adding screens
+ *   to the game changed measured survival by 36% and produced a confident,
+ *   entirely false balance conclusion. On a fixed step the amount of game per
+ *   simulated second is a constant, whatever the browser is doing.
+ */
+export const SIM = {
+  /** Seconds of simulation per step. 1/60 matches the display's natural rate. */
+  step: 1 / 60,
+  /**
+   * Cap on steps consumed per rendered frame. Without it a frame that took
+   * 500ms queues 30 steps, which take longer than a frame to run, which queues
+   * more - the spiral of death. At this cap a slow frame simply loses time:
+   * the game runs briefly in slow motion rather than freezing, which is the
+   * right trade for a game whose clock is a correctness property.
+   */
+  maxStepsPerFrame: 5,
+} as const;
+
 export const GATES = {
   /** Seconds between offers descending. */
   interval: 7.5,

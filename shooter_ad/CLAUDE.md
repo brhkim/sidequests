@@ -17,9 +17,11 @@ npm run dev     # vite dev server, hot reload
 npm run build   # typecheck + production build to dist/
 npm run verify  # REQUIRED before claiming a change works
 npm run balance # time series of power, DPS, par DPS, standing, enemy knobs
+npm run repeat  # plays ONE seed several times; fails if the runs disagree
 npm run hud     # screenshots the HUD in early / mid / late upgrade states
 npm run endscreen  # screenshots the end, start and pause screens after real runs
 npm run matchcode  # round-trips share codes; pure logic, fast
+npm run behaviour  # per-enemy movement signatures, shield taper, enemy fire
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -80,18 +82,28 @@ measurement reasons rather than game reasons. Before trusting any number:
   against a player who stacked army-size gates is meaningless and once produced
   standings above 20.
 - **One run proves nothing.** Read medians across seeds.
-- **Measure in SIMULATED seconds, never wall-clock.** The simulation advances on
-  clamped frame deltas, so how much game happens per real second depends on how
-  much the scene is rendering. A verify run spanning ~24s of wall clock covers
-  ~43s of simulated time. `stats.elapsed` is the honest axis; the probe reports
-  it.
-- **A seed reproduces content exactly; timing wobbles ~2%.** Three repeats of
-  one seed at one skill level gave 40.2s, 41.1s and 40.2s of simulated time,
-  with identical decisions and the same wave every time. Measured in WALL-CLOCK
-  the same three runs read 15s, 15s and 20s - a 33% spread, entirely an artefact
-  of the clock. The residual 2% is frame-timing jitter in collision resolution
-  and will not go until the simulation runs on a fixed timestep. Treat
-  differences under ~5% as noise.
+- **Measure in SIMULATED seconds, never wall-clock.** `stats.elapsed` is the
+  honest axis and the probe reports it. The two clocks now run at roughly 1:1
+  because the simulation is on a fixed step, but they are still different
+  quantities: only one of them is a property of the game rather than of the
+  machine it ran on.
+- **A seed now reproduces a run EXACTLY, and `npm run repeat` is the check.**
+  Three repeats of seed 1 agree to the last decimal: 56.3s, wave 4, 6
+  decisions, 62% of optimal, 16 kills - 0.00% spread on simulated survival
+  while wall clock still moves 0.67%. Before the fixed timestep the same three
+  repeats gave 40.2s / 41.1s / 40.2s. A nonzero spread from `npm run repeat` is
+  a regression, and the usual causes are a stray `Math.random()` or gameplay
+  reading a real frame delta instead of `SIM.step`.
+
+  **Fixing the simulation clock alone was not enough**, and this is the part
+  worth remembering. With the simulation already deterministic, the probe bot
+  was still steering by wall-clock mouse moves, so its input landed at a
+  different SIMULATED moment on every repeat - and the same three repeats
+  diverged *further* than before, to 4 / 6 / 4 decisions and a 30% survival
+  spread. Both clocks had to move. The bot now steers from inside the page
+  through `window.__autopilot`, which the simulation calls once per fixed step.
+  A deterministic system measured by a nondeterministic instrument is a
+  nondeterministic measurement.
 
 **A worked example of all three failing at once, because it is the fourth time
 this project has been fooled by its own instruments.** A sweep reported survival
@@ -166,10 +178,14 @@ on this branch that was downstream of those survival medians is unverified,
 including the claim that the end screen's headline score inversely tracks skill.
 
 Survival is now measured in simulated seconds. Numbers taken on that axis are
-not comparable with any figure recorded before it, since the two clocks differ
-by roughly a factor of two.
+not comparable with any figure recorded before the switch, since the two clocks
+then differed by roughly a factor of two. They are also not comparable across
+the fixed-timestep change: on a fixed step the bot's input arrives at different
+simulated moments than it used to, so runs diverge from the very first offer.
+Seed 1 at skill 0.7 went from 42.8s / 4 decisions to 56.3s / 6 decisions on that
+change alone. **The sweep table above predates it and is therefore stale.**
 
-**The mercy clamp stays untouched** until a sweep on the corrected clock says
+**The mercy clamp stays untouched** until a sweep on the fixed-step clock says
 something about it. It is the constant most likely to make the game miserable if
 overcorrected, and every reading that pointed at it so far came from an
 instrument timing the browser.
@@ -371,8 +387,16 @@ one. That makes reproducibility a feature, not a testing convenience:
 - Every consumer of randomness goes through the seeded generator from
   `systems/Rng.ts`. A stray `Math.random()` anywhere breaks it; the squad's
   firing jitter already caught this once.
-- Nothing gameplay-affecting may read wall-clock or raw frame timing. The
-  simulation advances on a clamped step.
+- Nothing gameplay-affecting may read wall-clock or raw frame timing.
+  `GameScene.update` drains real time into FIXED `SIM.step` increments and
+  `GameScene.step` is the only thing below it that sees a `dt` at all - always
+  the same one. Rendering is snapped to the latest step rather than
+  interpolated; at a 1/60s step against a 60Hz display there is nothing visible
+  to interpolate, and snapping keeps the frame a photograph of a real
+  simulation state rather than of one that never existed.
+- `SIM.maxStepsPerFrame` caps the drain, so a slow frame loses time instead of
+  queueing more work than the next frame can do. The game runs briefly in slow
+  motion; it does not spiral.
 - **Balance changes change outcomes.** A seed is only comparable within a
   version, so a version tag travels with it.
 
@@ -404,8 +428,9 @@ Every interaction is circle-vs-circle with no gravity, stacking, or resting
 contact — the case where a physics library costs more than it gives. Two guards
 matter and are in place:
 
-- `delta` is clamped to 1/30s in `GameScene.update`, so fast bullets cannot
-  tunnel through enemies on a slow frame.
+- The step is a fixed 1/60s (`SIM.step`), so fast bullets cannot tunnel through
+  enemies on a slow frame - and, unlike the clamped real delta this replaced,
+  the collision geometry resolves identically on every repeat of a seed.
 - Bullet-vs-enemy goes through the uniform `Grid` broad-phase, never a nested
   loop.
 - Enemy-bullet-vs-squad is **swept**: `EnemyBullets.collide` measures each unit

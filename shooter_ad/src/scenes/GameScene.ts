@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, SQUAD, STREAK, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
 } from '../config';
 import { TIERS } from '../data/tiers';
 import { Squad } from '../systems/Squad';
@@ -23,6 +23,23 @@ import type { HudPayload } from './hud/types';
 
 const SKIN = 0xf2c9a0;
 
+/** One live gate, priced by the game's own `scoreOffer`. */
+interface ScoredGate {
+  x: number; y: number;
+  label: string; axis: string; form: string;
+  pair: number;
+  delta: number;
+  best: boolean;
+}
+
+/** See `GameScene.steerAutopilot`. Instruments only. */
+type AutopilotFn = (state: {
+  elapsed: number;
+  squadX: number;
+  wave: number;
+  gates: ScoredGate[];
+}) => number | null;
+
 export class GameScene extends Phaser.Scene {
   private squad!: Squad;
   private bullets!: Bullets;
@@ -33,6 +50,8 @@ export class GameScene extends Phaser.Scene {
   private log!: DecisionLog;
   /** Seconds of simulated play, for ordering decision rows. */
   private elapsed = 0;
+  /** Real time banked but not yet spent on a whole simulation step. */
+  private accumulator = 0;
   private grid!: Grid<Enemy>;
 
   private bodyPool!: SpritePool;
@@ -208,6 +227,7 @@ export class GameScene extends Phaser.Scene {
     this.difficulty.reset();
     this.log.reset();
     this.elapsed = 0;
+    this.accumulator = 0;
     this.breachLoss = 0;
     this.fireLoss = 0;
     this.traveled = 0;
@@ -219,13 +239,46 @@ export class GameScene extends Phaser.Scene {
     this.emitHud();
   }
 
+  /**
+   * Drains real time into FIXED simulation steps, then renders once.
+   *
+   * Nothing below this line ever sees a real frame delta - `step` is always
+   * handed `SIM.step`. That is what makes a seed reproduce a run exactly and
+   * what decouples the amount of game per simulated second from how much the
+   * scene is rendering. See the SIM block in config.ts for the measurements
+   * that forced it.
+   */
   override update(_time: number, delta: number): void {
-    if (this.over || this.waiting || this.paused) return;
-    // Clamp dt: a long frame would otherwise let fast enemies and bullets skip
-    // past each other between collision checks.
-    const dt = Math.min(delta / 1000, 1 / 30);
+    if (this.over || this.waiting || this.paused) {
+      // Do not bank time spent on a pause or an end screen: it would all be
+      // spent in one burst on resume.
+      this.accumulator = 0;
+      return;
+    }
+
+    this.accumulator += Math.min(delta / 1000, SIM.step * SIM.maxStepsPerFrame);
+    let steps = 0;
+    while (this.accumulator >= SIM.step && steps < SIM.maxStepsPerFrame) {
+      this.step(SIM.step);
+      this.accumulator -= SIM.step;
+      steps++;
+      // A breach can end the run mid-drain. Keep the leftover out of the next
+      // run's first frame.
+      if (this.over || this.waiting) { this.accumulator = 0; break; }
+    }
+
+    this.render();
+    this.emitHud();
+  }
+
+  /**
+   * One simulation tick. `dt` is always `SIM.step`; it is a parameter so the
+   * systems below stay unit-testable against any step size.
+   */
+  private step(dt: number): void {
     this.elapsed += dt;
 
+    this.steerAutopilot();
     this.handleKeys(dt);
     this.squad.update(dt, this.targetX);
     this.traveled += Math.abs(this.squad.x - this.lastX);
@@ -253,9 +306,38 @@ export class GameScene extends Phaser.Scene {
     this.checkGates();
     this.applyBreaches();
     this.applyIncomingFire();
+  }
 
-    this.render();
-    this.emitHud();
+  /**
+   * Instrument seam. When `window.__autopilot` is installed, it is asked for a
+   * target x ONCE PER SIMULATION STEP and drives the same `targetX` a pointer
+   * does.
+   *
+   * This exists because a fixed timestep alone does not make a probe run
+   * reproducible. The bot used to steer by issuing real mouse moves on a
+   * wall-clock poll, so its input landed at a different SIMULATED moment on
+   * every repeat - and three repeats of one seed diverged to 4 and 6 decisions,
+   * different waves, and a 30% spread in survival. The simulation was
+   * deterministic; the thing measuring it was not. Steering here makes the bot
+   * a pure function of simulated state, which is what lets `npm run repeat`
+   * assert a zero spread.
+   *
+   * It is a seam for instruments only - nothing installs it in a shipped game,
+   * and it writes the same field a finger does, so the bot is not given an
+   * input path a player lacks.
+   */
+  private steerAutopilot(): void {
+    const fn = (window as unknown as { __autopilot?: AutopilotFn }).__autopilot;
+    if (!fn) return;
+    const x = fn({
+      elapsed: this.elapsed,
+      squadX: this.squad.x,
+      wave: this.enemies.wave.index,
+      gates: this.scoreLiveGates(),
+    });
+    if (typeof x === 'number' && Number.isFinite(x)) {
+      this.targetX = Math.max(ARENA.minX, Math.min(ARENA.maxX, x));
+    }
   }
 
   private handleKeys(dt: number): void {
@@ -437,14 +519,14 @@ export class GameScene extends Phaser.Scene {
    * - the interesting choice is between two magnitudes of the SAME axis - so
    * every balance number it produced was soft.
    */
-  private scoreLiveGates() {
+  private scoreLiveGates(): ScoredGate[] {
     const live = this.gates.items.filter((g) => g.active);
     const byPair = new Map<number, typeof live>();
     for (const g of live) {
       const group = byPair.get(g.pair);
       if (group) group.push(g); else byPair.set(g.pair, [g]);
     }
-    const out = [];
+    const out: ScoredGate[] = [];
     for (const group of byPair.values()) {
       const scored = scoreOffer(
         this.squad.progress, group.map((g) => g.type), this.enemies.wave.index,
