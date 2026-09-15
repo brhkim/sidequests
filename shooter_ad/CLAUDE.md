@@ -81,11 +81,13 @@ measurement reasons rather than game reasons. Before trusting any number:
   much the scene is rendering. A verify run spanning ~24s of wall clock covers
   ~43s of simulated time. `stats.elapsed` is the honest axis; the probe reports
   it.
-- **The same seed does not yet reproduce a run.** Three repeats of one seed at
-  one skill level gave 15s, 15s and 20s. A seed fixes the CONTENT - the same
-  gates, the same enemies - but frame-timing jitter compounds and outcomes
-  diverge. Until the simulation runs on a fixed timestep, treat any single
-  survival figure as indicative and re-run before believing a difference.
+- **A seed reproduces content exactly; timing wobbles ~2%.** Three repeats of
+  one seed at one skill level gave 40.2s, 41.1s and 40.2s of simulated time,
+  with identical decisions and the same wave every time. Measured in WALL-CLOCK
+  the same three runs read 15s, 15s and 20s - a 33% spread, entirely an artefact
+  of the clock. The residual 2% is frame-timing jitter in collision resolution
+  and will not go until the simulation runs on a fixed timestep. Treat
+  differences under ~5% as noise.
 
 **A worked example of all three failing at once, because it is the fourth time
 this project has been fooled by its own instruments.** A sweep reported survival
