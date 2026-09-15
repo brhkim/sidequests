@@ -6,3 +6,6 @@ dist/
 CLAUDE.local.md
 .vite/
 .verify/
+
+# Subagent worktrees - transient, never part of the repo
+.claude/worktrees/

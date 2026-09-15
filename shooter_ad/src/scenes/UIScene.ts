@@ -43,6 +43,9 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on('toast', this.onToast, this);
     this.game.events.on('gameover', this.onGameOver, this);
     this.game.events.on('showstart', this.onShowStart, this);
+    // GameScene.create has already run by now and is waiting for this before it
+    // announces the match - see the note there.
+    this.game.events.emit('uiready');
     this.game.events.on('restart', this.onRestart, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('hud', this.onHud, this);

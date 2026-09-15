@@ -109,9 +109,22 @@ for (const run of RUNS) {
   await page.goto(`http://127.0.0.1:${port}/?m=2TNBBGSH`, { waitUntil: 'load' });
   await page.waitForTimeout(900);
   await page.screenshot({ path: join(OUT_DIR, 'start-invited.png') });
-  const held = await page.evaluate(() => window.game.scene.getScene('Game').waiting);
-  console.log(`start-invited: held at start screen = ${held}`);
-  if (held !== true) { console.log('  ERROR shared link did not hold at the start screen'); errors++; }
+  // `waiting` alone is a weak assertion: a frozen game with no start screen at
+  // all also reports true, and that is exactly the bug that shipped once - the
+  // screen was emitted before UIScene existed to hear it. Check the screen is
+  // actually VISIBLE and carrying the match, not merely that play has not begun.
+  const state = await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    const ui = window.game.scene.getScene('UI');
+    const texts = ui.children.list
+      .filter((o) => o.type === 'Container' && o.visible)
+      .flatMap((c) => c.list.filter((o) => o.type === 'Text').map((o) => o.text));
+    return { waiting: g.waiting, texts };
+  });
+  const showsCode = state.texts.some((t) => /^[0-9A-Z]{4}-[0-9A-Z]{3}-[NH]$/.test(t));
+  console.log(`start-invited: waiting=${state.waiting} showsMatchCode=${showsCode}`);
+  if (state.waiting !== true) { console.log('  ERROR shared link did not hold'); errors++; }
+  if (!showsCode) { console.log('  ERROR start screen is not showing the match code'); errors++; }
   await page.close();
 }
 

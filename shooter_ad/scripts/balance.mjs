@@ -121,6 +121,9 @@ async function runSeed(seed) {
     optimal: last?.optimal ?? 1,
     decisions: last?.decisions ?? 0,
     tally: last?.tally ?? { top: 0, mid: 0, low: 0 },
+    breachLoss: last?.breachLoss ?? 0,
+    fireLoss: last?.fireLoss ?? 0,
+    traveled: last?.traveled ?? 0,
   };
 }
 
@@ -170,4 +173,18 @@ console.log(`optimal:  ${optimals.map((o) => (o * 100).toFixed(0) + '%').join(',
   + `   median ${(med(optimals) * 100).toFixed(0)}%`);
 console.log(`standing: median ${med(stands).toFixed(2)}`
   + `   (mercy clamp governs below ${(0.7 / 1.35).toFixed(2)})`);
+
+// Why runs end, and what steering cost. Survival falls as skill rises, and
+// these separate the two explanations: if a high-skill bot travels further and
+// bleeds more power to breaches, the drop is the bot chasing distant gates with
+// no threat avoidance. If travel and breaches are flat while survival still
+// falls, the mercy clamp is genuinely handing better players a harsher run.
+const perMin = (xs, r) => (r.survived > 0 ? (xs / r.survived) * 60 : 0);
+console.log(
+  `breach loss/min: median ${med(results.map((r) => perMin(r.breachLoss, r))).toFixed(1)}`
+  + `   fire loss/min: median ${med(results.map((r) => perMin(r.fireLoss, r))).toFixed(1)}`,
+);
+console.log(
+  `travel/min: median ${Math.round(med(results.map((r) => perMin(r.traveled, r))))}px`,
+);
 console.log(`errors: ${results.reduce((n, r) => n + r.errors.length, 0)}`);

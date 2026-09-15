@@ -57,6 +57,16 @@ export class GameScene extends Phaser.Scene {
   private rng: () => number = Math.random;
   private targetX = VIEW.width / 2;
   private kills = 0;
+  /**
+   * Why runs end, and what they cost to steer. Published so the probe can
+   * separate "the player chose badly" from "the player could not be in two
+   * places at once" - the survival curve falls as PROBE_SKILL rises and these
+   * are what decide whether that is the bot's positioning or the game's clamp.
+   */
+  private breachLoss = 0;
+  private fireLoss = 0;
+  private traveled = 0;
+  private lastX = VIEW.width / 2;
   private streak = 0;
   private over = false;
   /** Held at the start screen until the player commits. */
@@ -118,10 +128,16 @@ export class GameScene extends Phaser.Scene {
       this.waiting = false;
       return;
     }
-    this.game.events.emit('showstart', {
-      code: encodeMatch({ seed: this.seed, mode: this.mode }),
-      version: VERSION,
-      invited: matchFromQuery(window.location.search) !== null,
+    // Wait for the UI scene before announcing the match. Scenes start in the
+    // order main.ts lists them, so GameScene.create runs BEFORE UIScene.create
+    // and an event emitted here would land before anything was listening - the
+    // screen would never appear and the run would never begin.
+    this.game.events.once('uiready', () => {
+      this.game.events.emit('showstart', {
+        code: encodeMatch({ seed: this.seed, mode: this.mode }),
+        version: VERSION,
+        invited: matchFromQuery(window.location.search) !== null,
+      });
     });
     this.game.events.once('startmatch', () => { this.waiting = false; });
   }
@@ -167,6 +183,10 @@ export class GameScene extends Phaser.Scene {
     this.difficulty.reset();
     this.log.reset();
     this.elapsed = 0;
+    this.breachLoss = 0;
+    this.fireLoss = 0;
+    this.traveled = 0;
+    this.lastX = VIEW.width / 2;
     this.waiting = false;
     this.enemies.reset();
     this.gates.reset();
@@ -183,6 +203,8 @@ export class GameScene extends Phaser.Scene {
 
     this.handleKeys(dt);
     this.squad.update(dt, this.targetX);
+    this.traveled += Math.abs(this.squad.x - this.lastX);
+    this.lastX = this.squad.x;
     this.enemies.playerDps = this.squad.dps;
     this.enemies.targetX = this.squad.x;
     this.enemies.targetY = this.squad.y;
@@ -306,6 +328,7 @@ export class GameScene extends Phaser.Scene {
     const cost = this.enemies.collectBreaches();
     if (cost <= 0) return;
     this.squad.addPower(-cost * SQUAD.breachLoss);
+    this.breachLoss += cost * SQUAD.breachLoss;
     this.cameras.main.shake(120, 0.006);
     if (!this.squad.alive) {
       this.over = true;
@@ -322,6 +345,7 @@ export class GameScene extends Phaser.Scene {
     const cost = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius);
     if (cost <= 0) return;
     this.squad.addPower(-cost * SQUAD.fireLoss);
+    this.fireLoss += cost * SQUAD.fireLoss;
     this.cameras.main.shake(70, 0.003);
     if (!this.squad.alive) {
       this.over = true;
@@ -361,6 +385,9 @@ export class GameScene extends Phaser.Scene {
       kills: this.kills,
       optimal: this.log.fractionOfOptimal,
       tally: this.log.tally,
+      breachLoss: Math.round(this.breachLoss),
+      fireLoss: Math.round(this.fireLoss),
+      traveled: Math.round(this.traveled),
       decisions: this.log.count,
       code: encodeMatch(match),
       version: VERSION,
@@ -424,6 +451,9 @@ export class GameScene extends Phaser.Scene {
       over: this.over,
       seed: this.seed,
       gates,
+      breachLoss: Math.round(this.breachLoss),
+      fireLoss: Math.round(this.fireLoss),
+      traveled: Math.round(this.traveled),
       decisions: this.log.count,
       optimal: Number(this.log.fractionOfOptimal.toFixed(4)),
       tally: this.log.tally,
