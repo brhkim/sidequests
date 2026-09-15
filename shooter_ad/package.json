@@ -13,7 +13,8 @@
     "balance": "node scripts/balance.mjs",
     "model": "node --experimental-strip-types scripts/model.mjs",
     "hud": "node scripts/hud-preview.mjs",
-    "behaviour": "node scripts/behaviour.mjs"
+    "behaviour": "node scripts/behaviour.mjs",
+    "matchcode": "node --experimental-strip-types scripts/matchcode.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0",
