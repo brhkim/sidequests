@@ -18,7 +18,7 @@ npm run build   # typecheck + production build to dist/
 npm run verify  # REQUIRED before claiming a change works
 npm run balance # time series of power, DPS, par DPS, standing, enemy knobs
 npm run hud     # screenshots the HUD in early / mid / late upgrade states
-npm run endscreen  # screenshots the end screen after a real run
+npm run endscreen  # screenshots the end, start and pause screens after real runs
 npm run matchcode  # round-trips share codes; pure logic, fast
 ```
 
@@ -34,8 +34,12 @@ empty build - no multipliers, no guns, no pierce - and the readout beneath the
 red line exists for the state `verify` never reaches. Judge HUD legibility off
 these, not off the verify frame.
 
-`npm run endscreen` plays a real run, ends it, and photographs the end screen at
-two qualities of play. `verify` stops while the squad is still alive, so the
+`npm run endscreen` plays real runs and photographs every screen that is not the
+playfield - the end screen at two qualities of play, the start screen reached by
+a shared link, and the pause screen at two different bonus pools. It asserts
+behaviour rather than only producing images, because a frozen simulation and a
+working one make the same screenshot: it checks the start screen is actually
+showing a match code, and that pause leaves by both resume and restart. `verify` stops while the squad is still alive, so the
 screen carrying the score, the decision tally and the match code - the entire
 shareable artefact - is never otherwise seen by any automated check, and it is
 the screen most likely to be wrong because it is the only one built from values
@@ -115,52 +119,39 @@ the chance of reaching for the best option. `optimal` is the OUTPUT: the share
 of achievable damage growth actually captured, after misreached gates and missed
 offers. They will not match, and should not be expected to.
 
-**`optimal` saturates, so do not use it to compare good play against excellent
-play.** Swept across seeds 1-5:
+**`optimal` responds to skill and then saturates.** It separates 0.3 / 0.5 / 0.7
+cleanly and hits a ceiling above that, so do not use it to compare good play
+against excellent play. Part of that is real - a bot reaching for the best
+option 70% of the time captures most of the available growth - and part is an
+artefact: the metric compounds over DECISIONS, so a short run has little room to
+fall behind. A short excellent run and a long excellent run are not comparable
+on this number. It is per-decision rather than per-second, which is why it
+survived the clock retraction below.
 
-| PROBE_SKILL | survival median | optimal median | standing median |
-| --- | --- | --- | --- |
-| 0.3 | 55s | 39% | 0.56 |
-| 0.5 | 55s | 56% | 0.59 |
-| 0.7 | 50s | 98% | 0.85 |
-| 0.9 | 35s | 100% | 0.68 |
-| 1.0 | 35s | 96% | 0.73 |
+**Choosing is not the same as getting.** At high skill the bot reaches for the
+best option nearly every time and still falls short of 100%. The gap is gates it
+chose and could not reach. Any claim of the form "a player picking well gets X"
+has to account for it, because the game charges for travel and the scoring does
+not.
 
-It separates 0.3 from 0.5 from 0.7 cleanly and then hits a ceiling. Part of that
-is real - a bot reaching for the best option 70% of the time captures most of
-the available growth - and part is an artefact: the metric compounds over
-DECISIONS, and a run that dies at 35s makes ten of them, so there is little room
-to fall behind. A short excellent run and a long excellent run are not
-comparable on this number.
+**RETRACTED: survival does not fall with skill.** An earlier sweep here reported
+survival falling monotonically from 55s to 35s as PROBE_SKILL rose, called it
+consistent enough not to be noise, and proposed two mechanisms for it. It was an
+artefact of measuring wall-clock time - see the worked example under
+"Measurement is the hard part here". The diagnostics that were added to settle it
+also refuted the leading hypothesis outright: lateral travel FALLS as skill
+rises rather than rising, and breach loss is flat across skill levels. Anything
+on this branch that was downstream of those survival medians is unverified,
+including the claim that the end screen's headline score inversely tracks skill.
 
-**Choosing is not the same as getting.** At skill 1.0 the bot reaches for the
-best option every single time and still lands at 96% median, with one seed at
-50%. The gap is gates it chose and could not reach. Any future claim of the form
-"a player picking well gets X" has to account for that gap, because the game
-charges for travel and the scoring does not.
+Survival is now measured in simulated seconds. Numbers taken on that axis are
+not comparable with any figure recorded before it, since the two clocks differ
+by roughly a factor of two.
 
-**Survival falls monotonically as skill rises** - 55s at 0.3 down to 35s at 1.0,
-across five levels and five seeds each. That is the opposite of what the curve
-is meant to do, and it is consistent enough not to be noise. It is still not
-explained. Two candidates, and they need separating before anything is tuned:
-
-- The bot has no threat avoidance, so reaching for the BEST gate means more
-  lateral travel across the lane and more breaches taken on the way. Higher
-  skill would then buy worse positioning, which is a property of the bot rather
-  than of the game. The 50% seed above is direct evidence this mechanism exists;
-  what is unmeasured is how much of the survival drop it accounts for.
-- The mercy clamp binds hard for a weak player (pressure becomes 1.35x their own
-  DPS) and releases for a strong one (pressure becomes 0.7x par). Skill would
-  then genuinely buy a harsher run.
-
-**Do not tune the clamp on this.** It is the constant most likely to make the
-game miserable if overcorrected, and the signal pointing at it is confounded by
-the first explanation. Give the bot minimal threat avoidance first, re-sweep,
-and see whether the slope survives.
-
-It also puts a question against the end screen's headline. WAVES SURVIVED is the
-biggest number on the shareable artefact, and on this evidence it does not
-measure the skill the game tests - it inversely tracks it.
+**The mercy clamp stays untouched** until a sweep on the corrected clock says
+something about it. It is the constant most likely to make the game miserable if
+overcorrected, and every reading that pointed at it so far came from an
+instrument timing the browser.
 
 It is still a crude player: no threat avoidance, no positioning for breaches,
 and it cannot dodge enemy fire at all. A floor on difficulty, not a verdict on
