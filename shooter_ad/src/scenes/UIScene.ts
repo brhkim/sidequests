@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { VIEW } from '../config';
 import { BonusStrip } from './hud/BonusStrip';
 import { EndScreen, type EndPayload } from './hud/EndScreen';
+import { StartScreen, type StartPayload } from './hud/StartScreen';
 import { TopRail } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
 
@@ -19,6 +20,7 @@ export class UIScene extends Phaser.Scene {
   private strip!: BonusStrip;
   private toastText!: Phaser.GameObjects.Text;
   private end!: EndScreen;
+  private start!: StartScreen;
 
   constructor() { super('UI'); }
 
@@ -32,15 +34,21 @@ export class UIScene extends Phaser.Scene {
     }).setOrigin(0.5).setAlpha(0);
 
     this.end = new EndScreen(this);
+    this.start = new StartScreen(this, () => {
+      this.start.hide();
+      this.game.events.emit('startmatch');
+    });
 
     this.game.events.on('hud', this.onHud, this);
     this.game.events.on('toast', this.onToast, this);
     this.game.events.on('gameover', this.onGameOver, this);
+    this.game.events.on('showstart', this.onShowStart, this);
     this.game.events.on('restart', this.onRestart, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('hud', this.onHud, this);
       this.game.events.off('toast', this.onToast, this);
       this.game.events.off('gameover', this.onGameOver, this);
+      this.game.events.off('showstart', this.onShowStart, this);
       this.game.events.off('restart', this.onRestart, this);
     });
   }
@@ -66,6 +74,10 @@ export class UIScene extends Phaser.Scene {
       duration: 900, ease: 'Quad.easeOut',
       onStart: () => this.toastText.setY(620),
     });
+  }
+
+  private onShowStart(payload: StartPayload): void {
+    this.start.show(payload);
   }
 
   private onGameOver(payload: EndPayload & { link: string }): void {

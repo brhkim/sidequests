@@ -56,6 +56,27 @@ await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
  * collision step look identical to a working one.
  */
 const box = await page.locator('canvas').boundingBox();
+const toScreen = (gx, gy) => ({
+  x: box.x + (gx / 540) * box.width,
+  y: box.y + (gy / 960) * box.height,
+});
+
+/**
+ * Press START MATCH for real, on the canvas, rather than skipping the screen.
+ *
+ * This is the only check that loads the game the way a player does - with no
+ * `?seed=` - so it is the only one that meets the start screen at all. Clicking
+ * the actual button means a dead button fails the build here rather than in
+ * somebody's browser.
+ */
+const start = toScreen(270, 580);
+await page.mouse.click(start.x, start.y);
+await page.waitForTimeout(250);
+if (await page.evaluate(() => window.game.scene.getScene('Game').waiting)) {
+  console.error('FAIL: START MATCH did not begin the run');
+  process.exit(1);
+}
+
 const laneY = box.y + box.height * 0.84;
 await page.mouse.move(box.x + box.width / 2, laneY);
 await page.mouse.down();

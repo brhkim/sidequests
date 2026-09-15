@@ -14,7 +14,7 @@ import { scoreOffer } from '../systems/Scoring';
 import { Grid } from '../systems/Grid';
 import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
-import { encodeMatch, matchUrl, type MatchMode } from '../systems/MatchCode';
+import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
 import { VERSION } from '../version';
 import { pierceMultiplier } from '../systems/Progression';
 import { RAIL_HEIGHT } from './hud/TopRail';
@@ -59,6 +59,8 @@ export class GameScene extends Phaser.Scene {
   private kills = 0;
   private streak = 0;
   private over = false;
+  /** Held at the start screen until the player commits. */
+  private waiting = true;
 
   private seed = 0;
   private mode: MatchMode = 'normal';
@@ -101,6 +103,27 @@ export class GameScene extends Phaser.Scene {
 
     this.bindInput();
     this.emitHud();
+
+    // A shared link lands on the start screen, showing what it is about to
+    // play rather than starting under the player's reading. The same screen
+    // appears for a fresh run so the match code is seen at least once - a
+    // player who never sees one will not think to pass it on.
+    //
+    // `?seed=` skips it. That is the instrument form, passed by every script in
+    // scripts/, and those measure play rather than the menu. The shared form is
+    // `?m=`, which does NOT skip. `npm run endscreen` photographs this screen
+    // so it is not left unseen by every automated check.
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('seed')) {
+      this.waiting = false;
+      return;
+    }
+    this.game.events.emit('showstart', {
+      code: encodeMatch({ seed: this.seed, mode: this.mode }),
+      version: VERSION,
+      invited: matchFromQuery(window.location.search) !== null,
+    });
+    this.game.events.once('startmatch', () => { this.waiting = false; });
   }
 
   private drawBackground(): void {
@@ -144,6 +167,7 @@ export class GameScene extends Phaser.Scene {
     this.difficulty.reset();
     this.log.reset();
     this.elapsed = 0;
+    this.waiting = false;
     this.enemies.reset();
     this.gates.reset();
     this.game.events.emit('restart');
@@ -151,7 +175,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   override update(_time: number, delta: number): void {
-    if (this.over) return;
+    if (this.over || this.waiting) return;
     // Clamp dt: a long frame would otherwise let fast enemies and bullets skip
     // past each other between collision checks.
     const dt = Math.min(delta / 1000, 1 / 30);

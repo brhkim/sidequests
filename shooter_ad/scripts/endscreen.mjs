@@ -98,6 +98,23 @@ for (const run of RUNS) {
   await page.close();
 }
 
+// The start screen is reached only WITHOUT ?seed=, which is the form every
+// other script passes - so without this shot it would be a user-facing screen
+// no automated check has ever seen. That is exactly how the end screen got to
+// where it was.
+{
+  const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
+  page.on('pageerror', (e) => { console.log(`  ERROR ${e.message}`); errors++; });
+  page.on('console', (m) => { if (m.type() === 'error') { console.log(`  ERROR ${m.text()}`); errors++; } });
+  await page.goto(`http://127.0.0.1:${port}/?m=2TNBBGSH`, { waitUntil: 'load' });
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: join(OUT_DIR, 'start-invited.png') });
+  const held = await page.evaluate(() => window.game.scene.getScene('Game').waiting);
+  console.log(`start-invited: held at start screen = ${held}`);
+  if (held !== true) { console.log('  ERROR shared link did not hold at the start screen'); errors++; }
+  await page.close();
+}
+
 await browser.close();
 server.close();
 
