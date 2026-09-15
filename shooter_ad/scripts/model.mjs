@@ -219,4 +219,57 @@ if (beats.length === 0) {
   process.exit(1);
 }
 
+
+// What the movement economy costs par, and therefore the difficulty curve.
+//
+// Difficulty budgets enemies against `squadDps(par)`. Par now sometimes spends
+// a pick on access, which carries no damage, so par's DPS grows more slowly
+// than it did before these two bonuses existed and the whole curve softens.
+// That is self-consistent - a perfect player really does spend picks this way -
+// but it is a real effect and it belongs on the record rather than in a
+// surprise. REPORTED, not asserted: it depends on the candidate weights, which
+// are a design dial rather than an invariant.
+const { rollOffer } = await import('../src/data/gates.ts');
+const { GATES: G } = await import('../src/config.ts');
+console.log('\n=== what par spends on access (200 simulated runs of 30 offers) ===');
+let accessPicks = 0, totalPicks = 0;
+let withAccess = 0, dpsWith = 0, dpsWithout = 0;
+for (let run = 0; run < 200; run++) {
+  // Seeded, like everything else here: a deterministic LCG per run.
+  let s0 = run * 2654435761 + 12345;
+  const rng = () => ((s0 = (s0 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const par = state(SQUAD.startPower);
+  const noAccess = state(SQUAD.startPower);
+  for (let offer = 0; offer < 30; offer++) {
+    const wave = 1 + Math.floor(offer / 2);
+    const ctx = {
+      power: par.power,
+      damageBonus: par.upgrades.damageBonus,
+      rateBonus: par.upgrades.rateBonus,
+    };
+    const gates = rollOffer(G.perOffer, wave, ctx, rng);
+    if (gates.length === 0) continue;
+    if (gates.some((g) => g.axis === 'move' || g.axis === 'time')) withAccess++;
+    const pick = gates[scoreOffer(par, gates, wave).best];
+    totalPicks++;
+    if (pick.axis === 'move' || pick.axis === 'time') accessPicks++;
+    applyGate(par, pick);
+    // The same offer, priced the old way - by DPS alone, so access never wins.
+    const byDps = gates.reduce((a, b) => {
+      const p = cloneProgress(noAccess);
+      applyGate(p, b);
+      const q = cloneProgress(noAccess);
+      applyGate(q, a);
+      return squadDps(p) > squadDps(q) ? b : a;
+    });
+    applyGate(noAccess, byDps);
+  }
+  dpsWith += squadDps(par);
+  dpsWithout += squadDps(noAccess);
+}
+console.log(`  offers containing a movement option: ${(withAccess / totalPicks * 100).toFixed(1)}%`);
+console.log(`  picks par spends on access:          ${(accessPicks / totalPicks * 100).toFixed(1)}%`);
+console.log(`  par DPS after 30 offers, access-priced vs DPS-priced:`
+  + ` ${(dpsWith / dpsWithout).toFixed(3)}x`);
+
 console.log('PASS');

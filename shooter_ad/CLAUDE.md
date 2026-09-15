@@ -119,7 +119,18 @@ the chance of reaching for the best option. `optimal` is the OUTPUT: the share
 of achievable damage growth actually captured, after misreached gates and missed
 offers. They will not match, and should not be expected to.
 
-**`optimal` responds to skill and then saturates.** It separates 0.3 / 0.5 / 0.7
+**`optimal` responds to skill and then saturates.** Swept across seeds 1-5 on
+the corrected clock, in simulated seconds:
+
+| PROBE_SKILL | survival | optimal | standing | breach/min | travel/min |
+| --- | --- | --- | --- | --- | --- |
+| 0.3 | 98.5s | 24% | 0.49 | 26.0 | 2002 |
+| 0.5 | 95.4s | 51% | 0.58 | 29.6 | 2151 |
+| 0.7 | 75.0s | 85% | 0.81 | 28.0 | 1686 |
+| 0.9 | 82.8s | 88% | 0.67 | 32.6 | 1821 |
+| 1.0 | 82.7s | 88% | 0.76 | 29.3 | 1629 |
+
+Two things hold and one does not. `optimal` separates 0.3 / 0.5 / 0.7
 cleanly and hits a ceiling above that, so do not use it to compare good play
 against excellent play. Part of that is real - a bot reaching for the best
 option 70% of the time captures most of the available growth - and part is an
@@ -133,6 +144,16 @@ best option nearly every time and still falls short of 100%. The gap is gates it
 chose and could not reach. Any claim of the form "a player picking well gets X"
 has to account for it, because the game charges for travel and the scoring does
 not.
+
+`standing` rises with skill, 0.49 to roughly 0.8, so the difficulty curve IS
+skill-responsive - which is what `PROBE_SKILL` existed to test. Note the 0.3 row
+sits at 0.49, just under the 0.52 mercy-clamp threshold, while every higher
+skill sits above it: weak play is governed by the clamp and competent play by
+par, which is what the two-regime design intends.
+
+**Survival does not track skill.** 98.5 / 95.4 / 75.0 / 82.8 / 82.7 is not
+monotonic, and within-level spreads run 39s to 155s, so at five seeds these
+medians cannot support a trend either way. Do not read a slope into it.
 
 **RETRACTED: survival does not fall with skill.** An earlier sweep here reported
 survival falling monotonically from 55s to 35s as PROBE_SKILL rose, called it
@@ -206,7 +227,7 @@ one of them red, and the death screen would call them mistakes. That is not the
 game judging them harshly - it is the scoring failing to see a cost the game
 already charges. **You only get the bonus you can reach**, and at `PROBE_SKILL`
 1.0 the bot reaching for the best option every single time still lands a median
-96% of optimal, the gap being gates it chose and could not get to.
+88% of optimal, the gap being gates it chose and could not get to.
 
 So a state is valued as `squadDps(p) x accessFactor(reach(wave, upgrades))`:
 
