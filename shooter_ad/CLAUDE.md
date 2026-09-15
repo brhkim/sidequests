@@ -88,6 +88,38 @@ the chance of reaching for the best option. `optimal` is the OUTPUT: the share
 of achievable damage growth actually captured, after misreached gates and missed
 offers. They will not match, and should not be expected to.
 
+**`optimal` saturates, so do not use it to compare good play against excellent
+play.** Swept across seeds 1-5:
+
+| PROBE_SKILL | survival median | optimal median | standing median |
+| --- | --- | --- | --- |
+| 0.3 | 55s | 39% | 0.56 |
+| 0.5 | 55s | 56% | 0.59 |
+| 0.7 | 50s | 98% | 0.85 |
+| 0.9 | 35s | 100% | 0.68 |
+
+It separates 0.3 from 0.5 from 0.7 cleanly and then hits a ceiling. Part of that
+is real - a bot reaching for the best option 70% of the time captures most of
+the available growth - and part is an artefact: the metric compounds over
+DECISIONS, and a run that dies at 35s makes ten of them, so there is little room
+to fall behind. A short excellent run and a long excellent run are not
+comparable on this number.
+
+**Survival falls as skill rises**, which is the opposite of what the curve is
+meant to do, and it is not yet explained. Two candidates, and they need
+separating before anything is tuned on this:
+
+- The bot has no threat avoidance, so reaching for the BEST gate means more
+  lateral travel across the lane and more breaches taken on the way. Higher
+  skill would then buy worse positioning, which is a property of the bot rather
+  than of the game.
+- The mercy clamp binds hard for a weak player (pressure becomes 1.35x their own
+  DPS) and releases for a strong one (pressure becomes 0.7x par). Skill would
+  then genuinely buy a harsher run.
+
+Five seeds with survivals spanning 20-70s is also a thin sample for a median.
+Treat the direction as a question, not a result.
+
 It is still a crude player: no threat avoidance, no positioning for breaches,
 and it cannot dodge enemy fire at all. A floor on difficulty, not a verdict on
 how the game feels.

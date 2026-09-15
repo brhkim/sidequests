@@ -68,9 +68,13 @@ export class StartScreen {
       fontFamily: font, fontSize: '12px', color: '#4d5670',
     }).setOrigin(0.5);
 
+    // Hidden until `show`. A container is visible by default, and an opaque
+    // panel at depth 60 that nobody asked for covers the entire game - which is
+    // exactly what happened on every `?seed=` run, where GameScene returns
+    // before emitting 'showstart' and this was therefore never shown OR hidden.
     this.root = scene.add.container(0, 0, [
       panel, title, pitch, this.heading, this.code, button, buttonText, this.version,
-    ]).setDepth(60);
+    ]).setDepth(60).setVisible(false);
   }
 
   show(p: StartPayload): void {
