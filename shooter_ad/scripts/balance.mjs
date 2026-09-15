@@ -11,16 +11,25 @@
  *   so the series measures the DESIGN rather than whether a sine wave happened
  *   to pass under an offer.
  *
- * CAVEAT, and it is a large one right now: the bot ranks gates by AXIS, and the
- * redesign makes that nearly meaningless. The interesting choice is between two
- * magnitudes of the same axis - `+12% DMG` against `x1.05 DMG` - which a
- * preference over axes cannot express at all. These numbers say the game runs
- * and roughly where survival lands, and very little more. Rebuilding the bot on
- * the DecisionLog's own DPS deltas, with a PROBE_SKILL knob, is what makes the
- * series trustworthy.
+ * The bot chooses from the game's OWN scoring. Each live gate publishes the
+ * fractional DPS change it would produce, priced by the same `scoreOffer` par
+ * and the death screen use, so the bot answers exactly the question the game
+ * asks a player. Its predecessor ranked gates by AXIS, which cannot express a
+ * choice between two magnitudes of the same axis - the entire decision - so
+ * every number it produced was soft.
  *
- * It is also a crude player: no threat avoidance, no positioning for breaches.
- * Read it as a floor on difficulty, not a verdict on how the game feels.
+ * PROBE_SKILL (default 0.7) is the probability of taking the best option,
+ * otherwise picking uniformly at random among the offer. That closes the loop
+ * with design: DIFFICULTY.targetFraction is a claim about what fraction of
+ * optimal the game expects, and this is how the claim gets tested. Probing at
+ * 0.5 / 0.7 / 0.9 should produce visibly different runs; if it does not, the
+ * curve is not responding to skill and something upstream is wrong.
+ *
+ * The bot's own RNG is seeded per run, so a given seed and skill reproduce.
+ *
+ * It remains a crude player: no threat avoidance, no positioning for breaches,
+ * and it cannot dodge enemy fire at all. Read it as a floor on difficulty, not
+ * a verdict on how the game feels.
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -33,13 +42,17 @@ const SECONDS = Number(process.env.PROBE_SECONDS ?? 150);
 const SEEDS = (process.env.PROBE_SEEDS ?? '1,2,3').split(',').map(Number);
 const VERBOSE = process.env.PROBE_VERBOSE === '1';
 
-// Placeholder preference over AXES. This cannot see magnitudes and therefore
-// cannot express the decision the game is actually about - see the caveat above.
-const PREFERENCE = ['army', 'damage', 'rate', 'guns', 'pierce'];
-const rank = (axis) => {
-  const i = PREFERENCE.indexOf(axis);
-  return i === -1 ? 99 : i;
-};
+const SKILL = Number(process.env.PROBE_SKILL ?? 0.7);
+
+/** Seeded so a given (seed, skill) pair reproduces exactly. */
+function mulberry32(a) {
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 const server = createServer(async (req, res) => {
   const p = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname));
@@ -69,6 +82,10 @@ async function runSeed(seed) {
 
   const rows = [];
   let last = null;
+  const botRng = mulberry32((seed * 2654435761 + Math.round(SKILL * 1000)) | 0);
+  // One commitment per offer. Re-rolling every tick would average the skill
+  // knob away and steer the squad into the gap between two gates.
+  const chosen = new Map();
   for (let tick = 0; tick < SECONDS * 10; tick++) {
     const s = await page.evaluate(() =>
       window.game?.scene?.getScene('Game')?.registry?.get('stats') ?? null);
@@ -77,11 +94,19 @@ async function runSeed(seed) {
       if (tick % 50 === 0) rows.push({ t: tick / 10, ...s });
       if (s.over) break;
 
-      // Steer for the best gate that has not yet passed the squad.
+      // Commit to one option of the nearest offer, then drive to it.
       const reachable = (s.gates ?? []).filter((g) => g.y < 820);
       if (reachable.length > 0) {
-        reachable.sort((a, b) => rank(a.axis) - rank(b.axis));
-        await page.mouse.move(toScreen(reachable[0].x), laneY);
+        const nearest = reachable.reduce((a, b) => (b.y > a.y ? b : a)).pair;
+        const offer = reachable.filter((g) => g.pair === nearest);
+        if (!chosen.has(nearest)) {
+          const best = offer.find((g) => g.best) ?? offer[0];
+          const pick = botRng() < SKILL
+            ? best
+            : offer[Math.min(offer.length - 1, Math.floor(botRng() * offer.length))];
+          chosen.set(nearest, pick.x);
+        }
+        await page.mouse.move(toScreen(chosen.get(nearest)), laneY);
       } else {
         const x = 0.5 + 0.42 * Math.sin(tick / 11);
         await page.mouse.move(box.x + box.width * x, laneY);
@@ -91,7 +116,12 @@ async function runSeed(seed) {
   }
   await page.close();
   const survived = last?.over ? rows.at(-1).t : SECONDS;
-  return { seed, rows, survived, wave: last?.wave ?? 0, errors };
+  return {
+    seed, rows, survived, wave: last?.wave ?? 0, errors,
+    optimal: last?.optimal ?? 1,
+    decisions: last?.decisions ?? 0,
+    tally: last?.tally ?? { top: 0, mid: 0, low: 0 },
+  };
 }
 
 const results = [];
@@ -100,7 +130,11 @@ await browser.close();
 server.close();
 
 for (const r of results) {
-  console.log(`\n=== seed ${r.seed} — survived ${r.survived}s, reached wave ${r.wave} ===`);
+  console.log(
+    `\n=== seed ${r.seed} — survived ${r.survived}s, reached wave ${r.wave},`,
+    `played at ${(r.optimal * 100).toFixed(0)}% of optimal`,
+    `(${r.decisions} decisions ${r.tally.top}/${r.tally.mid}/${r.tally.low}) ===`,
+  );
   if (VERBOSE || results.length === 1) {
     console.log('  t   wave  power    par   dps  parDps  stand  hpMult   rate  kills');
     for (const s of r.rows) {
@@ -120,7 +154,20 @@ for (const r of results) {
   for (const e of r.errors) console.log('  ERROR ' + e);
 }
 
+const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 const survivals = results.map((r) => r.survived).sort((a, b) => a - b);
-const median = survivals[Math.floor(survivals.length / 2)];
-console.log(`\nsurvival: ${survivals.join('s, ')}s   median ${median}s`);
+
+// The number that closes the loop with design. PROBE_SKILL is an INPUT - the
+// chance of reaching for the best option - and this is the OUTPUT: the share of
+// achievable damage growth actually captured, after misreached gates and missed
+// offers. They are not the same quantity and should not be read as one.
+const optimals = results.map((r) => r.optimal);
+const stands = results.flatMap((r) => r.rows.map((x) => x.standing));
+
+console.log(`\nskill ${SKILL}  (probability of reaching for the best option)`);
+console.log(`survival: ${survivals.join('s, ')}s   median ${med(survivals)}s`);
+console.log(`optimal:  ${optimals.map((o) => (o * 100).toFixed(0) + '%').join(', ')}`
+  + `   median ${(med(optimals) * 100).toFixed(0)}%`);
+console.log(`standing: median ${med(stands).toFixed(2)}`
+  + `   (mercy clamp governs below ${(0.7 / 1.35).toFixed(2)})`);
 console.log(`errors: ${results.reduce((n, r) => n + r.errors.length, 0)}`);

@@ -9,6 +9,8 @@ import { EnemyBullets } from '../systems/EnemyBullets';
 import { Enemies, type Enemy } from '../systems/Enemies';
 import { Gates } from '../systems/Gates';
 import { Difficulty } from '../systems/Difficulty';
+import { DecisionLog } from '../systems/DecisionLog';
+import { scoreOffer } from '../systems/Scoring';
 import { Grid } from '../systems/Grid';
 import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
@@ -25,6 +27,9 @@ export class GameScene extends Phaser.Scene {
   private enemies!: Enemies;
   private gates!: Gates;
   private difficulty!: Difficulty;
+  private log!: DecisionLog;
+  /** Seconds of simulated play, for ordering decision rows. */
+  private elapsed = 0;
   private grid!: Grid<Enemy>;
 
   private bodyPool!: SpritePool;
@@ -66,7 +71,17 @@ export class GameScene extends Phaser.Scene {
     this.enemyFire = new EnemyBullets();
     this.difficulty = new Difficulty();
     this.enemies = new Enemies(this.rng, this.difficulty, this.enemyFire);
-    this.gates = new Gates(this.rng, (offer) => this.difficulty.observeGateOffer(offer));
+    this.log = new DecisionLog();
+    this.gates = new Gates(
+      this.rng,
+      (pair, offer) => {
+        // Both read the same arrival moment: par takes its pick and the log
+        // records the state the player was actually deciding from.
+        this.log.open_(pair, this.squad.progress, offer, this.enemies.wave.index, this.elapsed);
+        this.difficulty.observeGateOffer(offer);
+      },
+      (pair) => this.log.resolve(pair, -1),
+    );
     this.grid = new Grid<Enemy>(48, VIEW.width);
 
     this.drawBackground();
@@ -124,6 +139,8 @@ export class GameScene extends Phaser.Scene {
     this.bullets = new Bullets();
     this.enemyFire.reset();
     this.difficulty.reset();
+    this.log.reset();
+    this.elapsed = 0;
     this.enemies.reset();
     this.gates.reset();
     this.game.events.emit('restart');
@@ -135,6 +152,7 @@ export class GameScene extends Phaser.Scene {
     // Clamp dt: a long frame would otherwise let fast enemies and bullets skip
     // past each other between collision checks.
     const dt = Math.min(delta / 1000, 1 / 30);
+    this.elapsed += dt;
 
     this.handleKeys(dt);
     this.squad.update(dt, this.targetX);
@@ -245,8 +263,14 @@ export class GameScene extends Phaser.Scene {
       const withinY = Math.abs(g.y - this.squad.y) < GATES.height / 2 + 14;
       if (!withinY) continue;
       if (Math.abs(g.x - this.squad.x) > g.width / 2) continue;
-      this.toast(this.squad.applyGate(g.type));
+      // Order matters. consumePair credits par and opens the log entry for an
+      // offer taken before it reached the lane line; resolving first would find
+      // nothing and leave that decision permanently open. Both must also run
+      // before applyGate, so the options are priced from the state the player
+      // was actually deciding in.
       this.gates.consumePair(g.pair);
+      this.log.resolve(g.pair, g.index);
+      this.toast(this.squad.applyGate(g.type));
     }
   }
 
@@ -281,14 +305,42 @@ export class GameScene extends Phaser.Scene {
     this.game.events.emit('toast', text);
   }
 
+  /**
+   * Live gates with what each is actually worth right now, priced by the same
+   * function par and the death screen use.
+   *
+   * Published so the probe bot can choose the way the game asks a player to.
+   * The old bot ranked gates by AXIS, which cannot express the decision at all
+   * - the interesting choice is between two magnitudes of the SAME axis - so
+   * every balance number it produced was soft.
+   */
+  private scoreLiveGates() {
+    const live = this.gates.items.filter((g) => g.active);
+    const byPair = new Map<number, typeof live>();
+    for (const g of live) {
+      const group = byPair.get(g.pair);
+      if (group) group.push(g); else byPair.set(g.pair, [g]);
+    }
+    const out = [];
+    for (const group of byPair.values()) {
+      const scored = scoreOffer(this.squad.progress, group.map((g) => g.type));
+      for (let i = 0; i < group.length; i++) {
+        const g = group[i];
+        out.push({
+          x: Math.round(g.x), y: Math.round(g.y),
+          label: g.type.label, axis: g.type.axis, form: g.type.form,
+          pair: g.pair,
+          delta: Number(scored.options[i].delta.toFixed(5)),
+          best: i === scored.best,
+        });
+      }
+    }
+    return out;
+  }
+
   private emitHud(): void {
     const par = this.difficulty.snapshot();
-    const gates = this.gates.items
-      .filter((g) => g.active)
-      .map((g) => ({
-        x: Math.round(g.x), y: Math.round(g.y),
-        label: g.type.label, axis: g.type.axis, form: g.type.form,
-      }));
+    const gates = this.scoreLiveGates();
     this.registry.set('stats', {
       power: Math.floor(this.squad.power),
       parPower: par.parPower,
@@ -305,6 +357,9 @@ export class GameScene extends Phaser.Scene {
       over: this.over,
       seed: this.seed,
       gates,
+      decisions: this.log.count,
+      optimal: Number(this.log.fractionOfOptimal.toFixed(4)),
+      tally: this.log.tally,
     });
     const u = this.squad.upgrades;
     const hud: HudPayload = {

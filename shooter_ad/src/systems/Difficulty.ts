@@ -3,9 +3,7 @@ import type { GateType } from '../data/gates';
 import {
   applyGate, cloneProgress, freshUpgrades, squadDps, type Progress,
 } from './Progression';
-
-/** Two options within this relative distance in DPS count as tied. */
-const TIE_EPSILON = 1e-9;
+import { scoreOffer } from './Scoring';
 
 /**
  * Closed-loop difficulty.
@@ -82,21 +80,13 @@ export class Difficulty {
    * first and two seeds showed it halving its own army.
    */
   observeGateOffer(gates: readonly GateType[]): void {
-    let best: Progress | null = null;
-    let bestDps = 0;
-    for (const gate of gates) {
-      const candidate = cloneProgress(this.ideal);
-      applyGate(candidate, gate);
-      const dps = squadDps(candidate);
-      if (best === null) { best = candidate; bestDps = dps; continue; }
-      const tied = Math.abs(dps - bestDps) <= bestDps * TIE_EPSILON;
-      if (tied ? candidate.power > best.power : dps > bestDps) {
-        best = candidate;
-        if (!tied) bestDps = dps;
-      }
-    }
-    if (best) this.ideal = best;
+    if (gates.length === 0) return;
+    const chosen = gates[scoreOffer(this.ideal, gates).best];
+    const next = cloneProgress(this.ideal);
+    applyGate(next, chosen);
+    this.ideal = next;
   }
+
 
   /** Par clears every wave. */
   awardWaveClear(): void {

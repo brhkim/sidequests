@@ -7,6 +7,8 @@ export interface Gate {
   type: GateType;
   /** Offer id, so taking one gate consumes the others beside it. */
   pair: number;
+  /** Position within its offer, so a pick can be graded against the others. */
+  index: number;
   active: boolean;
 }
 
@@ -24,6 +26,8 @@ export class Gates {
    * player cannot act on until it arrives.
    */
   private pending: { pair: number; types: GateType[] }[] = [];
+  /** Offers the player has been shown but has not yet taken or missed. */
+  private readonly unresolved = new Set<number>();
 
   constructor(
     private readonly rng: () => number,
@@ -32,7 +36,9 @@ export class Gates {
      * to take it, so par can take the best of them. NOT called at spawn - see
      * `creditArrivedOffers`.
      */
-    private readonly onOffer: (gates: readonly GateType[]) => void = () => {},
+    private readonly onOffer: (pair: number, gates: readonly GateType[]) => void = () => {},
+    /** Called when a whole offer left the screen without being taken. */
+    private readonly onExpire: (pair: number) => void = () => {},
   ) {}
 
   /**
@@ -52,6 +58,19 @@ export class Gates {
       if (g.y > VIEW.height + GATES.height) g.active = false;
     }
     this.creditArrivedOffers();
+    this.expirePassedOffers();
+  }
+
+  /**
+   * An offer that left the screen untaken is still a decision, and the log
+   * grades it as one - driving past three gates should show up in the score.
+   */
+  private expirePassedOffers(): void {
+    for (const pair of [...this.unresolved]) {
+      if (this.items.some((g) => g.active && g.pair === pair)) continue;
+      this.unresolved.delete(pair);
+      this.onExpire(pair);
+    }
   }
 
   /**
@@ -81,7 +100,8 @@ export class Gates {
     const i = this.pending.findIndex((p) => p.pair === pair);
     if (i === -1) return;
     const [offer] = this.pending.splice(i, 1);
-    this.onOffer(offer.types);
+    this.unresolved.add(pair);
+    this.onOffer(pair, offer.types);
   }
 
   private spawnOffer(wave: number, ctx: OfferContext): void {
@@ -92,11 +112,13 @@ export class Gates {
     const lane = (VIEW.width - GATES.gap * (offer.length - 1)) / offer.length;
     for (let i = 0; i < offer.length; i++) {
       const x = i * (lane + GATES.gap) + lane / 2;
-      this.push({ x, width: lane, type: offer[i], pair });
+      this.push({ x, width: lane, type: offer[i], pair, index: i });
     }
   }
 
-  private push(spec: { x: number; width: number; type: GateType; pair: number }): void {
+  private push(
+    spec: { x: number; width: number; type: GateType; pair: number; index: number },
+  ): void {
     const gate: Gate = { ...spec, y: -GATES.height, active: true };
     const free = this.items.find((g) => !g.active);
     if (free) Object.assign(free, gate);
@@ -106,12 +128,15 @@ export class Gates {
   /** Consumes the whole offer once one of its gates is entered. */
   consumePair(pair: number): void {
     this.creditPair(pair);
+    // The caller logs the pick itself, so this offer must not also expire.
+    this.unresolved.delete(pair);
     for (const g of this.items) if (g.pair === pair) g.active = false;
   }
 
   reset(): void {
     for (const g of this.items) g.active = false;
     this.pending.length = 0;
+    this.unresolved.clear();
     this.accum = 0;
   }
 }
