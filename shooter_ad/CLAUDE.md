@@ -18,6 +18,7 @@ npm run build   # typecheck + production build to dist/
 npm run verify  # REQUIRED before claiming a change works
 npm run balance # time series of power, DPS, par DPS, standing, enemy knobs
 npm run repeat  # plays ONE seed several times; fails if the runs disagree
+npm run sweep   # every seed at every skill level; prints the table below
 npm run hud     # screenshots the HUD in early / mid / late upgrade states
 npm run endscreen  # screenshots the end, start and pause screens after real runs
 npm run matchcode  # round-trips share codes; pure logic, fast
@@ -274,6 +275,38 @@ multiply reach by the same root. When two such draws land in one offer the
 options genuinely tie, and the tie-break decides. Mismatched roots
 (`x1.2 MOVE` against `+30% TIME`) are a real comparison, and that is the usual
 case.
+
+### Hard mode is a wave offset on the judgment axes, and nothing else
+
+`systems/Mode.ts` holds the active mode and one number: `waveOffset`. Hard mode
+sets it to 5, and `judgmentWave(wave) = wave + offset` feeds exactly two things
+— `waveGateSpeedMult` and the legibility tier `rollOffer` draws from. A hard
+run's first offer therefore descends at wave-6 speed (×1.375) and draws from
+the wave-6 root table; the top legibility tier arrives at real wave 6 instead of
+11, and gate speed caps at real wave 16 instead of 21.
+
+Three things are deliberately NOT mode-dependent, and `npm run model` fails if
+any of them becomes so:
+
+- **Enemy pressure.** `DIFFICULTY.targetFraction` is identical in both modes.
+  `notes.md` allows raising it and it is still the wrong lever: it is a claim
+  about how much damage the curve expects rather than about how hard the
+  decision is, and it would move the mercy-clamp threshold, so every reading of
+  hard mode would be confounded with a regime change.
+- **Which bonuses exist.** The candidate pool filters on the REAL wave. Hard
+  mode makes the sum harder, not the content earlier.
+- **The knob count.** `MODES.hard` may carry `waveOffset` and nothing else, so
+  a future "just one more tweak" cannot quietly reach the enemy budget.
+
+The mode is set once per run by `GameScene` and read from module state rather
+than threaded through the four call paths that must agree — the descending
+gate, the offer roller, par's valuation and the player's. Same argument as
+`Progression.ts` and `Scoring.ts`: a second copy drifts silently.
+
+A player picks it by tapping the difficulty line on the start screen, which
+rewrites the match code as it switches. That is not cosmetic — a hard run is
+not the same match as a normal one on the same seed, and the code is what
+people compare off a screenshot, so the two must not share an identity.
 
 ### Gate approach speed is the judgment-axis difficulty lever
 

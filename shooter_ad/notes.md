@@ -426,6 +426,12 @@ this in" affordance rather than surfacing an error.
 
 ## Hard mode
 
+**Built.** One wave offset, applied to the judgment axes only — see
+`systems/Mode.ts`. The `targetFraction` option below was considered and
+declined: it is a claim about damage rather than about the difficulty of a
+decision, and raising it moves the mercy-clamp threshold, which would confound
+every measurement of hard mode with a regime change.
+
 Start the difficulty settings advanced rather than ramping into them:
 
 - gate approach speed begins at a later-wave value, so decision time is short
@@ -556,7 +562,12 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 10. **Escalating numeric legibility** by wave.
 11. **Pick-quality halo flash** — green / yellow / red on selection.
 12. **Seed display and seed entry**, with a version tag.
-13. **Hard mode** — advanced starting gate speed and legibility tier.
+13. **Hard mode** — *done*. Implemented as a single wave offset (+5) applied to
+    gate approach speed and legibility tier, and to nothing else: enemy
+    pressure, the bonus pool and `targetFraction` are identical in both modes.
+    Reachable by tapping the difficulty line on the start screen, which rewrites
+    the match code as it switches. `npm run model` fails if hard mode ever grows
+    a second knob.
 14. **Rebuild the probe bot** on real gate scoring, with a `PROBE_SKILL` knob.
 
 ### Next
