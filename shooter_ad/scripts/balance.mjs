@@ -115,7 +115,13 @@ async function runSeed(seed) {
     await page.waitForTimeout(100);
   }
   await page.close();
-  const survived = last?.over ? rows.at(-1).t : SECONDS;
+  // Measured in SIMULATED seconds, not wall-clock. The simulation advances on
+  // clamped frame deltas, so the two diverge whenever the scene's render load
+  // changes - and the same seed then appears to get easier or harder because a
+  // screen was added elsewhere in the project. Three repeats of one seed gave
+  // 15s, 15s, 20s of wall clock; this is the axis that does not move for
+  // reasons that have nothing to do with the game.
+  const survived = Number((last?.elapsed ?? 0).toFixed(1));
   return {
     seed, rows, survived, wave: last?.wave ?? 0, errors,
     optimal: last?.optimal ?? 1,

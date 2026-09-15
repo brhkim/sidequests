@@ -454,6 +454,11 @@ export class GameScene extends Phaser.Scene {
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
       traveled: Math.round(this.traveled),
+      // SIMULATED seconds, which is what a run should be measured in. The
+      // simulation advances on clamped frame deltas, so wall-clock time and
+      // game time are not the same quantity and their ratio moves with how much
+      // rendering the scene happens to be doing.
+      elapsed: Number(this.elapsed.toFixed(2)),
       decisions: this.log.count,
       optimal: Number(this.log.fractionOfOptimal.toFixed(4)),
       tally: this.log.tally,

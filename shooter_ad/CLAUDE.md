@@ -76,6 +76,31 @@ measurement reasons rather than game reasons. Before trusting any number:
   against a player who stacked army-size gates is meaningless and once produced
   standings above 20.
 - **One run proves nothing.** Read medians across seeds.
+- **Measure in SIMULATED seconds, never wall-clock.** The simulation advances on
+  clamped frame deltas, so how much game happens per real second depends on how
+  much the scene is rendering. A verify run spanning ~24s of wall clock covers
+  ~43s of simulated time. `stats.elapsed` is the honest axis; the probe reports
+  it.
+- **The same seed does not yet reproduce a run.** Three repeats of one seed at
+  one skill level gave 15s, 15s and 20s. A seed fixes the CONTENT - the same
+  gates, the same enemies - but frame-timing jitter compounds and outcomes
+  diverge. Until the simulation runs on a fixed timestep, treat any single
+  survival figure as indicative and re-run before believing a difference.
+
+**A worked example of all three failing at once, because it is the fourth time
+this project has been fooled by its own instruments.** A sweep reported survival
+falling monotonically with skill, 55s down to 35s across five skill levels and
+five seeds each - consistent enough to look like a result, and two plausible
+mechanisms were proposed for it. It did not reproduce: the same sweep later gave
+40s / 35s / 40s, flat. Nothing about gameplay had changed in between. What had
+changed was the scene's render load - a halo flash, an end screen and a start
+screen had been added - which moved the ratio between simulated and wall-clock
+time, and the probe was measuring wall-clock. The diagnostics added to settle
+the question also refuted the leading hypothesis outright: lateral travel FALLS
+as skill rises rather than rising.
+
+The cost of catching it was three repeats of a single seed. Do that before
+reporting any difference.
 
 The probe's bot now chooses from the game's own `scoreOffer`, so it answers the
 question the game actually asks. `PROBE_SKILL` is the probability of reaching
