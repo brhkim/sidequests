@@ -1,4 +1,5 @@
 import { drawRoot, formatRoot, legibilityFor, roundSf } from './roots';
+import { judgmentWave } from '../systems/Mode';
 
 /**
  * Gates descend as an offer and the player drives through one of them. Every
@@ -159,7 +160,11 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
 export function rollOffer(
   count: number, wave: number, ctx: OfferContext, rng: () => number,
 ): GateType[] {
-  const legibility = legibilityFor(wave);
+  // Legibility is a JUDGMENT axis, so hard mode starts it several waves in and
+  // awkward numbers arrive from the first offer. The candidate pool is NOT
+  // offset: which bonuses exist is content, and unlocking late content early
+  // would be a different game rather than a harder one.
+  const legibility = legibilityFor(judgmentWave(wave));
   const pool = CANDIDATES.filter((c) => c.minWave <= wave);
   const chosen: GateType[] = [];
   const taken = new Set<Candidate>();

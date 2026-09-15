@@ -39,10 +39,17 @@ export class UIScene extends Phaser.Scene {
     }).setOrigin(0.5).setAlpha(0);
 
     this.end = new EndScreen(this);
-    this.start = new StartScreen(this, () => {
-      this.start.hide();
-      this.game.events.emit('startmatch');
-    });
+    this.start = new StartScreen(
+      this,
+      () => {
+        this.start.hide();
+        this.game.events.emit('startmatch');
+      },
+      // GameScene owns the mode - it is what sets the run-wide value every
+      // wave-keyed difficulty number reads - so this asks rather than decides,
+      // and the screen redraws from the `showstart` that comes back.
+      (mode) => this.game.events.emit('modechange', mode),
+    );
 
     this.pause = new PauseScreen(
       this,

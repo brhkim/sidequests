@@ -77,7 +77,24 @@ await page.waitForFunction(
   () => window.game?.scene?.getScene('Game')?.waiting === true,
   null, { timeout: 15000 },
 ).catch(() => {});
-const start = toScreen(270, 580);
+// Located by its LABEL, not by a hardcoded y. The button's position was
+// duplicated here as a literal 580 and moving it on the screen broke this
+// check without anything about the button being wrong - a test that fails when
+// the layout changes teaches people to edit the test.
+const startAt = await page.evaluate(() => {
+  const ui = window.game.scene.getScene('UI');
+  for (const c of ui.children.list) {
+    if (c.type !== 'Container' || !c.visible) continue;
+    const label = c.list.find((o) => o.type === 'Text' && o.text === 'START MATCH');
+    if (label) return { x: label.x, y: label.y };
+  }
+  return null;
+});
+if (!startAt) {
+  console.error('FAIL: no START MATCH button on the start screen');
+  process.exit(1);
+}
+const start = toScreen(startAt.x, startAt.y);
 await page.mouse.click(start.x, start.y);
 await page.waitForTimeout(250);
 if (await page.evaluate(() => window.game.scene.getScene('Game').waiting)) {

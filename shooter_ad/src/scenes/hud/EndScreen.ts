@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, VIEW } from '../../config';
 import { hex } from './types';
+import type { MatchMode } from '../../systems/MatchCode';
 
 export interface EndPayload {
   readonly wave: number;
@@ -10,6 +11,7 @@ export interface EndPayload {
   readonly decisions: number;
   readonly code: string;
   readonly version: string;
+  readonly mode: MatchMode;
 }
 
 const GREEN = 0x3ecf7a;
@@ -36,6 +38,7 @@ export class EndScreen {
   private readonly tally: Phaser.GameObjects.Text;
   private readonly detail: Phaser.GameObjects.Text;
   private readonly code: Phaser.GameObjects.Text;
+  private readonly codeLabel: Phaser.GameObjects.Text;
   private readonly version: Phaser.GameObjects.Text;
   private readonly copyLabel: Phaser.GameObjects.Text;
 
@@ -85,7 +88,11 @@ export class EndScreen {
 
     const rule = scene.add.rectangle(cx, 600, VIEW.width - 120, 1, 0x2a3350);
 
-    const codeLabel = scene.add.text(cx, 634, 'SAME MATCH', {
+    // The label carries the difficulty, because "SAME MATCH" is a promise and
+    // a hard run is not the same match as a normal one on the same seed. The
+    // code itself already differs in its last group, but a reader comparing two
+    // screenshots should not have to decode base32 to notice.
+    this.codeLabel = scene.add.text(cx, 634, '', {
       fontFamily: font, fontSize: '13px', color: '#6f7a94', fontStyle: 'bold',
     }).setOrigin(0.5);
     // Large on purpose. This is the half of the screenshot that makes the run
@@ -116,7 +123,7 @@ export class EndScreen {
 
     this.root = scene.add.container(0, 0, [
       panel, title, this.wave, waveLabel, this.optimal, optimalLabel,
-      this.tally, tallyLabel, this.detail, rule, codeLabel, this.code,
+      this.tally, tallyLabel, this.detail, rule, this.codeLabel, this.code,
       this.copyLabel, this.version, hint,
     ]).setDepth(50).setVisible(false);
   }
@@ -159,6 +166,9 @@ export class EndScreen {
         : `${p.kills} enemies destroyed`,
     );
     this.code.setText(p.code);
+    const hard = p.mode === 'hard';
+    this.codeLabel.setText(hard ? 'SAME MATCH  ·  HARD' : 'SAME MATCH');
+    this.codeLabel.setColor(hard ? '#ff7b54' : '#6f7a94');
     this.version.setText(`v${p.version}  ·  scores compare within a version`);
     this.root.setVisible(true);
   }

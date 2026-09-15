@@ -272,4 +272,99 @@ console.log(`  picks par spends on access:          ${(accessPicks / totalPicks 
 console.log(`  par DPS after 30 offers, access-priced vs DPS-priced:`
   + ` ${(dpsWith / dpsWithout).toFixed(3)}x`);
 
+
+// ---------------------------------------------------------------------------
+// Hard mode: the same skill, harder — not a different skill.
+//
+// `notes.md` is explicit that hard mode must not be "more enemy HP". The two
+// assertions below are what make that a property rather than an intention:
+// hard mode must move BOTH judgment axes and must leave the content pool and
+// the enemy budget exactly where they were. A future change that makes hard
+// mode tankier fails here rather than in a playtest three weeks later.
+// ---------------------------------------------------------------------------
+const { setMode, MODES, judgmentWave } = await import('../src/systems/Mode.ts');
+const { legibilityFor } = await import('../src/data/roots.ts');
+const { CANDIDATES } = await import('../src/data/gates.ts');
+
+console.log('\n=== hard mode ===');
+const OFFSET = MODES.hard.waveOffset;
+
+setMode('normal');
+const normalSpeed = (w) => waveGateSpeedMult(w);
+const normalLegibility = (w) => legibilityFor(w);
+const speedNormal = [1, 3, 6, 11, 16, 21].map(normalSpeed);
+const legNormal = [1, 3, 6, 11].map((w) => normalLegibility(w).roots.length);
+
+setMode('hard');
+const speedHard = [1, 3, 6, 11, 16, 21].map(waveGateSpeedMult);
+const legHard = [1, 3, 6, 11].map((w) => legibilityFor(judgmentWave(w)).roots.length);
+
+console.log(`  wave offset: +${OFFSET}`);
+console.log('  gate speed multiplier, by real wave:');
+console.log('    wave      1     3     6    11    16    21');
+console.log('    normal ' + speedNormal.map((v) => v.toFixed(2).padStart(5)).join(' '));
+console.log('    hard   ' + speedHard.map((v) => v.toFixed(2).padStart(5)).join(' '));
+console.log('  root table size (bigger = finer, harder to eyeball):');
+console.log('    wave      1     3     6    11');
+console.log('    normal ' + legNormal.map((v) => String(v).padStart(5)).join(' '));
+console.log('    hard   ' + legHard.map((v) => String(v).padStart(5)).join(' '));
+
+// A hard run's first offer must already descend at a later wave's speed, and
+// draw from a later wave's table. Either one alone is half a mode.
+//
+// Compared against the stored NORMAL rows rather than by re-calling: both
+// functions read the active mode, so calling them after `setMode('hard')`
+// returns hard values under a name that says normal. That mistake was made
+// while writing this check, which is the argument for keeping it written down.
+const wavesProbed = [1, 3, 6, 11, 16, 21];
+const offsetIndex = wavesProbed.indexOf(1 + OFFSET);
+if (offsetIndex === -1) throw new Error('probe waves do not cover 1 + waveOffset');
+if (!(speedHard[0] > speedNormal[0])) {
+  throw new Error('hard mode does not speed up the first offer');
+}
+if (speedHard[0] !== speedNormal[offsetIndex]) {
+  throw new Error('hard gate speed is not simply the curve started later');
+}
+if (!(legHard[0] > legNormal[0])) {
+  throw new Error('hard mode does not start at a finer root table');
+}
+if (legHard[0] !== legNormal[wavesProbed.indexOf(1 + OFFSET)]) {
+  throw new Error('hard legibility is not simply the ladder started later');
+}
+
+// Content must NOT move. Unlocking late bonuses early would be a different
+// game rather than a harder one, so this rolls real wave-1 offers under both
+// modes and fails if the SET of available bonuses differs at all. It compares
+// behaviour rather than reading the candidate table, so it still holds if the
+// table is refactored.
+function axesOfferedAtWaveOne(mode) {
+  setMode(mode);
+  let h = 99;
+  const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const ctx = { power: SQUAD.startPower, damageBonus: 0, rateBonus: 0 };
+  const seen = new Set();
+  for (let i = 0; i < 600; i++) {
+    for (const g of rollOffer(G.perOffer, 1, ctx, r)) seen.add(`${g.axis}/${g.form}`);
+  }
+  return [...seen].sort();
+}
+const offeredNormal = axesOfferedAtWaveOne('normal');
+const offeredHard = axesOfferedAtWaveOne('hard');
+if (offeredNormal.join() !== offeredHard.join()) {
+  throw new Error(
+    'hard mode changed WHICH bonuses exist at wave 1, not just how hard they are:\n'
+    + `  normal: ${offeredNormal.join(', ')}\n  hard:   ${offeredHard.join(', ')}`,
+  );
+}
+console.log(`  wave-1 bonus pool identical in both modes: ${offeredNormal.join(', ')}`);
+
+// The mode knob carries nothing but the offset, so it cannot reach the enemy
+// budget even by accident.
+const knobs = Object.keys(MODES.hard);
+if (knobs.length !== 1 || knobs[0] !== 'waveOffset') {
+  throw new Error(`hard mode grew a knob beyond waveOffset: ${knobs.join(', ')}`);
+}
+console.log('  hard mode carries exactly one knob: waveOffset');
+setMode('normal');
+
 console.log('PASS');

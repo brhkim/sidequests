@@ -1,6 +1,7 @@
 import { ARENA, GATES, SCORING, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
+import { judgmentWave } from './Mode';
 
 /**
  * The additive / multiplicative split, which is the core mechanic.
@@ -79,7 +80,12 @@ export function pierceMultiplier(pierce: number): number {
  * how far the squad can travel while an offer descends.
  */
 export function waveGateSpeedMult(wave: number): number {
-  return Math.min(GATES.maxSpeedMult, 1 + Math.max(0, wave - 1) * GATES.speedPerWave);
+  // `judgmentWave` is where hard mode enters: it starts this curve several
+  // waves in, so a hard run's first offer already descends at a later wave's
+  // speed. Par reads it through the same call, so the two cannot disagree
+  // about how long a decision was available for.
+  const w = judgmentWave(wave);
+  return Math.min(GATES.maxSpeedMult, 1 + Math.max(0, w - 1) * GATES.speedPerWave);
 }
 
 /** Px/s an offer descends at, for this wave and this run's accumulated `+TIME`. */

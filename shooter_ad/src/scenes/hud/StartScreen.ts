@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { COLORS, VIEW } from '../../config';
+import type { MatchMode } from '../../systems/MatchCode';
 
 export interface StartPayload {
   readonly code: string;
   readonly version: string;
+  readonly mode: MatchMode;
   /** True when the match came from a shared link rather than a fresh run. */
   readonly invited: boolean;
 }
@@ -26,8 +28,16 @@ export class StartScreen {
   private readonly heading: Phaser.GameObjects.Text;
   private readonly code: Phaser.GameObjects.Text;
   private readonly version: Phaser.GameObjects.Text;
+  private readonly mode: Phaser.GameObjects.Text;
+  private readonly hint: Phaser.GameObjects.Text;
+  /** What the button would start right now, which the code above reflects. */
+  private current: MatchMode = 'normal';
 
-  constructor(scene: Phaser.Scene, onStart: () => void) {
+  constructor(
+    scene: Phaser.Scene,
+    onStart: () => void,
+    onModeChange: (mode: MatchMode) => void,
+  ) {
     const cx = VIEW.width / 2;
     const font = 'system-ui, sans-serif';
 
@@ -53,10 +63,10 @@ export class StartScreen {
       fontSize: '34px', color: '#9fe8ff', fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    const button = scene.add.rectangle(cx, 580, 260, 62, 0x3ecf7a, 0.16)
+    const button = scene.add.rectangle(cx, 624, 260, 62, 0x3ecf7a, 0.16)
       .setStrokeStyle(2, 0x3ecf7a, 0.9)
       .setInteractive({ useHandCursor: true });
-    const buttonText = scene.add.text(cx, 580, 'START MATCH', {
+    const buttonText = scene.add.text(cx, 624, 'START MATCH', {
       fontFamily: font, fontSize: '22px', color: '#3ecf7a', fontStyle: 'bold',
     }).setOrigin(0.5);
     button.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -64,7 +74,36 @@ export class StartScreen {
       onStart();
     });
 
-    this.version = scene.add.text(cx, 660, '', {
+    // Difficulty, above the button rather than below it, and TAPPABLE.
+    //
+    // Two jobs in one control. A shared code carries its mode, so somebody
+    // following a link is about to play a difficulty they did not pick, and the
+    // moment to learn that is before tapping rather than from a run that feels
+    // wrong for reasons they cannot name. And this screen is the only place a
+    // mode can be chosen at all - a hard mode reachable solely by hand-editing
+    // a query string is a mode no player will ever see.
+    //
+    // Switching REWRITES the code above it, because a hard run is not the same
+    // match as a normal one on the same seed. What is on screen stays the truth
+    // about what the button will start.
+    this.mode = scene.add.text(cx, 528, '', {
+      fontFamily: font, fontSize: '15px', color: '#8f9ab5', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    // The hit area is a fixed bar rather than the text's own bounds: the label
+    // changes length when the mode does, so a text-sized target would move out
+    // from under the finger that just tapped it.
+    const modeHit = scene.add.rectangle(cx, 528, VIEW.width - 60, 40, 0xffffff, 0.001)
+      .setInteractive({ useHandCursor: true });
+    modeHit.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      p.event.stopPropagation();
+      onModeChange(this.current === 'hard' ? 'normal' : 'hard');
+    });
+
+    this.hint = scene.add.text(cx, 556, 'tap to change difficulty', {
+      fontFamily: font, fontSize: '12px', color: '#4d5670',
+    }).setOrigin(0.5);
+
+    this.version = scene.add.text(cx, 704, '', {
       fontFamily: font, fontSize: '12px', color: '#4d5670',
     }).setOrigin(0.5);
 
@@ -73,13 +112,21 @@ export class StartScreen {
     // exactly what happened on every `?seed=` run, where GameScene returns
     // before emitting 'showstart' and this was therefore never shown OR hidden.
     this.root = scene.add.container(0, 0, [
-      panel, title, pitch, this.heading, this.code, button, buttonText, this.version,
+      panel, title, pitch, this.heading, this.code, this.mode, modeHit, this.hint,
+      button, buttonText, this.version,
     ]).setDepth(60).setVisible(false);
   }
 
   show(p: StartPayload): void {
     this.heading.setText(p.invited ? 'YOU WERE SENT THIS MATCH' : 'YOUR MATCH');
     this.code.setText(p.code);
+    // Named on both screens, never left implicit. Hard mode changes how fast
+    // offers descend and how awkward their numbers are - both invisible until
+    // you are already inside a run.
+    this.current = p.mode;
+    const hard = p.mode === 'hard';
+    this.mode.setText(hard ? 'HARD — FAST OFFERS, AWKWARD NUMBERS' : 'NORMAL');
+    this.mode.setColor(hard ? '#ff7b54' : '#8f9ab5');
     this.version.setText(`v${p.version}`);
     this.root.setVisible(true);
   }

@@ -103,18 +103,30 @@ export async function installBot(page, { seed, skill }) {
  * The polling loop below only OBSERVES - the bot is inside the page - so how
  * fast this machine polls cannot change the run it is watching.
  */
-export async function playSeed(browser, port, { seed, skill, seconds, sampleEvery = 5 }) {
+export async function playSeed(
+  browser, port, { seed, skill, seconds, mode = 'normal', sampleEvery = 5 },
+) {
   const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await installBot(page, { seed, skill });
-  await page.goto(`http://127.0.0.1:${port}/?seed=${seed}`, { waitUntil: 'load' });
+  // `?seed=` is the instrument form and skips the start screen; `?m=` is the
+  // shared form and does not. `mode` rides alongside so a probe can play the
+  // same seed on either difficulty.
+  const query = `?seed=${seed}` + (mode === 'normal' ? '' : `&mode=${mode}`);
+  await page.goto(`http://127.0.0.1:${port}/${query}`, { waitUntil: 'load' });
 
   const rows = [];
   let last = null;
-  let ticks = 0;
-  while (ticks++ < seconds * 10) {
+  // The budget is in SIMULATED seconds. Budgeting in wall clock would make how
+  // much game a run gets depend on what else this machine is doing: the
+  // simulation drops steps under load rather than spiralling (SIM.maxStepsPerFrame),
+  // so a contended run covers less game per real second and would be truncated
+  // early - a measurement artefact indistinguishable from the run dying.
+  // `hardStop` is only a guard against a wedged page, set far above any real run.
+  const hardStop = Date.now() + seconds * 4000;
+  while ((last?.elapsed ?? 0) < seconds && Date.now() < hardStop) {
     const s = await page.evaluate(() =>
       window.game?.scene?.getScene('Game')?.registry?.get('stats') ?? null);
     if (s) {
@@ -137,7 +149,7 @@ export async function playSeed(browser, port, { seed, skill, seconds, sampleEver
   // they remain different quantities and only this one is a property of the
   // game rather than of the machine it ran on.
   return {
-    seed, rows, errors,
+    seed, mode, rows, errors,
     survived: Number((last?.elapsed ?? 0).toFixed(1)),
     wave: last?.wave ?? 0,
     optimal: last?.optimal ?? 1,

@@ -15,6 +15,7 @@ import { Grid } from '../systems/Grid';
 import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
 import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
+import { modeFromQuery, setMode } from '../systems/Mode';
 import { VERSION } from '../version';
 import { moveSpeed, pierceMultiplier } from '../systems/Progression';
 import { PAUSE_BUTTON } from './hud/PauseScreen';
@@ -103,6 +104,11 @@ export class GameScene extends Phaser.Scene {
     const { rng, seed } = createRng();
     this.seed = seed;
     this.rng = rng;
+    // Set BEFORE anything reads a wave-keyed difficulty number. Hard mode is a
+    // wave offset on the judgment axes and every consumer reads it from
+    // `Mode.ts`, so this is the one place a run's difficulty is decided.
+    this.mode = modeFromQuery(window.location.search);
+    setMode(this.mode);
     this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
     this.bullets = new Bullets();
     this.enemyFire = new EnemyBullets();
@@ -158,10 +164,26 @@ export class GameScene extends Phaser.Scene {
       this.game.events.emit('showstart', {
         code: encodeMatch({ seed: this.seed, mode: this.mode }),
         version: VERSION,
+        mode: this.mode,
         invited: matchFromQuery(window.location.search) !== null,
       });
     });
     this.game.events.once('startmatch', () => { this.waiting = false; });
+    // Chosen on the start screen, before the run exists. Re-announcing the
+    // match is what redraws the code, which must change with the mode: a hard
+    // run is not the same match as a normal one on the same seed, and the code
+    // is the thing people compare off a screenshot.
+    this.game.events.on('modechange', (mode: MatchMode) => {
+      if (this.mode === mode || !this.waiting) return;
+      this.mode = mode;
+      setMode(mode);
+      this.game.events.emit('showstart', {
+        code: encodeMatch({ seed: this.seed, mode: this.mode }),
+        version: VERSION,
+        mode: this.mode,
+        invited: matchFromQuery(window.location.search) !== null,
+      });
+    });
   }
 
   private drawBackground(): void {
@@ -502,6 +524,7 @@ export class GameScene extends Phaser.Scene {
       decisions: this.log.count,
       code: encodeMatch(match),
       version: VERSION,
+      mode: this.mode,
       link: matchUrl(match, window.location.href),
     });
   }
