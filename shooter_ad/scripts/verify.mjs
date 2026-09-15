@@ -69,6 +69,14 @@ const toScreen = (gx, gy) => ({
  * the actual button means a dead button fails the build here rather than in
  * somebody's browser.
  */
+// Wait for the scene to actually exist first. `waitUntil: 'load'` returns as
+// soon as the document is done, which is well before Boot has generated its
+// textures and handed over to Game - so the click landed on nothing and this
+// check failed on a race rather than on a dead button.
+await page.waitForFunction(
+  () => window.game?.scene?.getScene('Game')?.waiting === true,
+  null, { timeout: 15000 },
+).catch(() => {});
 const start = toScreen(270, 580);
 await page.mouse.click(start.x, start.y);
 await page.waitForTimeout(250);

@@ -51,7 +51,7 @@ export class DecisionLog {
    * the state they were reasoning about.
    */
   open_(pair: number, from: Progress, gates: readonly GateType[], wave: number, time: number): void {
-    this.open.set(pair, { wave, time, offer: scoreOffer(from, gates) });
+    this.open.set(pair, { wave, time, offer: scoreOffer(from, gates, wave) });
   }
 
   /**

@@ -1,4 +1,4 @@
-import { SQUAD, WEAPON } from '../config';
+import { ARENA, GATES, SCORING, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 
@@ -18,6 +18,13 @@ export interface Upgrades {
   rateMult: number;
   guns: number;
   pierce: number;
+  /**
+   * The movement economy. Neither term touches damage; both buy REACH - the
+   * share of an offer the squad can actually get to before it passes.
+   */
+  moveMult: number;
+  /** Multiplier ON gate approach speed, so `+TIME` drives it DOWN. */
+  gateSpeedMult: number;
 }
 
 /** Everything a gate can change. The squad owns one; the difficulty model
@@ -28,7 +35,10 @@ export interface Progress {
 }
 
 export function freshUpgrades(): Upgrades {
-  return { damageBonus: 0, damageMult: 1, rateBonus: 0, rateMult: 1, guns: 1, pierce: 0 };
+  return {
+    damageBonus: 0, damageMult: 1, rateBonus: 0, rateMult: 1, guns: 1, pierce: 0,
+    moveMult: 1, gateSpeedMult: 1,
+  };
 }
 
 /**
@@ -59,6 +69,75 @@ export function unitShares(power: number): number[] {
 export function pierceMultiplier(pierce: number): number {
   const q = WEAPON.pierceQ;
   return (1 - Math.pow(q, pierce + 1)) / (1 - q);
+}
+
+/**
+ * The movement economy, in one place so par and the player cannot drift.
+ *
+ * Gate approach speed rises with the wave and is pulled back down by `+TIME`;
+ * squad speed is pushed up by `x MOVE`. Both end up in the same quantity -
+ * how far the squad can travel while an offer descends.
+ */
+export function waveGateSpeedMult(wave: number): number {
+  return Math.min(GATES.maxSpeedMult, 1 + Math.max(0, wave - 1) * GATES.speedPerWave);
+}
+
+/** Px/s an offer descends at, for this wave and this run's accumulated `+TIME`. */
+export function gateSpeed(wave: number, u: Upgrades): number {
+  return GATES.speed * waveGateSpeedMult(wave) * u.gateSpeedMult;
+}
+
+/** Px/s the squad centre may travel. */
+export function moveSpeed(u: Upgrades): number {
+  return SQUAD.moveSpeed * u.moveMult;
+}
+
+/** Seconds from a gate's spawn above the screen to the squad's lane line. */
+export function gateDescentSeconds(wave: number, u: Upgrades): number {
+  return (ARENA.laneY + GATES.height) / gateSpeed(wave, u);
+}
+
+/**
+ * Reach: lane widths the squad can cover while one offer descends, after the
+ * share of that descent it can actually spend travelling (`SCORING.reachShare`
+ * - the rest is dodging and staying on target).
+ *
+ * Deliberately NOT clamped to 1. A clamp would make every `x MOVE` past
+ * saturation worth exactly zero, which is the failure this whole valuation
+ * exists to remove; `accessFactor` saturates smoothly instead, so a bonus the
+ * squad barely needs is worth little rather than nothing.
+ */
+export function reach(wave: number, u: Upgrades): number {
+  const laneWidth = ARENA.maxX - ARENA.minX;
+  const travel = moveSpeed(u) * gateDescentSeconds(wave, u) * SCORING.reachShare;
+  return travel / laneWidth;
+}
+
+/**
+ * What that reach is worth, as a factor on damage output: `1 - w / (1 + reach)`.
+ *
+ * Strictly increasing, asymptotic to 1, never equal to it. A squad that cannot
+ * move at all is priced at `1 - w` of one that can be anywhere, because a
+ * player who can never get to the option they judged best stops compounding;
+ * and a squad already covering the lane still gains a little from more, which
+ * is honest - offers do not all arrive in the lane you are standing in.
+ */
+export function accessFactor(r: number): number {
+  return 1 - SCORING.accessWeight / (1 + Math.max(0, r));
+}
+
+/**
+ * What a progress state is WORTH to a decision, as opposed to what it kills.
+ *
+ * `squadDps` is what actually destroys enemies and is what the difficulty model
+ * budgets against - access does not kill anything, so folding it into the
+ * budget would tell the curve the player is stronger than they are. Scoring is
+ * the other question: given two offers, which leaves you better off over the
+ * rest of the run. Reaching future offers is part of that answer, so this is
+ * what `Scoring.scoreOffer` prices with. Keep the two separate.
+ */
+export function progressValue(p: Progress, wave: number): number {
+  return squadDps(p) * accessFactor(reach(wave, p.upgrades));
 }
 
 export function damageFactor(u: Upgrades): number { return (1 + u.damageBonus) * u.damageMult; }
@@ -110,6 +189,14 @@ export function applyGate(p: Progress, gate: GateType): string {
       break;
     case 'pierce':
       u.pierce += gate.value;
+      break;
+    case 'move':
+      u.moveMult *= gate.value;
+      break;
+    case 'time':
+      // The gate promises slower approach; the stat it moves is the SPEED, so
+      // the draw divides. `+20% TIME` is exactly 1.2x the seconds to decide.
+      u.gateSpeedMult /= gate.value;
       break;
   }
   return gate.label;

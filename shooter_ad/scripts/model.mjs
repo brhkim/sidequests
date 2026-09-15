@@ -12,6 +12,11 @@
  *    must move damage output at every army size, which is why tier stats
  *    interpolate between rows instead of stepping at them.
  * 3. Pierce diminishes on a fixed q, identically for par and the player.
+ * 4. The movement economy is never free. `x MOVE` and `+TIME` carry no damage
+ *    at all, so priced by DPS they score a flat zero and the game calls every
+ *    one of them a mistake. They are priced by ACCESS instead, and this asserts
+ *    that price is positive everywhere - at every wave and however far the
+ *    bonuses have already been stacked.
  */
 import { register } from 'node:module';
 register('./ts-resolve.mjs', import.meta.url);
@@ -21,6 +26,10 @@ const { squadDps, freshUpgrades, applyGate, cloneProgress, pierceMultiplier } =
 const { SQUAD } = await import('../src/config.ts');
 const { tierFor, TIERS } = await import('../src/data/tiers.ts');
 const { rawShare } = await import('../src/data/gates.ts');
+const { scoreOffer } = await import('../src/systems/Scoring.ts');
+const { reach, gateDescentSeconds, waveGateSpeedMult } =
+  await import('../src/systems/Progression.ts');
+const { GATES } = await import('../src/config.ts');
 
 const state = (power, over = {}) => ({
   power, upgrades: { ...freshUpgrades(), ...over },
@@ -137,4 +146,77 @@ for (const [i, series] of liveness.entries()) {
     process.exit(1);
   }
 }
+
+// ---------------------------------------------------------------------------
+// The movement economy.
+//
+// Priced through the SHIPPED `scoreOffer` rather than a restatement of the
+// valuation, so this measures what par takes, what the halo flashes and what
+// the death screen says - not a second model that could drift from all three.
+console.log('\n=== gate approach speed rises with the wave ===');
+console.log('  wave   speed x   descent s   reach');
+for (const wave of [1, 3, 6, 10, 15, 21, 30]) {
+  const u = freshUpgrades();
+  console.log(
+    String(wave).padStart(6),
+    waveGateSpeedMult(wave).toFixed(2).padStart(9),
+    gateDescentSeconds(wave, u).toFixed(2).padStart(11),
+    reach(wave, u).toFixed(3).padStart(8),
+  );
+}
+if (!(waveGateSpeedMult(30) > waveGateSpeedMult(1))) {
+  console.error('FAIL: gate approach speed does not rise with the wave');
+  process.exit(1);
+}
+
+/** What the game's own scoring says one gate is worth, in one state, one wave. */
+const priced = (p, g, wave) => scoreOffer(p, [g], wave).options[0].delta;
+
+console.log('\n=== x MOVE and +TIME are never worth zero ===');
+console.log('  wave   stacked move/time    x1.05 MOVE   x1.5 MOVE    +5% TIME   +50% TIME');
+let cheapest = Infinity;
+for (const wave of [1, 3, 6, 10, 15, 21, 30]) {
+  // Including states where the bonuses are already stacked hard: access
+  // saturates smoothly rather than clamping, precisely so a fifth x MOVE is
+  // worth little instead of nothing.
+  for (const [mv, tm] of [[1, 1], [2, 1], [1, 2], [4, 3], [8, 6]]) {
+    const p = state(200, { moveMult: mv, gateSpeedMult: 1 / tm });
+    const cells = [
+      priced(p, gate('move', 'mult', 1.05), wave),
+      priced(p, gate('move', 'mult', 1.5), wave),
+      priced(p, gate('time', 'raw', 1.05), wave),
+      priced(p, gate('time', 'raw', 1.5), wave),
+    ];
+    cheapest = Math.min(cheapest, ...cells);
+    console.log(
+      String(wave).padStart(6),
+      `x${mv} / x${tm}`.padStart(19),
+      ...cells.map((c) => `${(c * 100).toFixed(2)}%`.padStart(12)),
+    );
+  }
+}
+console.log(`\n  cheapest movement bonus anywhere: ${(cheapest * 100).toFixed(3)}%`);
+if (!(cheapest > 0)) {
+  console.error(
+    'FAIL: a movement bonus is priced at zero somewhere',
+    '\n      par will never take it, the halo will flash it red and the death',
+    '\n      screen will call it a mistake - see Scoring.scoreOffer',
+  );
+  process.exit(1);
+}
+
+// Nonzero is not enough: the bonus also has to be able to WIN an offer, or it
+// is merely a differently-worded way to waste a pick. A strong draw must beat a
+// weak damage draw somewhere on the curve.
+const weakDmg = gate('damage', 'mult', 1.05);
+const beats = [1, 6, 15, 30].filter((wave) => {
+  const p = state(200);
+  return priced(p, gate('move', 'mult', 1.5), wave) > priced(p, weakDmg, wave);
+});
+console.log(`  x1.5 MOVE beats x1.05 DMG at waves: ${beats.join(', ') || 'nowhere'}`);
+if (beats.length === 0) {
+  console.error('FAIL: no movement bonus can ever be the right pick');
+  process.exit(1);
+}
+
 console.log('PASS');

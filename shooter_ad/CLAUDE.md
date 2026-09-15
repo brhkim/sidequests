@@ -198,6 +198,59 @@ show up in the score. One ordering trap, already paid for: `consumePair` is what
 opens the log entry for a gate taken before it reaches the lane line, so
 resolving before it silently left every such decision unrecorded.
 
+### Scoring prices ACCESS; difficulty budgets DPS. Keep them apart.
+
+`x MOVE` and `+TIME` change no damage number at all. Priced by resulting DPS
+they score a flat zero, so par would never take one, the halo would flash every
+one of them red, and the death screen would call them mistakes. That is not the
+game judging them harshly - it is the scoring failing to see a cost the game
+already charges. **You only get the bonus you can reach**, and at `PROBE_SKILL`
+1.0 the bot reaching for the best option every single time still lands a median
+96% of optimal, the gap being gates it chose and could not get to.
+
+So a state is valued as `squadDps(p) x accessFactor(reach(wave, upgrades))`:
+
+```
+reach        = moveSpeed x descentSeconds x SCORING.reachShare / laneWidth
+accessFactor = 1 - SCORING.accessWeight / (1 + reach)
+```
+
+Three properties are load-bearing:
+
+- **`Scoring.scoreOffer` uses the value; `Difficulty` uses raw `squadDps`.**
+  Access buys future picks, not kills, so folding it into the enemy budget would
+  tell the curve a squad that merely moves well is destroying more than it is.
+  Par still *chooses* on value, because that is the decision - the asymmetry is
+  deliberate and is commented at both ends.
+- **`accessFactor` saturates but never reaches 1**, and `reach` is NOT clamped.
+  A clamp would price every `x MOVE` past saturation at exactly zero, which is
+  the failure the valuation exists to remove. `npm run model` asserts the floor
+  is positive at every wave and at stacked multipliers up to x8.
+- **`SCORING.reachShare` is a tuned constant, for the reason `WEAPON.pierceQ`
+  is.** The true share of a descent the squad can spend travelling swings
+  second to second with the board; a value read at the instant of a decision
+  scores the pick against a truth that lasted one second. Stable and identical
+  for par and player beats precise and unrepeatable.
+
+`x1.5 MOVE` and `+50% TIME` are exactly equivalent by construction - both
+multiply reach by the same root. When two such draws land in one offer the
+options genuinely tie, and the tie-break decides. Mismatched roots
+(`x1.2 MOVE` against `+30% TIME`) are a real comparison, and that is the usual
+case.
+
+### Gate approach speed is the judgment-axis difficulty lever
+
+`GATES.speedPerWave` raises how fast offers descend, capped at
+`GATES.maxSpeedMult`. Later waves do not hand you a harder sum, they give you
+less time to do it in - deliberately separate from enemy pressure, which is
+closed-loop against par and never keys off the wave number. `+TIME` divides it
+back down for the rest of the run.
+
+Squad movement is rate-limited in `Squad.update`. Under a pointer it used to
+assign the finger's x directly, so the squad teleported, travel was free and the
+whole movement economy was inert. `SQUAD.moveSpeed` came down from 620 to 260
+when the movement bonuses landed; set it high again and `x MOVE` buys nothing.
+
 ### `Progression.ts` is the single definition of squad strength
 
 The squad fires from it and the difficulty model budgets against it. Two copies

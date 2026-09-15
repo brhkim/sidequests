@@ -46,7 +46,19 @@ export const SQUAD = {
    * what actually selects a gate, and nothing else on screen says so.
    */
   leaderScale: 1.5,
-  moveSpeed: 620,
+  /**
+   * Cap on how fast the squad centre travels, in px/s. This is a CONSTRAINT,
+   * not a convenience: the lane is 400px wide and a gate takes a few seconds to
+   * descend, so getting to the option you judged best costs time you are not
+   * spending dodging. Set high enough and `x MOVE` buys nothing, the movement
+   * economy collapses, and reaching a gate stops being part of the decision -
+   * which is why this came DOWN from 620 when the movement bonuses landed.
+   *
+   * Under a pointer the squad used to teleport to the finger, so travel was
+   * free and none of the above was true. `Squad.update` now advances toward the
+   * pointer at this speed instead.
+   */
+  moveSpeed: 260,
   startPower: 6,
   /**
    * Hard ceiling on army power, DERIVED from the ladder rather than picked.
@@ -180,7 +192,25 @@ export const DIFFICULTY = {
 export const GATES = {
   /** Seconds between offers descending. */
   interval: 7.5,
+  /** Approach speed at wave 1. Rises with the wave - see `speedPerWave`. */
   speed: 108,
+  /**
+   * Fractional rise in approach speed per wave past the first.
+   *
+   * THE primary difficulty lever on the judgment axis, and deliberately
+   * separate from enemy pressure: later waves do not give you a harder sum,
+   * they give you less time to do it in. Enemy HP is closed-loop against par
+   * (see systems/Difficulty.ts) and never keys off the wave number; this does,
+   * because thinking time is not something a shadow player can be budgeted
+   * against.
+   */
+  speedPerWave: 0.075,
+  /**
+   * Ceiling on that rise. At 2.5 a late offer descends in ~3.2s rather than 8s,
+   * which is about as short as three labels can be read in at all. Past that
+   * the game stops testing judgment and starts testing reflexes.
+   */
+  maxSpeedMult: 2.5,
   height: 64,
   /** Options per offer. The choice between them IS the gameplay. */
   perOffer: 3,
@@ -191,6 +221,40 @@ export const GATES = {
    * pool, `×1.05 ARMY`) without truncation.
    */
   labelSize: 21,
+} as const;
+
+/**
+ * How a decision is PRICED, as distinct from what it kills.
+ *
+ * `x MOVE` and `+TIME` change no damage number at all, so scored by resulting
+ * DPS they are worth exactly zero - the halo would flash them red, the death
+ * screen would call them mistakes, and par would never take one. That is not a
+ * judgement about them, it is the scoring failing to see what the game already
+ * charges for: you only get the bonus you can reach.
+ *
+ * So scoring values a state as `squadDps * accessFactor(reach)` - see
+ * Progression.progressValue. Difficulty keeps budgeting against raw `squadDps`,
+ * because access does not kill anything.
+ */
+export const SCORING = {
+  /**
+   * Share of a gate's descent the squad can actually spend repositioning.
+   *
+   * The rest goes on dodging fire and staying over the column it is killing, so
+   * the full descent is not a travel budget. A tuned constant, for exactly the
+   * reason `WEAPON.pierceQ` is one: the true figure swings second to second
+   * with the board, and a value measured at the instant of a decision scores
+   * the pick against a truth that lasted one second. Stable and identical for
+   * par and player beats precise and unrepeatable.
+   */
+  reachShare: 0.15,
+  /**
+   * How much of a state's value is access rather than raw damage. At 0.8 a
+   * squad that can reach nothing is priced at a fifth of one that can reach
+   * everything, which is roughly the difference between a run that keeps
+   * compounding and one that stops.
+   */
+  accessWeight: 0.8,
 } as const;
 
 export const CAGE = {

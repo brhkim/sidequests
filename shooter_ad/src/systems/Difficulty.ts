@@ -68,9 +68,15 @@ export class Difficulty {
 
   /**
    * A gate set has been offered. Par takes whichever option leaves it
-   * strongest, judged by resulting DPS rather than raw power - otherwise a
-   * flat `+30` would always beat a damage bonus no matter how many units are
-   * already on the field.
+   * strongest, judged by the shared `scoreOffer` - the SAME function the death
+   * screen grades the player with, so the two can never disagree about which
+   * option was best.
+   *
+   * Note the asymmetry, which is deliberate: par CHOOSES on access-weighted
+   * value, because that is the decision, but every number this class hands the
+   * enemy budget (`parDps`, `targetDps`) is raw `squadDps`. Folding access into
+   * the budget would tell the curve a squad that merely moves well is killing
+   * more than it is.
    *
    * Ties break toward the option that leaves the most power, then toward the
    * first offered, and the comparison is RELATIVE rather than exact. Par is the
@@ -79,9 +85,9 @@ export class Difficulty {
    * strict `>` against a flat DPS curve, par kept whatever it happened to score
    * first and two seeds showed it halving its own army.
    */
-  observeGateOffer(gates: readonly GateType[]): void {
+  observeGateOffer(gates: readonly GateType[], wave: number): void {
     if (gates.length === 0) return;
-    const chosen = gates[scoreOffer(this.ideal, gates).best];
+    const chosen = gates[scoreOffer(this.ideal, gates, wave).best];
     const next = cloneProgress(this.ideal);
     applyGate(next, chosen);
     this.ideal = next;

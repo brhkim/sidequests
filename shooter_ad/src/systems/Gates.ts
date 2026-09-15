@@ -1,5 +1,6 @@
 import { ARENA, GATES, VIEW } from '../config';
 import { rollOffer, type GateType, type OfferContext } from '../data/gates';
+import { gateSpeed, type Upgrades } from './Progression';
 
 export interface Gate {
   x: number; y: number;
@@ -46,15 +47,20 @@ export class Gates {
    * of what the player already holds, so they are rolled against the live army
    * and bonus pools rather than as fixed numbers.
    */
-  update(dt: number, wave: number, ctx: OfferContext): void {
+  update(dt: number, wave: number, ctx: OfferContext, u: Upgrades): void {
     this.accum += dt;
     if (this.accum >= GATES.interval) {
       this.accum = 0;
       this.spawnOffer(wave, ctx);
     }
+    // Offers arrive at a fixed rate but DESCEND faster every wave, so the time
+    // to read three labels and reach one shrinks. `+TIME` pushes it back out
+    // for the rest of the run; both live in Progression so par prices the
+    // trade with the same numbers the gate actually falls at.
+    const speed = gateSpeed(wave, u);
     for (const g of this.items) {
       if (!g.active) continue;
-      g.y += GATES.speed * dt;
+      g.y += speed * dt;
       if (g.y > VIEW.height + GATES.height) g.active = false;
     }
     this.creditArrivedOffers();

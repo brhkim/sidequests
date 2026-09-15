@@ -16,7 +16,7 @@ import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
 import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
 import { VERSION } from '../version';
-import { pierceMultiplier } from '../systems/Progression';
+import { moveSpeed, pierceMultiplier } from '../systems/Progression';
 import { PAUSE_BUTTON } from './hud/PauseScreen';
 import { RAIL_HEIGHT } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
@@ -96,7 +96,7 @@ export class GameScene extends Phaser.Scene {
         // Both read the same arrival moment: par takes its pick and the log
         // records the state the player was actually deciding from.
         this.log.open_(pair, this.squad.progress, offer, this.enemies.wave.index, this.elapsed);
-        this.difficulty.observeGateOffer(offer);
+        this.difficulty.observeGateOffer(offer, this.enemies.wave.index);
       },
       (pair) => this.log.resolve(pair, -1),
     );
@@ -241,7 +241,7 @@ export class GameScene extends Phaser.Scene {
       power: this.squad.power,
       damageBonus: this.squad.upgrades.damageBonus,
       rateBonus: this.squad.upgrades.rateBonus,
-    });
+    }, this.squad.upgrades);
 
     if (newWave) {
       this.squad.addPower(WAVE.clearBonus);
@@ -260,8 +260,12 @@ export class GameScene extends Phaser.Scene {
 
   private handleKeys(dt: number): void {
     if (!this.cursors) return;
-    if (this.cursors.left.isDown) this.targetX -= SQUAD.moveSpeed * dt;
-    if (this.cursors.right.isDown) this.targetX += SQUAD.moveSpeed * dt;
+    // The keys drive the TARGET; Squad.update is what rate-limits the squad.
+    // Moving the target faster than the squad only builds slack, so this reads
+    // the same speed the squad actually travels at.
+    const speed = moveSpeed(this.squad.upgrades);
+    if (this.cursors.left.isDown) this.targetX -= speed * dt;
+    if (this.cursors.right.isDown) this.targetX += speed * dt;
     this.targetX = Math.max(ARENA.minX, Math.min(ARENA.maxX, this.targetX));
   }
 
@@ -442,7 +446,9 @@ export class GameScene extends Phaser.Scene {
     }
     const out = [];
     for (const group of byPair.values()) {
-      const scored = scoreOffer(this.squad.progress, group.map((g) => g.type));
+      const scored = scoreOffer(
+        this.squad.progress, group.map((g) => g.type), this.enemies.wave.index,
+      );
       for (let i = 0; i < group.length; i++) {
         const g = group[i];
         out.push({

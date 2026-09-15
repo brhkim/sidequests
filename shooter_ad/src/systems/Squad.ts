@@ -3,7 +3,7 @@ import { tierFor, unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { SLOTS } from './Formation';
 import {
-  applyGate, damageFactor, freshUpgrades, rateFactor, squadDps, unitShares,
+  applyGate, damageFactor, freshUpgrades, moveSpeed, rateFactor, squadDps, unitShares,
   type Progress, type Upgrades,
 } from './Progression';
 
@@ -82,8 +82,22 @@ export class Squad {
     }
   }
 
+  /**
+   * Travel toward `targetX` at the squad's own speed rather than snapping to
+   * it.
+   *
+   * Under a pointer this used to assign the finger's x directly, so the squad
+   * teleported and crossing the lane was free. That quietly deleted the whole
+   * movement economy: `x MOVE` could buy nothing, reaching the gate you judged
+   * best was never in doubt, and the only thing costing time was the keyboard
+   * path almost nobody plays on. Movement is a constraint now, which is what
+   * makes an offer you cannot get to a real loss.
+   */
   update(dt: number, targetX: number): void {
-    this.x = Math.max(ARENA.minX, Math.min(ARENA.maxX, targetX));
+    const want = Math.max(ARENA.minX, Math.min(ARENA.maxX, targetX));
+    const step = moveSpeed(this.progress.upgrades) * dt;
+    const delta = want - this.x;
+    this.x += Math.abs(delta) <= step ? delta : Math.sign(delta) * step;
 
     const ease = 1 - Math.exp(-SQUAD.followLerp * dt);
     for (const u of this.units) {

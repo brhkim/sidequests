@@ -532,6 +532,13 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 - **Par's ties break toward the least harmful option.**
 - **HUD top rail** — wave, army power, soldiers, DPS and par DPS, with par
   permanently on screen and a standing bar marked at `targetFraction`.
+- **Gate approach speed scales with wave**, plus `×MOVE` and `+TIME`. Squad
+  movement is rate-limited now (it teleported to the pointer before, which made
+  the whole movement economy inert) and `SQUAD.moveSpeed` came down to 260.
+  Neither bonus carries damage, so scoring values a state as
+  `squadDps × accessFactor(reach)` while difficulty keeps budgeting raw
+  `squadDps` — see `CLAUDE.md`. **Still owed**: the active-bonus strip does not
+  show MOVE or TIME, so a player cannot read the pool the conversion needs.
 - **Active-bonus readout** beneath the red line — damage pool and mult, rate
   pool and mult, guns, and pierce priced by the shared valuation. The pool is
   the big number in each cell because it is what the raw-versus-multiplicative
@@ -541,7 +548,6 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 ### Now
 5. **Three gates per offer**, and enlarge the leader unit so it is obvious the
    centre is what selects.
-6. **Gate approach speed scales with wave**; add `+TIME` and `×MOVE` bonuses.
 7. **DecisionLog + death screen readout.**
 8. **Soften the mercy clamp**, re-probe.
 10. **Escalating numeric legibility** by wave.
