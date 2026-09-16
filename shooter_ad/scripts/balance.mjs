@@ -37,13 +37,14 @@ const SECONDS = Number(process.env.PROBE_SECONDS ?? 150);
 const SEEDS = (process.env.PROBE_SEEDS ?? '1,2,3').split(',').map(Number);
 const VERBOSE = process.env.PROBE_VERBOSE === '1';
 const SKILL = Number(process.env.PROBE_SKILL ?? 0.7);
+const MODE = process.env.PROBE_MODE ?? 'normal';
 
 const { port, close } = await serveDist();
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
 const results = [];
 for (const seed of SEEDS) {
-  results.push(await playSeed(browser, port, { seed, skill: SKILL, seconds: SECONDS }));
+  results.push(await playSeed(browser, port, { seed, skill: SKILL, seconds: SECONDS, mode: MODE }));
 }
 await browser.close();
 close();
@@ -83,7 +84,7 @@ const survivals = results.map((r) => r.survived).sort((a, b) => a - b);
 const optimals = results.map((r) => r.optimal);
 const stands = results.flatMap((r) => r.rows.map((x) => x.standing));
 
-console.log(`\nskill ${SKILL}  (probability of reaching for the best option)`);
+console.log(`\nmode ${MODE}, skill ${SKILL}  (probability of reaching for the best option)`);
 console.log(`survival: ${survivals.join('s, ')}s   median ${med(survivals)}s`);
 console.log(`optimal:  ${optimals.map((o) => (o * 100).toFixed(0) + '%').join(', ')}`
   + `   median ${(med(optimals) * 100).toFixed(0)}%`);

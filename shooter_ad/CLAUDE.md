@@ -391,6 +391,27 @@ headline.
 Raise `targetFraction` toward 1 to make the game meaner; lower it to make wins
 feel bigger.
 
+### Legibility must stay difficulty-neutral, and once did not
+
+`notes.md` says of the legibility axis: "No mechanic changes — only how hard the
+arithmetic is." That is a claim about the MEAN of each tier's root table, and it
+was false. The original first tier, `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, bunches
+low: mean 1.2583 against 1.2750 for both ladders, which are symmetric over the
+range by construction. **1.32% less per draw, and draws multiply — about 48%
+less power over thirty offers.**
+
+So escalating legibility was quietly escalating strength, and hard mode, which
+starts a tier in, was handing out bigger bonuses rather than harder sums. It is
+why the probe measured hard mode as easier than normal at every skill level.
+The first tier is now symmetric (`[1.05, 1.1, 1.2, 1.35, 1.45, 1.5]`, gaps
+0.05/0.10/0.15/0.10/0.05, every value still a multiple of 0.05) and
+`npm run model` computes each tier's mean and fails if they drift apart by more
+than 0.5% per draw.
+
+Worth generalising: **any content table indexed by difficulty needs its mean
+checked, not just its range.** The range was fixed and documented as
+deliberately fixed, which is exactly what made the skew invisible.
+
 ## Known-broken, measured, not yet fixed
 
 These came out of `npm run balance` and are load-bearing for the roadmap. Do not

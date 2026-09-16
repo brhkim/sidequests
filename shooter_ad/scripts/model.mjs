@@ -367,4 +367,98 @@ if (knobs.length !== 1 || knobs[0] !== 'waveOffset') {
 console.log('  hard mode carries exactly one knob: waveOffset');
 setMode('normal');
 
+
+// ---------------------------------------------------------------------------
+// What hard mode does to the VALUE of a bonus, as opposed to its magnitude.
+//
+// This exists because the probe measured hard mode as consistently EASIER than
+// normal - higher standing, longer survival, at every skill level - which is
+// the opposite of the intent and had to be explained before anything was tuned
+// around it. The suspected mechanism is here rather than in the bot: gate speed
+// feeds `gateDescentSeconds`, which feeds `reach`, which is what `scoreOffer`
+// prices access with. Faster gates make reach SCARCER, which makes `x MOVE` and
+// `+TIME` worth more - and `+TIME` is a permanent divisor on gate speed, so it
+// is the direct counter to the very thing hard mode turned up.
+//
+// If par spends materially more of its picks on access under hard mode, the
+// effect is real game mechanics rather than a quirk of the bot: hard mode pays
+// for its own antidote.
+// ---------------------------------------------------------------------------
+console.log('\n=== what hard mode does to access pricing ===');
+console.log('  mode     offers with access   picks spent on access   par DPS after 30');
+for (const m of ['normal', 'hard']) {
+  setMode(m);
+  let picks = 0, total = 0, offersWith = 0, dpsEnd = 0;
+  for (let run = 0; run < 200; run++) {
+    let s1 = run * 2654435761 + 12345;
+    const r = () => ((s1 = (s1 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const par = state(SQUAD.startPower);
+    for (let offer = 0; offer < 30; offer++) {
+      const wave = 1 + Math.floor(offer / 2);
+      const ctx = {
+        power: par.power,
+        damageBonus: par.upgrades.damageBonus,
+        rateBonus: par.upgrades.rateBonus,
+      };
+      const gates = rollOffer(G.perOffer, wave, ctx, r);
+      if (gates.length === 0) continue;
+      if (gates.some((g) => g.axis === 'move' || g.axis === 'time')) offersWith++;
+      const pick = gates[scoreOffer(par, gates, wave).best];
+      total++;
+      if (pick.axis === 'move' || pick.axis === 'time') picks++;
+      applyGate(par, pick);
+    }
+    dpsEnd += squadDps(par);
+  }
+  console.log(
+    `  ${m.padEnd(8)}` + `${(offersWith / total * 100).toFixed(1)}%`.padStart(18)
+    + `${(picks / total * 100).toFixed(1)}%`.padStart(23)
+    + `${Math.round(dpsEnd / 200)}`.padStart(19),
+  );
+}
+setMode('normal');
+
+
+// ---------------------------------------------------------------------------
+// Legibility must be difficulty-NEUTRAL.
+//
+// `notes.md`: "No mechanic changes - only how hard the arithmetic is." That is
+// a claim about the MEAN of each tier's root table, and it is not automatically
+// true: the tiers have different value counts over the same range, so a tier
+// whose values happen to bunch low hands out systematically smaller bonuses
+// than one that does not. Since hard mode starts several tiers in, any such
+// skew is a strength difference wearing a legibility costume - and it would
+// compound over every offer of a run.
+// ---------------------------------------------------------------------------
+console.log('\n=== legibility tiers must not differ in strength ===');
+console.log('  minWave   values   mean root   vs tier 0');
+const means = LEGIBILITY.map((t) => t.roots.reduce((a, b) => a + b, 0) / t.roots.length);
+for (let i = 0; i < LEGIBILITY.length; i++) {
+  const drift = (means[i] / means[0] - 1) * 100;
+  console.log(
+    String(LEGIBILITY[i].minWave).padStart(9),
+    String(LEGIBILITY[i].roots.length).padStart(8),
+    means[i].toFixed(4).padStart(11),
+    `${drift >= 0 ? '+' : ''}${drift.toFixed(2)}%`.padStart(11),
+  );
+}
+// Compounded over a run's worth of offers, which is the number that matters:
+// a fraction of a percent per draw is not nothing when every draw multiplies.
+const OFFERS = 30;
+const worstTier = means.reduce((a, b) => (Math.abs(b - means[0]) > Math.abs(a - means[0]) ? b : a));
+const perDraw = worstTier / means[0];
+console.log(
+  `  worst tier is ${((perDraw - 1) * 100).toFixed(2)}% per draw,`
+  + ` ${(Math.pow(perDraw, OFFERS) * 100 - 100).toFixed(1)}% over ${OFFERS} offers`,
+);
+// 0.5% per draw is ~16% over 30 offers - already larger than most effects this
+// project tries to measure, so the tolerance is tight on purpose.
+const TOLERANCE = 0.005;
+if (Math.abs(perDraw - 1) > TOLERANCE) {
+  throw new Error(
+    `legibility tiers differ in mean strength by ${((perDraw - 1) * 100).toFixed(2)}%`
+    + ' per draw — escalating legibility is secretly escalating power',
+  );
+}
+
 console.log('PASS');

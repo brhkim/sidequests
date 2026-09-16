@@ -308,6 +308,13 @@ mechanic changes — only how hard the arithmetic is.
 
 This is the axis that scales furthest, because it never stops being interesting.
 
+**"No mechanic changes" is a constraint on the tables' MEAN, not only on their
+range, and the first draft broke it.** The original coarse table bunched low -
+1.32% less per draw than the ladders, about 48% less power over thirty offers -
+so moving up a tier was a power increase wearing a legibility costume. Every
+tier's table must now be symmetric about the middle of the range; `npm run
+model` fails otherwise.
+
 ## Instant feedback on every pick
 
 A halo flash on the gate the moment you take it:

@@ -38,7 +38,8 @@ const { port, close } = await serveDist();
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
 console.log(`mode ${MODE}, seeds ${SEEDS.join(',')}, budget ${SECONDS}s simulated\n`);
-console.log('  skill   survival   optimal   standing   waves   breach/min   travel/min   trunc');
+console.log('  skill   survival   optimal   standing   waves   breach/min'
+  + '   travel/min   offers/min   died');
 
 const table = [];
 for (const skill of SKILLS) {
@@ -55,10 +56,14 @@ for (const skill of SKILLS) {
     wave: med(runs.map((r) => r.wave)),
     breach: med(runs.map((r) => perMin(r.breachLoss, r))),
     travel: med(runs.map((r) => perMin(r.traveled, r))),
-    // A run that ran out of budget did not die. Its survival is a floor.
-    truncated: runs.filter((r) => !r.rows.at(-1)?.over).length,
+    // A run that ran out of budget did not die, so its survival is a floor and
+    // so is any median built from it. Counted from the run's OWN end state.
+    died: runs.filter((r) => r.died).length,
+    decisions: med(runs.map((r) => (r.survived > 0 ? (r.decisions / r.survived) * 60 : 0))),
+    optimalShare: med(runs.map((r) => r.optimal)),
     errors: runs.reduce((n, r) => n + r.errors.length, 0),
-    all: runs.map((r) => r.survived),
+    // Marked, so a floor is never read as a survival time.
+    all: runs.map((r) => `${r.survived}s${r.died ? '' : '+'}`),
   };
   table.push(row);
   console.log(
@@ -69,7 +74,8 @@ for (const skill of SKILLS) {
     String(row.wave).padStart(8),
     row.breach.toFixed(1).padStart(13),
     String(Math.round(row.travel)).padStart(13),
-    String(row.truncated).padStart(8),
+    row.decisions.toFixed(1).padStart(12),
+    `${row.died}/${SEEDS.length}`.padStart(7),
   );
 }
 
@@ -78,11 +84,15 @@ close();
 
 console.log('\nper-seed survival, to show the spread a median hides:');
 for (const r of table) {
-  console.log(`  skill ${r.skill}: ${r.all.map((s) => s + 's').join(', ')}`);
+  console.log(`  skill ${r.skill}: ${r.all.join(', ')}`);
 }
 const errors = table.reduce((n, r) => n + r.errors, 0);
 console.log(`\nerrors: ${errors}`);
-if (table.some((r) => r.truncated > 0)) {
-  console.log('NOTE: some runs hit the budget rather than dying — those medians are floors.');
+const survivors = table.reduce((n, r) => n + (SEEDS.length - r.died), 0);
+if (survivors > 0) {
+  console.log(
+    `NOTE: ${survivors} run(s) hit the ${SECONDS}s budget rather than dying.`
+    + ' Their survival is a FLOOR, and so is any median containing one.',
+  );
 }
 process.exit(errors > 0 ? 1 : 0);

@@ -18,6 +18,9 @@
  * The range is deliberately FIXED across every tier. Only granularity and
  * rounding escalate with difficulty: widening the range would make picks
  * swingier, and this game is about precision rather than luck.
+ *
+ * Every tier must also have the same MEAN, or the legibility axis is a power
+ * axis in disguise - see the note on the first tier below.
  */
 export const ROOT_RANGE = { min: 1.05, max: 1.5 } as const;
 
@@ -45,7 +48,22 @@ function ladder(step: number): number[] {
  * defeats eyeballing.
  */
 export const LEGIBILITY: readonly Legibility[] = [
-  { minWave: 1,  sigFigs: 2, roots: [1.05, 1.1, 1.2, 1.3, 1.4, 1.5] },
+  /**
+   * Six round values, SYMMETRIC about the middle of the range.
+   *
+   * The symmetry is load-bearing, not tidiness. The original table was
+   * `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, whose values bunch low: mean 1.2583
+   * against 1.2750 for both ladders below, which are symmetric by
+   * construction. That is 1.32% less per draw, and draws MULTIPLY - about 48%
+   * less power over thirty offers. So escalating legibility was quietly
+   * escalating strength, and a hard run, which starts a tier in, was handing
+   * out bigger bonuses rather than harder sums. `npm run model` measures the
+   * mean of every tier and fails if they drift apart again.
+   *
+   * Gaps of 0.05 / 0.10 / 0.15 / 0.10 / 0.05 keep every value a multiple of
+   * 0.05, which is what makes this tier mentally tractable.
+   */
+  { minWave: 1,  sigFigs: 2, roots: [1.05, 1.1, 1.2, 1.35, 1.45, 1.5] },
   { minWave: 6,  sigFigs: 2, roots: ladder(0.05) },
   { minWave: 11, sigFigs: 3, roots: ladder(0.01) },
 ];

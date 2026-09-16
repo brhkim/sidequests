@@ -150,6 +150,12 @@ export async function playSeed(
   // game rather than of the machine it ran on.
   return {
     seed, mode, rows, errors,
+    // Whether the run ENDED or merely ran out of budget. Read off the final
+    // poll, never off the last sampled row: rows are bucketed every few
+    // simulated seconds, so the last one is a snapshot from before the end and
+    // its `over` is false in every run, dead or not. A truncation column built
+    // that way reported every run truncated including ones that died at 43s.
+    died: last?.over === true,
     survived: Number((last?.elapsed ?? 0).toFixed(1)),
     wave: last?.wave ?? 0,
     optimal: last?.optimal ?? 1,
@@ -159,5 +165,7 @@ export async function playSeed(
     fireLoss: last?.fireLoss ?? 0,
     traveled: last?.traveled ?? 0,
     kills: last?.kills ?? 0,
+    dps: last?.dps ?? 0,
+    parDps: last?.parDps ?? 0,
   };
 }
