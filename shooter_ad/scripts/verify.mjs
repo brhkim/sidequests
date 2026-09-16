@@ -56,6 +56,52 @@ await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
  * collision step look identical to a working one.
  */
 const box = await page.locator('canvas').boundingBox();
+const toScreen = (gx, gy) => ({
+  x: box.x + (gx / 540) * box.width,
+  y: box.y + (gy / 960) * box.height,
+});
+
+/**
+ * Press START MATCH for real, on the canvas, rather than skipping the screen.
+ *
+ * This is the only check that loads the game the way a player does - with no
+ * `?seed=` - so it is the only one that meets the start screen at all. Clicking
+ * the actual button means a dead button fails the build here rather than in
+ * somebody's browser.
+ */
+// Wait for the scene to actually exist first. `waitUntil: 'load'` returns as
+// soon as the document is done, which is well before Boot has generated its
+// textures and handed over to Game - so the click landed on nothing and this
+// check failed on a race rather than on a dead button.
+await page.waitForFunction(
+  () => window.game?.scene?.getScene('Game')?.waiting === true,
+  null, { timeout: 15000 },
+).catch(() => {});
+// Located by its LABEL, not by a hardcoded y. The button's position was
+// duplicated here as a literal 580 and moving it on the screen broke this
+// check without anything about the button being wrong - a test that fails when
+// the layout changes teaches people to edit the test.
+const startAt = await page.evaluate(() => {
+  const ui = window.game.scene.getScene('UI');
+  for (const c of ui.children.list) {
+    if (c.type !== 'Container' || !c.visible) continue;
+    const label = c.list.find((o) => o.type === 'Text' && o.text === 'START MATCH');
+    if (label) return { x: label.x, y: label.y };
+  }
+  return null;
+});
+if (!startAt) {
+  console.error('FAIL: no START MATCH button on the start screen');
+  process.exit(1);
+}
+const start = toScreen(startAt.x, startAt.y);
+await page.mouse.click(start.x, start.y);
+await page.waitForTimeout(250);
+if (await page.evaluate(() => window.game.scene.getScene('Game').waiting)) {
+  console.error('FAIL: START MATCH did not begin the run');
+  process.exit(1);
+}
+
 const laneY = box.y + box.height * 0.84;
 await page.mouse.move(box.x + box.width / 2, laneY);
 await page.mouse.down();

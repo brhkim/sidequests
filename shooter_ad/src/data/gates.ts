@@ -1,4 +1,5 @@
 import { drawRoot, formatRoot, legibilityFor, roundSf } from './roots';
+import { judgmentWave } from '../systems/Mode';
 
 /**
  * Gates descend as an offer and the player drives through one of them. Every
@@ -8,7 +9,7 @@ import { drawRoot, formatRoot, legibilityFor, roundSf } from './roots';
  * judgment, and an effect worth whatever the next five seconds hold cannot be
  * reasoned about beforehand or scored afterwards.
  */
-export type BonusAxis = 'army' | 'rate' | 'damage' | 'guns' | 'pierce';
+export type BonusAxis = 'army' | 'rate' | 'damage' | 'guns' | 'pierce' | 'move' | 'time';
 
 /**
  * The central mechanic. `raw` feeds an additive pool, `mult` multiplies the
@@ -69,6 +70,8 @@ export const AXIS_COLOR: Record<BonusAxis, number> = {
   damage: 0xff6b4a,
   guns: 0xb56bff,
   pierce: 0x6be8d4,
+  move: 0x4ea8ff,
+  time: 0xff9fe0,
 };
 
 interface Candidate {
@@ -89,6 +92,14 @@ const CANDIDATES: readonly Candidate[] = [
   // against, offered sparingly so it never becomes the whole decision.
   { axis: 'guns',   form: 'raw',  weight: 24,  minWave: 4 },
   { axis: 'pierce', form: 'raw',  weight: 26,  minWave: 3 },
+  // The movement economy. Neither changes a damage number; both buy the
+  // ability to reach the bonus you judged best, which is the only reason the
+  // rest of this table is worth anything. Offered against a flat `+15% DMG`
+  // they are exactly the call the design wants to ask - see notes.md.
+  { axis: 'move',   form: 'mult', weight: 42,  minWave: 1 },
+  // `+TIME` only has something to undo once gates have begun speeding up, so
+  // it arrives a couple of waves in rather than at the first offer.
+  { axis: 'time',   form: 'raw',  weight: 42,  minWave: 3 },
 ];
 
 function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): GateType {
@@ -121,6 +132,19 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
       return { axis: 'guns', form: 'raw', value: 1, label: '+1 GUN', color };
     case 'pierce':
       return { axis: 'pierce', form: 'raw', value: 1, label: '+1 PIERCE', color };
+    case 'move':
+      return { axis: 'move', form: 'mult', value: root, label: `×${formatRoot(root)} MOVE`, color };
+    case 'time': {
+      // Worded as a gain, because it is one. "-10% GATE SPEED" reads as a
+      // penalty and the bonus would go untaken on grammar alone.
+      // The DISPLAYED percentage is rounded first and the effect derived from
+      // it, so `+20% TIME` is exactly 1.2x the seconds to decide.
+      const percent = Math.max(1, roundSf((root - 1) * 100, sigFigs));
+      return {
+        axis: 'time', form: 'raw', value: 1 + percent / 100,
+        label: `+${percent}% TIME`, color,
+      };
+    }
   }
 }
 
@@ -136,7 +160,11 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
 export function rollOffer(
   count: number, wave: number, ctx: OfferContext, rng: () => number,
 ): GateType[] {
-  const legibility = legibilityFor(wave);
+  // Legibility is a JUDGMENT axis, so hard mode starts it several waves in and
+  // awkward numbers arrive from the first offer. The candidate pool is NOT
+  // offset: which bonuses exist is content, and unlocking late content early
+  // would be a different game rather than a harder one.
+  const legibility = legibilityFor(judgmentWave(wave));
   const pool = CANDIDATES.filter((c) => c.minWave <= wave);
   const chosen: GateType[] = [];
   const taken = new Set<Candidate>();

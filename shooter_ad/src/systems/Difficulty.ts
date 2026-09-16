@@ -3,9 +3,7 @@ import type { GateType } from '../data/gates';
 import {
   applyGate, cloneProgress, freshUpgrades, squadDps, type Progress,
 } from './Progression';
-
-/** Two options within this relative distance in DPS count as tied. */
-const TIE_EPSILON = 1e-9;
+import { scoreOffer } from './Scoring';
 
 /**
  * Closed-loop difficulty.
@@ -21,6 +19,25 @@ const TIE_EPSILON = 1e-9;
  * dominant; one well below it is in genuine trouble; and neither case needs a
  * hand-tuned wave table.
  */
+/**
+ * The mercy clamp in force, with an instrument seam.
+ *
+ * `maxOverPlayer` is a build-time constant, and answering "how much mercy
+ * should there be" means comparing several values across several seeds and
+ * skill levels - dozens of runs. Rebuilding between each would mean every
+ * value was measured against a slightly different `dist/`, which is the kind of
+ * uncontrolled comparison this project keeps being burned by.
+ *
+ * So `npm run mercy` injects the value per page, the same way the probe bot is
+ * injected. Deliberately NOT a URL parameter: a knob that silently rebalances
+ * the game does not belong on a link somebody might share, and a match code
+ * does not carry it, so a run played with one is not a shareable match.
+ */
+function mercyClamp(): number {
+  const override = (globalThis as { __mercyOverride?: number }).__mercyOverride;
+  return typeof override === 'number' && override > 0 ? override : DIFFICULTY.maxOverPlayer;
+}
+
 export class Difficulty {
   /** Perfect play: the best possible power level at this moment. */
   private ideal: Progress = { power: SQUAD.startPower, upgrades: freshUpgrades() };
@@ -39,7 +56,7 @@ export class Difficulty {
    */
   targetDps(playerDps: number): number {
     const fromPar = this.parDps * DIFFICULTY.targetFraction;
-    return Math.min(fromPar, playerDps * DIFFICULTY.maxOverPlayer);
+    return Math.min(fromPar, playerDps * mercyClamp());
   }
 
   /**
@@ -70,9 +87,15 @@ export class Difficulty {
 
   /**
    * A gate set has been offered. Par takes whichever option leaves it
-   * strongest, judged by resulting DPS rather than raw power - otherwise a
-   * flat `+30` would always beat a damage bonus no matter how many units are
-   * already on the field.
+   * strongest, judged by the shared `scoreOffer` - the SAME function the death
+   * screen grades the player with, so the two can never disagree about which
+   * option was best.
+   *
+   * Note the asymmetry, which is deliberate: par CHOOSES on access-weighted
+   * value, because that is the decision, but every number this class hands the
+   * enemy budget (`parDps`, `targetDps`) is raw `squadDps`. Folding access into
+   * the budget would tell the curve a squad that merely moves well is killing
+   * more than it is.
    *
    * Ties break toward the option that leaves the most power, then toward the
    * first offered, and the comparison is RELATIVE rather than exact. Par is the
@@ -81,22 +104,14 @@ export class Difficulty {
    * strict `>` against a flat DPS curve, par kept whatever it happened to score
    * first and two seeds showed it halving its own army.
    */
-  observeGateOffer(gates: readonly GateType[]): void {
-    let best: Progress | null = null;
-    let bestDps = 0;
-    for (const gate of gates) {
-      const candidate = cloneProgress(this.ideal);
-      applyGate(candidate, gate);
-      const dps = squadDps(candidate);
-      if (best === null) { best = candidate; bestDps = dps; continue; }
-      const tied = Math.abs(dps - bestDps) <= bestDps * TIE_EPSILON;
-      if (tied ? candidate.power > best.power : dps > bestDps) {
-        best = candidate;
-        if (!tied) bestDps = dps;
-      }
-    }
-    if (best) this.ideal = best;
+  observeGateOffer(gates: readonly GateType[], wave: number): void {
+    if (gates.length === 0) return;
+    const chosen = gates[scoreOffer(this.ideal, gates, wave).best];
+    const next = cloneProgress(this.ideal);
+    applyGate(next, chosen);
+    this.ideal = next;
   }
+
 
   /** Par clears every wave. */
   awardWaveClear(): void {

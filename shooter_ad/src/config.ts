@@ -46,7 +46,19 @@ export const SQUAD = {
    * what actually selects a gate, and nothing else on screen says so.
    */
   leaderScale: 1.5,
-  moveSpeed: 620,
+  /**
+   * Cap on how fast the squad centre travels, in px/s. This is a CONSTRAINT,
+   * not a convenience: the lane is 400px wide and a gate takes a few seconds to
+   * descend, so getting to the option you judged best costs time you are not
+   * spending dodging. Set high enough and `x MOVE` buys nothing, the movement
+   * economy collapses, and reaching a gate stops being part of the decision -
+   * which is why this came DOWN from 620 when the movement bonuses landed.
+   *
+   * Under a pointer the squad used to teleport to the finger, so travel was
+   * free and none of the above was true. `Squad.update` now advances toward the
+   * pointer at this speed instead.
+   */
+  moveSpeed: 260,
   startPower: 6,
   /**
    * Hard ceiling on army power, DERIVED from the ladder rather than picked.
@@ -152,13 +164,50 @@ export const DIFFICULTY = {
   pressure: 0.82,
   /**
    * Mercy clamp. Par grows on perfect play whether or not you kept up, so
-   * without this a single missed multiplier gate ratchets difficulty beyond
-   * reach and the run spirals: fewer kills -> more breaches -> less power ->
-   * harder enemies. Enemy pressure is therefore never budgeted above this
-   * multiple of what the player can ACTUALLY destroy right now, which leaves a
-   * losing run recoverable while a leading run still gets the full curve.
+   * enemy pressure is never budgeted above this multiple of what the player can
+   * ACTUALLY destroy right now. Without any clamp a missed multiplier gate can
+   * ratchet difficulty beyond reach: fewer kills -> more breaches -> less power
+   * -> harder enemies.
+   *
+   * **Softened from 1.35 to 2.5**, which is what `notes.md` asks for - keep
+   * only enough to prevent a literally unwinnable state, not enough to rescue a
+   * bad run. Losing control should be legible.
+   *
+   * The clamp governs exactly below `standing = targetFraction /
+   * maxOverPlayer`, so this moves the threshold from 0.52 to 0.28. Measured
+   * with `npm run mercy` across five seeds at skills 0.3 and 0.5 - the regime
+   * the clamp exists for, since competent play sits above the threshold and
+   * never touches it:
+   *
+   * | clamp | threshold | runs below it | died | median survival |
+   * | --- | --- | --- | --- | --- |
+   * | 1.35 | 0.52 | 4/10 | 9/10 | 112s |
+   * | 1.8 | 0.39 | 3/10 | 10/10 | 103.5s |
+   * | 2.5 | 0.28 | 0/10 | 10/10 | 99.8s |
+   * | none | 0.01 | 0/10 | 10/10 | 99.8s |
+   *
+   * Three things that reading settles, and one it does not:
+   *
+   * - **The clamp was doing less than assumed.** At 1.35 nine of ten weak runs
+   *   died anyway. It was never what stood between bad play and losing.
+   * - **Softening costs about 11% of median survival** for weak play, and buys
+   *   the 4/10 runs that lived in the clamped regime a run governed by par
+   *   instead.
+   * - **2.5 and no clamp at all measured identically**, per-run and not merely
+   *   in median. So what the constant still buys is a GUARANTEE - enemies can
+   *   never become unkillable - rather than an observed effect. That is
+   *   precisely the residue `notes.md` wants kept, which is why this is 2.5
+   *   rather than removal.
+   * - **The death spiral did not reproduce.** `CLAUDE.md` recorded a reliable
+   *   spiral around wave 7 with the clamp removed; at no clamp here the median
+   *   is 99.8s and runs reach comparable waves. That earlier reading predates
+   *   both the fixed timestep and the root-table fix, so it is not comparable -
+   *   it is withdrawn rather than contradicted.
+   *
+   * The probe bot cannot dodge or position, so all of this is a FLOOR on
+   * difficulty rather than a verdict on how losing control feels.
    */
-  maxOverPlayer: 1.35,
+  maxOverPlayer: 2.5,
   /** Guard rails, so a pathological run cannot produce absurd enemies. */
   minHpMult: 0.6,
   maxHpMult: 400,
@@ -177,10 +226,57 @@ export const DIFFICULTY = {
   minSpawnRateFactor: 0.35,
 } as const;
 
+/**
+ * The simulation clock.
+ *
+ * Gameplay advances in FIXED increments, never on the real frame delta. Two
+ * measured reasons, both of which cost this project a retracted result:
+ *
+ * - **A seed did not reproduce a run.** Three repeats of one seed gave 40.2s,
+ *   41.1s and 40.2s of simulated time. The content was identical every time;
+ *   only collision resolution wobbled, because it resolved against a slightly
+ *   different dt each frame. Seeds are a product feature here, so "same
+ *   offers, different outcome" is a broken feature rather than test noise.
+ * - **Simulated and wall-clock time diverged with render load.** Adding screens
+ *   to the game changed measured survival by 36% and produced a confident,
+ *   entirely false balance conclusion. On a fixed step the amount of game per
+ *   simulated second is a constant, whatever the browser is doing.
+ */
+export const SIM = {
+  /** Seconds of simulation per step. 1/60 matches the display's natural rate. */
+  step: 1 / 60,
+  /**
+   * Cap on steps consumed per rendered frame. Without it a frame that took
+   * 500ms queues 30 steps, which take longer than a frame to run, which queues
+   * more - the spiral of death. At this cap a slow frame simply loses time:
+   * the game runs briefly in slow motion rather than freezing, which is the
+   * right trade for a game whose clock is a correctness property.
+   */
+  maxStepsPerFrame: 5,
+} as const;
+
 export const GATES = {
   /** Seconds between offers descending. */
   interval: 7.5,
+  /** Approach speed at wave 1. Rises with the wave - see `speedPerWave`. */
   speed: 108,
+  /**
+   * Fractional rise in approach speed per wave past the first.
+   *
+   * THE primary difficulty lever on the judgment axis, and deliberately
+   * separate from enemy pressure: later waves do not give you a harder sum,
+   * they give you less time to do it in. Enemy HP is closed-loop against par
+   * (see systems/Difficulty.ts) and never keys off the wave number; this does,
+   * because thinking time is not something a shadow player can be budgeted
+   * against.
+   */
+  speedPerWave: 0.075,
+  /**
+   * Ceiling on that rise. At 2.5 a late offer descends in ~3.2s rather than 8s,
+   * which is about as short as three labels can be read in at all. Past that
+   * the game stops testing judgment and starts testing reflexes.
+   */
+  maxSpeedMult: 2.5,
   height: 64,
   /** Options per offer. The choice between them IS the gameplay. */
   perOffer: 3,
@@ -191,6 +287,40 @@ export const GATES = {
    * pool, `×1.05 ARMY`) without truncation.
    */
   labelSize: 21,
+} as const;
+
+/**
+ * How a decision is PRICED, as distinct from what it kills.
+ *
+ * `x MOVE` and `+TIME` change no damage number at all, so scored by resulting
+ * DPS they are worth exactly zero - the halo would flash them red, the death
+ * screen would call them mistakes, and par would never take one. That is not a
+ * judgement about them, it is the scoring failing to see what the game already
+ * charges for: you only get the bonus you can reach.
+ *
+ * So scoring values a state as `squadDps * accessFactor(reach)` - see
+ * Progression.progressValue. Difficulty keeps budgeting against raw `squadDps`,
+ * because access does not kill anything.
+ */
+export const SCORING = {
+  /**
+   * Share of a gate's descent the squad can actually spend repositioning.
+   *
+   * The rest goes on dodging fire and staying over the column it is killing, so
+   * the full descent is not a travel budget. A tuned constant, for exactly the
+   * reason `WEAPON.pierceQ` is one: the true figure swings second to second
+   * with the board, and a value measured at the instant of a decision scores
+   * the pick against a truth that lasted one second. Stable and identical for
+   * par and player beats precise and unrepeatable.
+   */
+  reachShare: 0.15,
+  /**
+   * How much of a state's value is access rather than raw damage. At 0.8 a
+   * squad that can reach nothing is priced at a fifth of one that can reach
+   * everything, which is roughly the difference between a run that keeps
+   * compounding and one that stops.
+   */
+  accessWeight: 0.8,
 } as const;
 
 export const CAGE = {

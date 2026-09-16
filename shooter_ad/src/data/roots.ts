@@ -18,6 +18,10 @@
  * The range is deliberately FIXED across every tier. Only granularity and
  * rounding escalate with difficulty: widening the range would make picks
  * swingier, and this game is about precision rather than luck.
+ *
+ * Every tier must also have the same mean - both the arithmetic one and, since
+ * bonuses multiply, the GEOMETRIC one - or the legibility axis is a power axis
+ * in disguise. See the note on the first tier below.
  */
 export const ROOT_RANGE = { min: 1.05, max: 1.5 } as const;
 
@@ -45,7 +49,27 @@ function ladder(step: number): number[] {
  * defeats eyeballing.
  */
 export const LEGIBILITY: readonly Legibility[] = [
-  { minWave: 1,  sigFigs: 2, roots: [1.05, 1.1, 1.2, 1.3, 1.4, 1.5] },
+  /**
+   * Six round values, matched to the ladders on the mean that actually
+   * governs: the GEOMETRIC one.
+   *
+   * The original table, `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, bunched low - 1.32%
+   * under the ladders on the arithmetic mean, 1.48% on the geometric, about
+   * 55% less power over thirty offers. So moving up a legibility tier was a
+   * power increase wearing a legibility costume, and a hard run, which starts
+   * a tier in, was handing out bigger bonuses rather than harder sums.
+   *
+   * The first repair matched the ARITHMETIC mean and left 0.26% per draw on
+   * the geometric one - still 7.5% over a run, because bonuses MULTIPLY and a
+   * table spread toward its extremes has a lower geometric mean at the same
+   * average. Matching both leaves 0.05% per draw, 1.6% over a run, which is
+   * inside the noise of anything this project can measure.
+   *
+   * Every value is still a multiple of 0.05, which is what makes this tier
+   * mentally tractable; `npm run model` checks both means of every tier and
+   * fails if they drift apart again.
+   */
+  { minWave: 1,  sigFigs: 2, roots: [1.05, 1.15, 1.25, 1.3, 1.4, 1.5] },
   { minWave: 6,  sigFigs: 2, roots: ladder(0.05) },
   { minWave: 11, sigFigs: 3, roots: ladder(0.01) },
 ];

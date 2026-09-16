@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, SQUAD, STREAK, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
 } from '../config';
 import { TIERS } from '../data/tiers';
 import { Squad } from '../systems/Squad';
@@ -9,14 +9,37 @@ import { EnemyBullets } from '../systems/EnemyBullets';
 import { Enemies, type Enemy } from '../systems/Enemies';
 import { Gates } from '../systems/Gates';
 import { Difficulty } from '../systems/Difficulty';
+import { DecisionLog } from '../systems/DecisionLog';
+import { scoreOffer } from '../systems/Scoring';
 import { Grid } from '../systems/Grid';
 import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
-import { pierceMultiplier } from '../systems/Progression';
+import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
+import { modeFromQuery, setMode } from '../systems/Mode';
+import { VERSION } from '../version';
+import { moveSpeed, pierceMultiplier } from '../systems/Progression';
+import { PAUSE_BUTTON } from './hud/PauseScreen';
 import { RAIL_HEIGHT } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
 
 const SKIN = 0xf2c9a0;
+
+/** One live gate, priced by the game's own `scoreOffer`. */
+interface ScoredGate {
+  x: number; y: number;
+  label: string; axis: string; form: string;
+  pair: number;
+  delta: number;
+  best: boolean;
+}
+
+/** See `GameScene.steerAutopilot`. Instruments only. */
+type AutopilotFn = (state: {
+  elapsed: number;
+  squadX: number;
+  wave: number;
+  gates: ScoredGate[];
+}) => number | null;
 
 export class GameScene extends Phaser.Scene {
   private squad!: Squad;
@@ -25,6 +48,11 @@ export class GameScene extends Phaser.Scene {
   private enemies!: Enemies;
   private gates!: Gates;
   private difficulty!: Difficulty;
+  private log!: DecisionLog;
+  /** Seconds of simulated play, for ordering decision rows. */
+  private elapsed = 0;
+  /** Real time banked but not yet spent on a whole simulation step. */
+  private accumulator = 0;
   private grid!: Grid<Enemy>;
 
   private bodyPool!: SpritePool;
@@ -35,6 +63,12 @@ export class GameScene extends Phaser.Scene {
   private cagePool!: SpritePool;
 
   private overlay!: Phaser.GameObjects.Graphics;
+  /**
+   * The selection guide, on its own layer ABOVE the squad and every
+   * projectile. On the shared overlay it sat under the bullet stream and was
+   * unreadable exactly when it mattered - mid-wave, with an offer closing.
+   */
+  private selection!: Phaser.GameObjects.Graphics;
   private gateVisuals: {
     rect: Phaser.GameObjects.Rectangle;
     label: Phaser.GameObjects.Text;
@@ -44,10 +78,25 @@ export class GameScene extends Phaser.Scene {
   private rng: () => number = Math.random;
   private targetX = VIEW.width / 2;
   private kills = 0;
+  /**
+   * Why runs end, and what they cost to steer. Published so the probe can
+   * separate "the player chose badly" from "the player could not be in two
+   * places at once" - the survival curve falls as PROBE_SKILL rises and these
+   * are what decide whether that is the bot's positioning or the game's clamp.
+   */
+  private breachLoss = 0;
+  private fireLoss = 0;
+  private traveled = 0;
+  private lastX = VIEW.width / 2;
   private streak = 0;
   private over = false;
+  /** Held at the start screen until the player commits. */
+  private waiting = true;
+  /** Frozen on the pause/help screen. */
+  private paused = false;
 
   private seed = 0;
+  private mode: MatchMode = 'normal';
 
   constructor() { super('Game'); }
 
@@ -55,16 +104,33 @@ export class GameScene extends Phaser.Scene {
     const { rng, seed } = createRng();
     this.seed = seed;
     this.rng = rng;
+    // Set BEFORE anything reads a wave-keyed difficulty number. Hard mode is a
+    // wave offset on the judgment axes and every consumer reads it from
+    // `Mode.ts`, so this is the one place a run's difficulty is decided.
+    this.mode = modeFromQuery(window.location.search);
+    setMode(this.mode);
     this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
     this.bullets = new Bullets();
     this.enemyFire = new EnemyBullets();
     this.difficulty = new Difficulty();
     this.enemies = new Enemies(this.rng, this.difficulty, this.enemyFire);
-    this.gates = new Gates(this.rng, (offer) => this.difficulty.observeGateOffer(offer));
+    this.log = new DecisionLog();
+    this.gates = new Gates(
+      this.rng,
+      (pair, offer) => {
+        // Both read the same arrival moment: par takes its pick and the log
+        // records the state the player was actually deciding from.
+        this.log.open_(pair, this.squad.progress, offer, this.enemies.wave.index, this.elapsed);
+        this.difficulty.observeGateOffer(offer, this.enemies.wave.index);
+      },
+      (pair) => this.log.resolve(pair, -1),
+    );
     this.grid = new Grid<Enemy>(48, VIEW.width);
 
     this.drawBackground();
     this.overlay = this.add.graphics().setDepth(6);
+    // 25: above the squad (21), below the HUD backing strip (30).
+    this.selection = this.add.graphics().setDepth(25);
 
     this.enemyPool = new SpritePool(this, 'dot', 10);
     this.cagePool = new SpritePool(this, 'cage', 11);
@@ -75,6 +141,49 @@ export class GameScene extends Phaser.Scene {
 
     this.bindInput();
     this.emitHud();
+
+    // A shared link lands on the start screen, showing what it is about to
+    // play rather than starting under the player's reading. The same screen
+    // appears for a fresh run so the match code is seen at least once - a
+    // player who never sees one will not think to pass it on.
+    //
+    // `?seed=` skips it. That is the instrument form, passed by every script in
+    // scripts/, and those measure play rather than the menu. The shared form is
+    // `?m=`, which does NOT skip. `npm run endscreen` photographs this screen
+    // so it is not left unseen by every automated check.
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('seed')) {
+      this.waiting = false;
+      return;
+    }
+    // Wait for the UI scene before announcing the match. Scenes start in the
+    // order main.ts lists them, so GameScene.create runs BEFORE UIScene.create
+    // and an event emitted here would land before anything was listening - the
+    // screen would never appear and the run would never begin.
+    this.game.events.once('uiready', () => {
+      this.game.events.emit('showstart', {
+        code: encodeMatch({ seed: this.seed, mode: this.mode }),
+        version: VERSION,
+        mode: this.mode,
+        invited: matchFromQuery(window.location.search) !== null,
+      });
+    });
+    this.game.events.once('startmatch', () => { this.waiting = false; });
+    // Chosen on the start screen, before the run exists. Re-announcing the
+    // match is what redraws the code, which must change with the mode: a hard
+    // run is not the same match as a normal one on the same seed, and the code
+    // is the thing people compare off a screenshot.
+    this.game.events.on('modechange', (mode: MatchMode) => {
+      if (this.mode === mode || !this.waiting) return;
+      this.mode = mode;
+      setMode(mode);
+      this.game.events.emit('showstart', {
+        code: encodeMatch({ seed: this.seed, mode: this.mode }),
+        version: VERSION,
+        mode: this.mode,
+        invited: matchFromQuery(window.location.search) !== null,
+      });
+    });
   }
 
   private drawBackground(): void {
@@ -98,13 +207,35 @@ export class GameScene extends Phaser.Scene {
       };
     }
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (p.isDown) this.targetX = p.worldX;
+      if (p.isDown && !this.paused) this.targetX = p.worldX;
     });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // The pause control is hit-tested HERE, not as an interactive object in
+      // the UI scene: a tap reaching both scenes would pause the game and also
+      // order the squad to the button's x, which it walks to on resume.
+      if (!this.over && !this.waiting && inPauseButton(p.worldX, p.worldY)) {
+        this.setPaused(!this.paused);
+        return;
+      }
+      if (this.paused) return;
       if (this.over) this.restart();
       else this.targetX = p.worldX;
     });
     this.input.keyboard?.on('keydown-SPACE', () => { if (this.over) this.restart(); });
+    const toggle = () => { if (!this.over && !this.waiting) this.setPaused(!this.paused); };
+    this.input.keyboard?.on('keydown-ESC', toggle);
+    this.input.keyboard?.on('keydown-P', toggle);
+    // The pause screen holds no state of its own - it reads the last published
+    // HUD frame - so resume and restart are requests back into the simulation.
+    this.game.events.on('setpaused', (on: boolean) => this.setPaused(on));
+    this.game.events.on('restartrequest', () => { this.paused = false; this.restart(); });
+  }
+
+  /** Freezes the simulation and tells the HUD to raise (or drop) the screen. */
+  private setPaused(on: boolean): void {
+    if (this.paused === on) return;
+    this.paused = on;
+    this.game.events.emit('paused', on);
   }
 
   private restart(): void {
@@ -116,20 +247,64 @@ export class GameScene extends Phaser.Scene {
     this.bullets = new Bullets();
     this.enemyFire.reset();
     this.difficulty.reset();
+    this.log.reset();
+    this.elapsed = 0;
+    this.accumulator = 0;
+    this.breachLoss = 0;
+    this.fireLoss = 0;
+    this.traveled = 0;
+    this.lastX = VIEW.width / 2;
+    this.waiting = false;
     this.enemies.reset();
     this.gates.reset();
     this.game.events.emit('restart');
     this.emitHud();
   }
 
+  /**
+   * Drains real time into FIXED simulation steps, then renders once.
+   *
+   * Nothing below this line ever sees a real frame delta - `step` is always
+   * handed `SIM.step`. That is what makes a seed reproduce a run exactly and
+   * what decouples the amount of game per simulated second from how much the
+   * scene is rendering. See the SIM block in config.ts for the measurements
+   * that forced it.
+   */
   override update(_time: number, delta: number): void {
-    if (this.over) return;
-    // Clamp dt: a long frame would otherwise let fast enemies and bullets skip
-    // past each other between collision checks.
-    const dt = Math.min(delta / 1000, 1 / 30);
+    if (this.over || this.waiting || this.paused) {
+      // Do not bank time spent on a pause or an end screen: it would all be
+      // spent in one burst on resume.
+      this.accumulator = 0;
+      return;
+    }
 
+    this.accumulator += Math.min(delta / 1000, SIM.step * SIM.maxStepsPerFrame);
+    let steps = 0;
+    while (this.accumulator >= SIM.step && steps < SIM.maxStepsPerFrame) {
+      this.step(SIM.step);
+      this.accumulator -= SIM.step;
+      steps++;
+      // A breach can end the run mid-drain. Keep the leftover out of the next
+      // run's first frame.
+      if (this.over || this.waiting) { this.accumulator = 0; break; }
+    }
+
+    this.render();
+    this.emitHud();
+  }
+
+  /**
+   * One simulation tick. `dt` is always `SIM.step`; it is a parameter so the
+   * systems below stay unit-testable against any step size.
+   */
+  private step(dt: number): void {
+    this.elapsed += dt;
+
+    this.steerAutopilot();
     this.handleKeys(dt);
     this.squad.update(dt, this.targetX);
+    this.traveled += Math.abs(this.squad.x - this.lastX);
+    this.lastX = this.squad.x;
     this.enemies.playerDps = this.squad.dps;
     this.enemies.targetX = this.squad.x;
     this.enemies.targetY = this.squad.y;
@@ -141,7 +316,7 @@ export class GameScene extends Phaser.Scene {
       power: this.squad.power,
       damageBonus: this.squad.upgrades.damageBonus,
       rateBonus: this.squad.upgrades.rateBonus,
-    });
+    }, this.squad.upgrades);
 
     if (newWave) {
       this.squad.addPower(WAVE.clearBonus);
@@ -153,15 +328,48 @@ export class GameScene extends Phaser.Scene {
     this.checkGates();
     this.applyBreaches();
     this.applyIncomingFire();
+  }
 
-    this.render();
-    this.emitHud();
+  /**
+   * Instrument seam. When `window.__autopilot` is installed, it is asked for a
+   * target x ONCE PER SIMULATION STEP and drives the same `targetX` a pointer
+   * does.
+   *
+   * This exists because a fixed timestep alone does not make a probe run
+   * reproducible. The bot used to steer by issuing real mouse moves on a
+   * wall-clock poll, so its input landed at a different SIMULATED moment on
+   * every repeat - and three repeats of one seed diverged to 4 and 6 decisions,
+   * different waves, and a 30% spread in survival. The simulation was
+   * deterministic; the thing measuring it was not. Steering here makes the bot
+   * a pure function of simulated state, which is what lets `npm run repeat`
+   * assert a zero spread.
+   *
+   * It is a seam for instruments only - nothing installs it in a shipped game,
+   * and it writes the same field a finger does, so the bot is not given an
+   * input path a player lacks.
+   */
+  private steerAutopilot(): void {
+    const fn = (window as unknown as { __autopilot?: AutopilotFn }).__autopilot;
+    if (!fn) return;
+    const x = fn({
+      elapsed: this.elapsed,
+      squadX: this.squad.x,
+      wave: this.enemies.wave.index,
+      gates: this.scoreLiveGates(),
+    });
+    if (typeof x === 'number' && Number.isFinite(x)) {
+      this.targetX = Math.max(ARENA.minX, Math.min(ARENA.maxX, x));
+    }
   }
 
   private handleKeys(dt: number): void {
     if (!this.cursors) return;
-    if (this.cursors.left.isDown) this.targetX -= SQUAD.moveSpeed * dt;
-    if (this.cursors.right.isDown) this.targetX += SQUAD.moveSpeed * dt;
+    // The keys drive the TARGET; Squad.update is what rate-limits the squad.
+    // Moving the target faster than the squad only builds slack, so this reads
+    // the same speed the squad actually travels at.
+    const speed = moveSpeed(this.squad.upgrades);
+    if (this.cursors.left.isDown) this.targetX -= speed * dt;
+    if (this.cursors.right.isDown) this.targetX += speed * dt;
     this.targetX = Math.max(ARENA.minX, Math.min(ARENA.maxX, this.targetX));
   }
 
@@ -237,8 +445,15 @@ export class GameScene extends Phaser.Scene {
       const withinY = Math.abs(g.y - this.squad.y) < GATES.height / 2 + 14;
       if (!withinY) continue;
       if (Math.abs(g.x - this.squad.x) > g.width / 2) continue;
-      this.toast(this.squad.applyGate(g.type));
+      // Order matters. consumePair credits par and opens the log entry for an
+      // offer taken before it reached the lane line; resolving first would find
+      // nothing and leave that decision permanently open. Both must also run
+      // before applyGate, so the options are priced from the state the player
+      // was actually deciding in.
       this.gates.consumePair(g.pair);
+      const rank = this.log.resolve(g.pair, g.index);
+      if (rank !== null) this.flashPick(g.x, g.y, rank);
+      this.toast(this.squad.applyGate(g.type));
     }
   }
 
@@ -246,10 +461,11 @@ export class GameScene extends Phaser.Scene {
     const cost = this.enemies.collectBreaches();
     if (cost <= 0) return;
     this.squad.addPower(-cost * SQUAD.breachLoss);
+    this.breachLoss += cost * SQUAD.breachLoss;
     this.cameras.main.shake(120, 0.006);
     if (!this.squad.alive) {
       this.over = true;
-      this.game.events.emit('gameover', { wave: this.enemies.wave.index, kills: this.kills });
+      this.emitGameOver();
     }
   }
 
@@ -262,25 +478,99 @@ export class GameScene extends Phaser.Scene {
     const cost = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius);
     if (cost <= 0) return;
     this.squad.addPower(-cost * SQUAD.fireLoss);
+    this.fireLoss += cost * SQUAD.fireLoss;
     this.cameras.main.shake(70, 0.003);
     if (!this.squad.alive) {
       this.over = true;
-      this.game.events.emit('gameover', { wave: this.enemies.wave.index, kills: this.kills });
+      this.emitGameOver();
     }
+  }
+
+  /**
+   * Green / amber / red on the gate you just took, graded by the same scoring
+   * the death screen will use - so instant feedback and the post-mortem can
+   * never disagree about the same pick.
+   *
+   * The death screen teaches after the fact; this teaches during, which is what
+   * actually makes players improve. Graded on the SPREAD of the offer, so
+   * taking the second of three near-identical bonuses does not read as a
+   * blunder.
+   */
+  private flashPick(x: number, y: number, rank: number): void {
+    const color = rank <= 0.001 ? 0x3ecf7a : rank >= 0.999 ? 0xff4757 : 0xffc93c;
+    const halo = this.add.circle(x, y, 34, color, 0.5).setDepth(26);
+    this.tweens.add({
+      targets: halo,
+      scale: 2.6, alpha: 0,
+      duration: 420, ease: 'Quad.easeOut',
+      onComplete: () => halo.destroy(),
+    });
+  }
+
+  /**
+   * The end screen's whole payload, including the match code, because that
+   * screen is a shareable artefact rather than a summary - see hud/EndScreen.
+   */
+  private emitGameOver(): void {
+    const match = { seed: this.seed, mode: this.mode };
+    this.game.events.emit('gameover', {
+      wave: this.enemies.wave.index,
+      kills: this.kills,
+      optimal: this.log.fractionOfOptimal,
+      tally: this.log.tally,
+      breachLoss: Math.round(this.breachLoss),
+      fireLoss: Math.round(this.fireLoss),
+      traveled: Math.round(this.traveled),
+      decisions: this.log.count,
+      code: encodeMatch(match),
+      version: VERSION,
+      mode: this.mode,
+      link: matchUrl(match, window.location.href),
+    });
   }
 
   private toast(text: string): void {
     this.game.events.emit('toast', text);
   }
 
+  /**
+   * Live gates with what each is actually worth right now, priced by the same
+   * function par and the death screen use.
+   *
+   * Published so the probe bot can choose the way the game asks a player to.
+   * The old bot ranked gates by AXIS, which cannot express the decision at all
+   * - the interesting choice is between two magnitudes of the SAME axis - so
+   * every balance number it produced was soft.
+   */
+  private scoreLiveGates(): ScoredGate[] {
+    const live = this.gates.items.filter((g) => g.active);
+    const byPair = new Map<number, typeof live>();
+    for (const g of live) {
+      const group = byPair.get(g.pair);
+      if (group) group.push(g); else byPair.set(g.pair, [g]);
+    }
+    const out: ScoredGate[] = [];
+    for (const group of byPair.values()) {
+      const scored = scoreOffer(
+        this.squad.progress, group.map((g) => g.type), this.enemies.wave.index,
+      );
+      for (let i = 0; i < group.length; i++) {
+        const g = group[i];
+        out.push({
+          x: Math.round(g.x), y: Math.round(g.y),
+          label: g.type.label, axis: g.type.axis, form: g.type.form,
+          pair: g.pair,
+          delta: Number(scored.options[i].delta.toFixed(5)),
+          best: i === scored.best,
+        });
+      }
+    }
+    return out;
+  }
+
   private emitHud(): void {
     const par = this.difficulty.snapshot();
-    const gates = this.gates.items
-      .filter((g) => g.active)
-      .map((g) => ({
-        x: Math.round(g.x), y: Math.round(g.y),
-        label: g.type.label, axis: g.type.axis, form: g.type.form,
-      }));
+    const gates = this.scoreLiveGates();
     this.registry.set('stats', {
       power: Math.floor(this.squad.power),
       parPower: par.parPower,
@@ -297,6 +587,17 @@ export class GameScene extends Phaser.Scene {
       over: this.over,
       seed: this.seed,
       gates,
+      breachLoss: Math.round(this.breachLoss),
+      fireLoss: Math.round(this.fireLoss),
+      traveled: Math.round(this.traveled),
+      // SIMULATED seconds, which is what a run should be measured in. The
+      // simulation advances on clamped frame deltas, so wall-clock time and
+      // game time are not the same quantity and their ratio moves with how much
+      // rendering the scene happens to be doing.
+      elapsed: Number(this.elapsed.toFixed(2)),
+      decisions: this.log.count,
+      optimal: Number(this.log.fractionOfOptimal.toFixed(4)),
+      tally: this.log.tally,
     });
     const u = this.squad.upgrades;
     const hud: HudPayload = {
@@ -330,6 +631,9 @@ export class GameScene extends Phaser.Scene {
     this.renderSquad();
     this.renderGates();
     this.renderOverlay();
+    // Last, and on the topmost gameplay layer: the guide has to survive a
+    // screen full of bullets.
+    this.renderSelection();
   }
 
   private renderEnemies(): void {
@@ -408,6 +712,7 @@ export class GameScene extends Phaser.Scene {
    * a second way, at the moment it matters.
    */
   private renderSelection(): void {
+    this.selection.clear();
     let target: { x: number; y: number; color: number } | null = null;
     for (const g of this.gates.items) {
       if (!g.active || g.y > this.squad.y) continue;
@@ -422,13 +727,14 @@ export class GameScene extends Phaser.Scene {
     const nearness = Phaser.Math.Clamp(
       1 - (this.squad.y - target.y) / 520, 0.12, 0.55,
     );
-    this.overlay.lineStyle(2, target.color, nearness);
-    this.overlay.lineBetween(
+    this.selection.lineStyle(3, target.color, nearness);
+    this.selection.lineBetween(
       this.squad.x, this.squad.y - 18,
-      this.squad.x, target.y + GATES.height / 2,
+      // Never draw up into the rail, for the same reason gates fade in below it.
+      this.squad.x, Math.max(target.y + GATES.height / 2, RAIL_HEIGHT + 6),
     );
-    this.overlay.lineStyle(2, target.color, nearness + 0.2);
-    this.overlay.strokeCircle(this.squad.x, this.squad.y - 2, 15);
+    this.selection.lineStyle(3, target.color, nearness + 0.25);
+    this.selection.strokeCircle(this.squad.x, this.squad.y - 2, 16);
   }
 
   private renderGates(): void {
@@ -448,11 +754,15 @@ export class GameScene extends Phaser.Scene {
         };
         this.gateVisuals.push(v);
       }
-      v.rect.setVisible(true).setPosition(g.x, g.y)
+      // Fade in clear of the top rail. Gates spawn above the screen and would
+      // otherwise slide through the HUD numbers, putting two unrelated sets of
+      // figures on top of each other exactly where the player reads par.
+      const reveal = Phaser.Math.Clamp((g.y - RAIL_HEIGHT - 6) / 44, 0, 1);
+      v.rect.setVisible(reveal > 0).setPosition(g.x, g.y)
         .setSize(g.width - 4, GATES.height)
-        .setFillStyle(g.type.color, 0.22)
-        .setStrokeStyle(3, g.type.color, 0.9);
-      v.label.setVisible(true).setPosition(g.x, g.y);
+        .setFillStyle(g.type.color, 0.22 * reveal)
+        .setStrokeStyle(3, g.type.color, 0.9 * reveal);
+      v.label.setVisible(reveal > 0).setPosition(g.x, g.y).setAlpha(reveal);
       if (v.label.text !== g.type.label) v.label.setText(g.type.label);
       used++;
     }
@@ -464,7 +774,6 @@ export class GameScene extends Phaser.Scene {
 
   private renderOverlay(): void {
     this.overlay.clear();
-    this.renderSelection();
     // Shield facing. A directional shield the player cannot see is just an
     // unexplained damage number, so draw where it actually points.
     for (const e of this.enemies.items) {
@@ -497,4 +806,10 @@ export class GameScene extends Phaser.Scene {
       );
     }
   }
+}
+
+/** Shared with the UI scene, which draws the control this rectangle describes. */
+function inPauseButton(x: number, y: number): boolean {
+  return Math.abs(x - PAUSE_BUTTON.x) <= PAUSE_BUTTON.width / 2
+    && Math.abs(y - PAUSE_BUTTON.y) <= PAUSE_BUTTON.height / 2;
 }

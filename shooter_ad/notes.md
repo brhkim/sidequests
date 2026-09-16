@@ -308,6 +308,13 @@ mechanic changes — only how hard the arithmetic is.
 
 This is the axis that scales furthest, because it never stops being interesting.
 
+**"No mechanic changes" is a constraint on the tables' MEAN, not only on their
+range, and the first draft broke it.** The original coarse table bunched low -
+1.32% less per draw than the ladders, about 48% less power over thirty offers -
+so moving up a tier was a power increase wearing a legibility costume. Every
+tier's table must now be symmetric about the middle of the range; `npm run
+model` fails otherwise.
+
 ## Instant feedback on every pick
 
 A halo flash on the gate the moment you take it:
@@ -333,7 +340,10 @@ for everyone on the same version. Consequences:
 - Every consumer of randomness routes through the seeded generator. No stray
   `Math.random()`; the squad's firing jitter already caught this once.
 - Anything that touches gameplay off wall-clock or frame timing breaks
-  reproducibility. Simulation must advance on a clamped, deterministic step.
+  reproducibility. **Done**: the simulation advances on a fixed 1/60s step
+  (`SIM` in `config.ts`) and a seed now reproduces a run exactly, which
+  `npm run repeat` asserts. The instrument had to move too - a bot steering on
+  wall-clock input made a deterministic game measure as nondeterministic.
 - **Balance changes change outcomes.** Seeds are only comparable within a
   version, so show a version tag beside the seed and treat that pair as the
   shareable unit.
@@ -423,6 +433,12 @@ this in" affordance rather than surfacing an error.
 
 ## Hard mode
 
+**Built.** One wave offset, applied to the judgment axes only — see
+`systems/Mode.ts`. The `targetFraction` option below was considered and
+declined: it is a claim about damage rather than about the difficulty of a
+decision, and raising it moves the mercy-clamp threshold, which would confound
+every measurement of hard mode with a regime change.
+
 Start the difficulty settings advanced rather than ramping into them:
 
 - gate approach speed begins at a later-wave value, so decision time is short
@@ -435,16 +451,20 @@ game is about, harder, rather than a different one.
 
 ## Less mercy
 
-`DIFFICULTY.maxOverPlayer` currently caps enemy pressure at 1.35× what the
-player can actually kill, so a bad run stays recoverable. That fought the death
-spiral, but it also blunts the point: **losing control should be legible and
-fast.** You made bad calls, your DPS fell behind the curve, and now you are
-watching the consequence.
+**Done: 1.35 → 2.5**, which moves the clamped regime from below standing 0.52 to
+below 0.28. Measured with `npm run mercy` at low skill across five seeds; the
+table and the reasoning are in `config.ts`.
 
-Soften it substantially. Keep only enough to prevent a literally unwinnable
-state (enemies that cannot be killed at all), not enough to rescue a bad run.
-Re-measure with the probe after changing it — this is the constant most likely
-to make the game miserable if overcorrected.
+The intent was: keep only enough to prevent a literally unwinnable state, not
+enough to rescue a bad run. What the measurement added is that **the clamp was
+never rescuing much** — at 1.35 nine of ten weak runs died anyway — and that 2.5
+and no clamp at all measured identically, per run. So what is left is a
+guarantee that enemies cannot become unkillable rather than an observed effect,
+which is exactly the residue wanted, and is why it was not removed outright.
+
+Still open, and it is the interesting half: **whether losing control now reads
+as legible.** The probe can say a run ended; it cannot say the player understood
+why. That needs the author playing it.
 
 ---
 
@@ -532,6 +552,13 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 - **Par's ties break toward the least harmful option.**
 - **HUD top rail** — wave, army power, soldiers, DPS and par DPS, with par
   permanently on screen and a standing bar marked at `targetFraction`.
+- **Gate approach speed scales with wave**, plus `×MOVE` and `+TIME`. Squad
+  movement is rate-limited now (it teleported to the pointer before, which made
+  the whole movement economy inert) and `SQUAD.moveSpeed` came down to 260.
+  Neither bonus carries damage, so scoring values a state as
+  `squadDps × accessFactor(reach)` while difficulty keeps budgeting raw
+  `squadDps` — see `CLAUDE.md`. **Still owed**: the active-bonus strip does not
+  show MOVE or TIME, so a player cannot read the pool the conversion needs.
 - **Active-bonus readout** beneath the red line — damage pool and mult, rate
   pool and mult, guns, and pierce priced by the shared valuation. The pool is
   the big number in each cell because it is what the raw-versus-multiplicative
@@ -541,13 +568,18 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 ### Now
 5. **Three gates per offer**, and enlarge the leader unit so it is obvious the
    centre is what selects.
-6. **Gate approach speed scales with wave**; add `+TIME` and `×MOVE` bonuses.
 7. **DecisionLog + death screen readout.**
-8. **Soften the mercy clamp**, re-probe.
+8. **Soften the mercy clamp**, re-probe — *done*, 1.35 → 2.5, with
+   `npm run mercy` as the instrument. See "Less mercy" below.
 10. **Escalating numeric legibility** by wave.
 11. **Pick-quality halo flash** — green / yellow / red on selection.
 12. **Seed display and seed entry**, with a version tag.
-13. **Hard mode** — advanced starting gate speed and legibility tier.
+13. **Hard mode** — *done*. Implemented as a single wave offset (+5) applied to
+    gate approach speed and legibility tier, and to nothing else: enemy
+    pressure, the bonus pool and `targetFraction` are identical in both modes.
+    Reachable by tapping the difficulty line on the start screen, which rewrites
+    the match code as it switches. `npm run model` fails if hard mode ever grows
+    a second knob.
 14. **Rebuild the probe bot** on real gate scoring, with a `PROBE_SKILL` knob.
 
 ### Next

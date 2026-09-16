@@ -11,9 +11,14 @@
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify.mjs",
     "balance": "node scripts/balance.mjs",
+    "repeat": "node scripts/repeat.mjs",
+    "sweep": "node scripts/sweep.mjs",
+    "mercy": "node scripts/mercy.mjs",
     "model": "node --experimental-strip-types scripts/model.mjs",
     "hud": "node scripts/hud-preview.mjs",
-    "behaviour": "node scripts/behaviour.mjs"
+    "behaviour": "node scripts/behaviour.mjs",
+    "matchcode": "node --experimental-strip-types scripts/matchcode.mjs",
+    "endscreen": "node scripts/endscreen.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0",
