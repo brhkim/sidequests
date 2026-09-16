@@ -451,16 +451,20 @@ game is about, harder, rather than a different one.
 
 ## Less mercy
 
-`DIFFICULTY.maxOverPlayer` currently caps enemy pressure at 1.35× what the
-player can actually kill, so a bad run stays recoverable. That fought the death
-spiral, but it also blunts the point: **losing control should be legible and
-fast.** You made bad calls, your DPS fell behind the curve, and now you are
-watching the consequence.
+**Done: 1.35 → 2.5**, which moves the clamped regime from below standing 0.52 to
+below 0.28. Measured with `npm run mercy` at low skill across five seeds; the
+table and the reasoning are in `config.ts`.
 
-Soften it substantially. Keep only enough to prevent a literally unwinnable
-state (enemies that cannot be killed at all), not enough to rescue a bad run.
-Re-measure with the probe after changing it — this is the constant most likely
-to make the game miserable if overcorrected.
+The intent was: keep only enough to prevent a literally unwinnable state, not
+enough to rescue a bad run. What the measurement added is that **the clamp was
+never rescuing much** — at 1.35 nine of ten weak runs died anyway — and that 2.5
+and no clamp at all measured identically, per run. So what is left is a
+guarantee that enemies cannot become unkillable rather than an observed effect,
+which is exactly the residue wanted, and is why it was not removed outright.
+
+Still open, and it is the interesting half: **whether losing control now reads
+as legible.** The probe can say a run ended; it cannot say the player understood
+why. That needs the author playing it.
 
 ---
 
@@ -565,7 +569,8 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 5. **Three gates per offer**, and enlarge the leader unit so it is obvious the
    centre is what selects.
 7. **DecisionLog + death screen readout.**
-8. **Soften the mercy clamp**, re-probe.
+8. **Soften the mercy clamp**, re-probe — *done*, 1.35 → 2.5, with
+   `npm run mercy` as the instrument. See "Less mercy" below.
 10. **Escalating numeric legibility** by wave.
 11. **Pick-quality halo flash** — green / yellow / red on selection.
 12. **Seed display and seed entry**, with a version tag.

@@ -132,41 +132,98 @@ the chance of reaching for the best option. `optimal` is the OUTPUT: the share
 of achievable damage growth actually captured, after misreached gates and missed
 offers. They will not match, and should not be expected to.
 
-**`optimal` responds to skill and then saturates.** Swept across seeds 1-5 on
-the corrected clock, in simulated seconds:
+**`optimal` responds to skill and then saturates.** Swept with `npm run sweep`
+across seeds 1-5, normal mode, on the fixed-step clock and the corrected root
+tables, in simulated seconds. A `+` marks a run that hit the 150s budget rather
+than dying - its survival is a FLOOR, and so is any median containing one:
 
-| PROBE_SKILL | survival | optimal | standing | breach/min | travel/min |
-| --- | --- | --- | --- | --- | --- |
-| 0.3 | 98.5s | 24% | 0.49 | 26.0 | 2002 |
-| 0.5 | 95.4s | 51% | 0.58 | 29.6 | 2151 |
-| 0.7 | 75.0s | 85% | 0.81 | 28.0 | 1686 |
-| 0.9 | 82.8s | 88% | 0.67 | 32.6 | 1821 |
-| 1.0 | 82.7s | 88% | 0.76 | 29.3 | 1629 |
+| PROBE_SKILL | survival | optimal | standing | died | breach/min | travel/min |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.3 | 116.6s | 26% | 0.38 | 4/5 | 46.3 | 3443 |
+| 0.5 | 106.5s | 54% | 0.69 | 5/5 | 41.2 | 3260 |
+| 0.7 | 105.9s | 53% | 0.66 | 4/5 | 34.6 | 3444 |
+| 0.9 | 129.3s | 89% | 0.64 | 3/5 | 32.8 | 3540 |
+| 1.0 | 122.3s | 100% | 0.64 | 3/5 | 32.8 | 3630 |
 
-Two things hold and one does not. `optimal` separates 0.3 / 0.5 / 0.7
-cleanly and hits a ceiling above that, so do not use it to compare good play
-against excellent play. Part of that is real - a bot reaching for the best
-option 70% of the time captures most of the available growth - and part is an
-artefact: the metric compounds over DECISIONS, so a short run has little room to
-fall behind. A short excellent run and a long excellent run are not comparable
-on this number. It is per-decision rather than per-second, which is why it
-survived the clock retraction below.
+`optimal` separates 0.3 from 0.9 / 1.0 cleanly and is muddled in the middle -
+0.5 and 0.7 come out level here, within the noise of five seeds. Do not use it
+to compare good play against excellent play. Part of the ceiling is real - a bot
+reaching for the best option most of the time captures most of the available
+growth - and part is an artefact: the metric compounds over DECISIONS, so a
+short run has little room to fall behind. A short excellent run and a long
+excellent run are not comparable on this number. It is per-decision rather than
+per-second, which is why it survived the clock retraction below.
 
 **Choosing is not the same as getting.** At high skill the bot reaches for the
-best option nearly every time and still falls short of 100%. The gap is gates it
+best option nearly every time and does not always land it. The gap is gates it
 chose and could not reach. Any claim of the form "a player picking well gets X"
 has to account for it, because the game charges for travel and the scoring does
 not.
 
-`standing` rises with skill, 0.49 to roughly 0.8, so the difficulty curve IS
-skill-responsive - which is what `PROBE_SKILL` existed to test. Note the 0.3 row
-sits at 0.49, just under the 0.52 mercy-clamp threshold, while every higher
-skill sits above it: weak play is governed by the clamp and competent play by
-par, which is what the two-regime design intends.
+**Survival does not track skill, and most of these medians are floors anyway.**
+19 of 25 runs died and 6 hit the budget; within-level spreads run 40s to 150s.
+At five seeds these medians cannot support a trend either way. Do not read a
+slope into it.
 
-**Survival does not track skill.** 98.5 / 95.4 / 75.0 / 82.8 / 82.7 is not
-monotonic, and within-level spreads run 39s to 155s, so at five seeds these
-medians cannot support a trend either way. Do not read a slope into it.
+**`standing` no longer rises cleanly with skill, and that is expected now.**
+0.38 / 0.69 / 0.66 / 0.64 / 0.64: weak play is separated, and everything from
+0.5 up sits in a band. With the mercy clamp softened to 2.5 its threshold is
+0.28, which no skill level's median reaches, so every row here is par-driven.
+The two-regime split the old table showed at 0.52 is gone by design - see the
+clamp note below.
+
+### Hard mode measures as EASIER, and the instrument cannot see why not
+
+Every sweep of hard mode has come out easier than normal at every skill level -
+longer survival, higher standing, fewer deaths. Two contributions were found and
+fixed (the root-table means, above), and a third was proposed and refuted: gate
+speed feeds `reach`, which prices access, so hard mode might pay for its own
+antidote in `+TIME`. `npm run model` measures that directly - access picks go
+DOWN under hard mode, 1.5% to 1.1%, and par DPS after thirty offers is within
+4%. Not the mechanism.
+
+**The honest conclusion is that `npm run balance` cannot evaluate hard mode at
+all.** Hard mode's whole content is less time to read three labels and do a
+conversion. The bot has no reading time: it is handed the scored options and
+decides in zero simulated seconds. The only part of gate speed it can feel is
+having less time to TRAVEL - and it travels ~25% further per minute under hard
+mode, so it is paying that part. Everything the mode is actually for is
+invisible to it.
+
+So treat hard-mode probe numbers as a check that the mode does not CRASH or
+spiral, and nothing more. Whether it is harder is a question for a human, and
+this is the clearest case yet of the standing warning that a bot is not a
+player.
+
+### The mercy clamp, measured and softened
+
+`npm run mercy` sweeps `DIFFICULTY.maxOverPlayer` at low skill - the regime it
+governs - by injecting the value per page rather than rebuilding per value. Five
+seeds at skills 0.3 and 0.5:
+
+| clamp | threshold | runs below it | died | median survival |
+| --- | --- | --- | --- | --- |
+| 1.35 | 0.52 | 4/10 | 9/10 | 112s |
+| 1.8 | 0.39 | 3/10 | 10/10 | 103.5s |
+| 2.5 | 0.28 | 0/10 | 10/10 | 99.8s |
+| none | 0.01 | 0/10 | 10/10 | 99.8s |
+
+It is now **2.5**. Three readings support that and one claim had to be
+withdrawn:
+
+- **The clamp was doing less than this file assumed.** At 1.35, nine of ten weak
+  runs died anyway. It was never what stood between bad play and losing.
+- **Softening costs about 11% of median survival** for weak play, and hands the
+  4/10 runs that lived in the clamped regime a run governed by par instead.
+- **2.5 and no clamp at all measured identically**, per-run and not merely in
+  median. What the constant still buys is a GUARANTEE that enemies never become
+  unkillable, not an observed effect - which is exactly the residue `notes.md`
+  asks to keep, and why this is 2.5 rather than removal.
+- **WITHDRAWN: "removing it reproduces a reliable death spiral around wave 7".**
+  It did not reproduce. That reading predates both the fixed timestep and the
+  root-table fix, so it is not comparable and is withdrawn rather than
+  contradicted. If the spiral is real, it needs re-demonstrating on the current
+  clock before it is quoted again.
 
 **RETRACTED: survival does not fall with skill.** An earlier sweep here reported
 survival falling monotonically from 55s to 35s as PROBE_SKILL rose, called it
@@ -178,18 +235,11 @@ rises rather than rising, and breach loss is flat across skill levels. Anything
 on this branch that was downstream of those survival medians is unverified,
 including the claim that the end screen's headline score inversely tracks skill.
 
-Survival is now measured in simulated seconds. Numbers taken on that axis are
-not comparable with any figure recorded before the switch, since the two clocks
-then differed by roughly a factor of two. They are also not comparable across
-the fixed-timestep change: on a fixed step the bot's input arrives at different
-simulated moments than it used to, so runs diverge from the very first offer.
-Seed 1 at skill 0.7 went from 42.8s / 4 decisions to 56.3s / 6 decisions on that
-change alone. **The sweep table above predates it and is therefore stale.**
-
-**The mercy clamp stays untouched** until a sweep on the fixed-step clock says
-something about it. It is the constant most likely to make the game miserable if
-overcorrected, and every reading that pointed at it so far came from an
-instrument timing the browser.
+Numbers are comparable only within a version, and this branch has now moved the
+axis three times: to simulated seconds, onto a fixed timestep (where the bot's
+input arrives at different simulated moments, so runs diverge from the first
+offer - seed 1 at skill 0.7 went 42.8s / 4 decisions to 56.3s / 6), and through
+the root-table correction. Any figure recorded before all three is stale.
 
 It is still a crude player: no threat avoidance, no positioning for breaches,
 and it cannot dodge enemy fire at all. A floor on difficulty, not a verdict on
@@ -352,18 +402,22 @@ Two properties are easy to break:
   instant, which otherwise halves the player's standing with no warning.
 
 `DIFFICULTY.maxOverPlayer` is a mercy clamp: par grows on perfect play whether
-or not the player kept up, so without any clamp one missed multiplier gate
-ratchets difficulty out of reach and the run spirals. **It is slated to be
-softened substantially** — see `notes.md`; losing control should be legible, not
-prevented. Removing it entirely reproduces a reliable death spiral around wave
-7, so re-probe after touching it.
+or not the player kept up, so without any clamp a missed multiplier gate can
+ratchet difficulty out of reach. **Softened from 1.35 to 2.5** — see the measured
+table under "The mercy clamp, measured and softened" above, and the config
+comment, which carries the reasoning. Re-probe with `npm run mercy` after
+touching it.
 
 **Know which of the two regimes you are measuring in.** The clamp takes over
-exactly below `standing = targetFraction / maxOverPlayer` — 0.52 at the current
-constants. Above that the curve is par-driven and skill-responsive; below it,
-enemy pressure is simply 1.35× whatever the player is doing, and neither
-`targetFraction` nor par influences the run at all. Softening the clamp moves
-this threshold up and hands more of the run back to par.
+exactly below `standing = targetFraction / maxOverPlayer` — **0.28** at the
+current constants, down from 0.52. Above that the curve is par-driven and
+skill-responsive; below it, enemy pressure is simply `maxOverPlayer` times
+whatever the player is doing, and neither `targetFraction` nor par influences
+the run at all. Softening the clamp moves this threshold DOWN and hands more of
+the run back to par — at 0.28 no skill level's median standing reaches it, so
+the probe now measures the par-driven regime at every level. Note the sign: a
+LARGER `maxOverPlayer` is less mercy, because it lets pressure run further above
+the player before being capped.
 
 The bot used to live almost entirely below 0.52, which made every conclusion
 about the par-driven regime a conclusion about a regime it never entered. **That

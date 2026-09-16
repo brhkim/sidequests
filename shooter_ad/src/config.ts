@@ -164,13 +164,50 @@ export const DIFFICULTY = {
   pressure: 0.82,
   /**
    * Mercy clamp. Par grows on perfect play whether or not you kept up, so
-   * without this a single missed multiplier gate ratchets difficulty beyond
-   * reach and the run spirals: fewer kills -> more breaches -> less power ->
-   * harder enemies. Enemy pressure is therefore never budgeted above this
-   * multiple of what the player can ACTUALLY destroy right now, which leaves a
-   * losing run recoverable while a leading run still gets the full curve.
+   * enemy pressure is never budgeted above this multiple of what the player can
+   * ACTUALLY destroy right now. Without any clamp a missed multiplier gate can
+   * ratchet difficulty beyond reach: fewer kills -> more breaches -> less power
+   * -> harder enemies.
+   *
+   * **Softened from 1.35 to 2.5**, which is what `notes.md` asks for - keep
+   * only enough to prevent a literally unwinnable state, not enough to rescue a
+   * bad run. Losing control should be legible.
+   *
+   * The clamp governs exactly below `standing = targetFraction /
+   * maxOverPlayer`, so this moves the threshold from 0.52 to 0.28. Measured
+   * with `npm run mercy` across five seeds at skills 0.3 and 0.5 - the regime
+   * the clamp exists for, since competent play sits above the threshold and
+   * never touches it:
+   *
+   * | clamp | threshold | runs below it | died | median survival |
+   * | --- | --- | --- | --- | --- |
+   * | 1.35 | 0.52 | 4/10 | 9/10 | 112s |
+   * | 1.8 | 0.39 | 3/10 | 10/10 | 103.5s |
+   * | 2.5 | 0.28 | 0/10 | 10/10 | 99.8s |
+   * | none | 0.01 | 0/10 | 10/10 | 99.8s |
+   *
+   * Three things that reading settles, and one it does not:
+   *
+   * - **The clamp was doing less than assumed.** At 1.35 nine of ten weak runs
+   *   died anyway. It was never what stood between bad play and losing.
+   * - **Softening costs about 11% of median survival** for weak play, and buys
+   *   the 4/10 runs that lived in the clamped regime a run governed by par
+   *   instead.
+   * - **2.5 and no clamp at all measured identically**, per-run and not merely
+   *   in median. So what the constant still buys is a GUARANTEE - enemies can
+   *   never become unkillable - rather than an observed effect. That is
+   *   precisely the residue `notes.md` wants kept, which is why this is 2.5
+   *   rather than removal.
+   * - **The death spiral did not reproduce.** `CLAUDE.md` recorded a reliable
+   *   spiral around wave 7 with the clamp removed; at no clamp here the median
+   *   is 99.8s and runs reach comparable waves. That earlier reading predates
+   *   both the fixed timestep and the root-table fix, so it is not comparable -
+   *   it is withdrawn rather than contradicted.
+   *
+   * The probe bot cannot dodge or position, so all of this is a FLOOR on
+   * difficulty rather than a verdict on how losing control feels.
    */
-  maxOverPlayer: 1.35,
+  maxOverPlayer: 2.5,
   /** Guard rails, so a pathological run cannot produce absurd enemies. */
   minHpMult: 0.6,
   maxHpMult: 400,
