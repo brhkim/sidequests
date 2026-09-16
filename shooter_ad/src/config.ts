@@ -59,7 +59,12 @@ export const SQUAD = {
    * pointer at this speed instead.
    */
   moveSpeed: 260,
-  startPower: 6,
+  /**
+   * One body. Every army bonus is a share of what you hold, so starting at 1
+   * makes the first few picks feel like the largest they will ever be, and
+   * gives the rank ladder somewhere to climb from.
+   */
+  startPower: 1,
   /**
    * Hard ceiling on army power, DERIVED from the ladder rather than picked.
    * A cap above what the ranks cover is a region where power buys no damage at
@@ -84,7 +89,13 @@ export const WEAPON = {
   bulletSpeed: 900,
   bulletRadius: 4,
   /** Firing is staggered across the ring so shots stream rather than pulse. */
-  volleySpread: 0.55,
+  /**
+   * Extra guns fire PARALLEL, spread across this width in pixels - not fanned
+   * into a cone. A cone scatters damage at range, so more guns made a squad
+   * worse against a single target, which is backwards. The width is sized to a
+   * Titan's diameter so a full volley lands on the boss it exists to kill.
+   */
+  volleyWidth: 72,
   maxBullets: 900,
   /**
    * Chance a piercing bullet meets another body after a hit. Tuned constant,
@@ -211,8 +222,17 @@ export const DIFFICULTY = {
   /** Guard rails, so a pathological run cannot produce absurd enemies. */
   minHpMult: 0.6,
   maxHpMult: 400,
-  /** A boss is budgeted as this many seconds of ordinary pressure, at once. */
-  bossSeconds: 9,
+  /**
+   * A boss is sized by the DEADLINE it creates, not by a pressure budget.
+   *
+   * The Titan ends the run if it reaches the squad or the bottom of the screen,
+   * so its HP is set so a player holding `bossKillPar` of par - measured in
+   * SINGLE-TARGET damage - kills it by the time it has covered
+   * `bossKillDistance` of the way down. The slack is deliberate: a boss killable
+   * only on the last pixel is a coin flip, not a test.
+   */
+  bossKillPar: 0.9,
+  bossKillDistance: 0.75,
   /**
    * Seconds for the budget to catch up to a change in par. Multiplier gates
    * double par in a single instant, which used to halve your standing with no

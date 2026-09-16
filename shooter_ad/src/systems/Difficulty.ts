@@ -1,7 +1,7 @@
 import { CAGE, DIFFICULTY, SQUAD, STREAK, WAVE } from '../config';
 import type { GateType } from '../data/gates';
 import {
-  applyGate, cloneProgress, freshUpgrades, squadDps, type Progress,
+  applyGate, cloneProgress, freshUpgrades, singleTargetDps, squadDps, type Progress,
 } from './Progression';
 import { scoreOffer } from './Scoring';
 
@@ -163,10 +163,25 @@ export class Difficulty {
   }
 
   /** Bosses are budgeted as a burst of several seconds of the same pressure. */
-  bossHpScale(baseHp: number): number {
-    const budget = this.smoothedTarget * DIFFICULTY.pressure * DIFFICULTY.bossSeconds;
-    return Math.max(1, budget / baseHp);
+  /**
+   * Titan HP, derived from the deadline it creates rather than from a pressure
+   * budget.
+   *
+   * The Titan ends the run when it reaches the squad, so the only question that
+   * matters is whether a competent player can kill it in the distance it has to
+   * cover. HP is therefore `bossKillPar` of par's SINGLE-TARGET damage, times
+   * the seconds it takes to cover `bossKillDistance` of the way down.
+   *
+   * Single-target, not `squadDps`, because pierce is worth nothing against one
+   * body - see `singleTargetDps`. Sizing the boss off a pierce-inflated par
+   * would hand a pierce build a boss it cannot hurt fast enough.
+   */
+  titanHp(travelSeconds: number): number {
+    const parSingle = singleTargetDps(this.ideal);
+    const killSeconds = travelSeconds * DIFFICULTY.bossKillDistance;
+    return Math.max(1, parSingle * DIFFICULTY.bossKillPar * killSeconds);
   }
+
 
   reset(): void {
     this.ideal = { power: SQUAD.startPower, upgrades: freshUpgrades() };

@@ -171,6 +171,23 @@ export function squadDps(p: Progress): number {
   return dps * p.upgrades.guns * pierceMultiplier(p.upgrades.pierce);
 }
 
+/**
+ * Damage per second against ONE body, which is `squadDps` without the pierce
+ * multiplier.
+ *
+ * Pierce is worth `1 + q + q^2 + ...` because a bullet may meet another enemy
+ * after a hit. Against a single target there is no other enemy, so it is worth
+ * exactly nothing - and at pierce 3 that is a 1.875x gap between what
+ * `squadDps` reports and what the squad can actually do to a boss.
+ *
+ * The Titan's HP is derived from this rather than from `squadDps`, or a
+ * pierce-heavy build would face a boss almost twice as tough as intended for
+ * damage it cannot deliver.
+ */
+export function singleTargetDps(p: Progress): number {
+  return squadDps(p) / pierceMultiplier(p.upgrades.pierce);
+}
+
 /** Applies a gate. Returns the label for the floating feedback text. */
 export function applyGate(p: Progress, gate: GateType): string {
   const u = p.upgrades;

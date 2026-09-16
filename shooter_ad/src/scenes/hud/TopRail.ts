@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DIFFICULTY, SQUAD, VIEW } from '../../config';
+import { DIFFICULTY, VIEW } from '../../config';
 import { compact, hex, type HudPayload } from './types';
 
 /** Height of the whole rail, including the standing bar along its lower edge. */
@@ -15,7 +15,11 @@ const VALUE = '#e8ecf8';
  * of the power you are holding - so power is a conversion input exactly like
  * the damage pool is, and kills are flavour. Kills survive as WAVE's sub-line.
  */
-const COLUMNS = ['WAVE', 'ARMY', 'SQUAD', 'DPS', 'PAR'] as const;
+// SQUAD (bodies on screen) was dropped: it sat beside ARMY (power) and the two
+// read as competing answers to one question. Power is what every bonus converts
+// against, so it is the number that belongs here; the bodies are visible in the
+// formation itself.
+const COLUMNS = ['WAVE', 'ARMY', 'DPS', 'PAR'] as const;
 
 /**
  * Par DPS is on screen permanently rather than saved for the death readout.
@@ -67,16 +71,15 @@ export class TopRail {
 
     this.values[0].setText(String(h.wave));
     this.values[1].setText(compact(h.power));
-    this.values[2].setText(`${h.units}/${SQUAD.ringCap}`);
-    this.values[3].setText(compact(h.dps)).setColor(color);
-    this.values[4].setText(compact(h.parDps));
+    this.values[2].setText(compact(h.dps)).setColor(color);
+    this.values[3].setText(compact(h.parDps));
 
     this.subs[0].setText(`${compact(h.kills)} KILLS`);
     this.subs[1].setText(h.tierName.toUpperCase()).setColor(hex(h.tierColor));
     // Past 999% the exact number has stopped being information, and the column
     // is 108px wide.
     const percent = Math.round(ratio * 100);
-    this.subs[3].setText(percent > 999 ? '>999% PAR' : `${percent}% PAR`).setColor(color);
+    this.subs[2].setText(percent > 999 ? '>999% PAR' : `${percent}% PAR`).setColor(color);
 
     this.barFill.width = Math.max(1, Math.min(1, ratio) * VIEW.width);
     this.barFill.fillColor = Phaser.Display.Color.HexStringToColor(color).color;

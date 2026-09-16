@@ -381,12 +381,15 @@ export class GameScene extends Phaser.Scene {
       u.cooldown += this.squad.shotInterval(u.share);
       const damage = this.squad.damagePerShot(u.share);
       for (let g = 0; g < guns; g++) {
-        const offset = guns === 1 ? 0 : (g - (guns - 1) / 2) * WEAPON.volleySpread;
-        const angle = -Math.PI / 2 + offset * 0.12;
+        // Parallel, not fanned. Extra guns widen the column rather than the
+        // angle, so damage stays focused at any range and a full volley lands
+        // on a single body - which is what makes the Titan's HP budget honest.
+        const lateral = guns === 1
+          ? 0
+          : (g / (guns - 1) - 0.5) * WEAPON.volleyWidth;
         this.bullets.spawn(
-          u.x, u.y - 10,
-          Math.cos(angle) * WEAPON.bulletSpeed,
-          Math.sin(angle) * WEAPON.bulletSpeed,
+          u.x + lateral, u.y - 10,
+          0, -WEAPON.bulletSpeed,
           damage, pierce,
         );
       }
@@ -458,14 +461,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyBreaches(): void {
-    const cost = this.enemies.collectBreaches();
+    const { cost, titan } = this.enemies.collectBreaches();
     if (cost <= 0) return;
     this.squad.addPower(-cost * SQUAD.breachLoss);
     this.breachLoss += cost * SQUAD.breachLoss;
-    this.cameras.main.shake(120, 0.006);
-    if (!this.squad.alive) {
+    // A Titan reaching the line ends the run outright, whatever power is left.
+    // Its HP is budgeted so that killing it is achievable at 90% of par over
+    // three quarters of its descent; letting it land and merely taking damage
+    // would make that budget meaningless.
+    this.cameras.main.shake(titan ? 260 : 120, titan ? 0.014 : 0.006);
+    if (titan || !this.squad.alive) {
       this.over = true;
-      this.emitGameOver();
+      this.emitGameOver(titan ? 'titan' : 'overrun');
     }
   }
 
@@ -511,9 +518,10 @@ export class GameScene extends Phaser.Scene {
    * The end screen's whole payload, including the match code, because that
    * screen is a shareable artefact rather than a summary - see hud/EndScreen.
    */
-  private emitGameOver(): void {
+  private emitGameOver(cause: 'overrun' | 'titan' = 'overrun'): void {
     const match = { seed: this.seed, mode: this.mode };
     this.game.events.emit('gameover', {
+      cause,
       wave: this.enemies.wave.index,
       kills: this.kills,
       optimal: this.log.fractionOfOptimal,
@@ -759,7 +767,8 @@ export class GameScene extends Phaser.Scene {
       // figures on top of each other exactly where the player reads par.
       const reveal = Phaser.Math.Clamp((g.y - RAIL_HEIGHT - 6) / 44, 0, 1);
       v.rect.setVisible(reveal > 0).setPosition(g.x, g.y)
-        .setSize(g.width - 4, GATES.height)
+        // Inset for the visual separation the hit test no longer has.
+        .setSize(g.width - GATES.gap, GATES.height)
         .setFillStyle(g.type.color, 0.22 * reveal)
         .setStrokeStyle(3, g.type.color, 0.9 * reveal);
       v.label.setVisible(reveal > 0).setPosition(g.x, g.y).setAlpha(reveal);
