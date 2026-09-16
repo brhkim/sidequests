@@ -19,6 +19,25 @@ import { scoreOffer } from './Scoring';
  * dominant; one well below it is in genuine trouble; and neither case needs a
  * hand-tuned wave table.
  */
+/**
+ * The mercy clamp in force, with an instrument seam.
+ *
+ * `maxOverPlayer` is a build-time constant, and answering "how much mercy
+ * should there be" means comparing several values across several seeds and
+ * skill levels - dozens of runs. Rebuilding between each would mean every
+ * value was measured against a slightly different `dist/`, which is the kind of
+ * uncontrolled comparison this project keeps being burned by.
+ *
+ * So `npm run mercy` injects the value per page, the same way the probe bot is
+ * injected. Deliberately NOT a URL parameter: a knob that silently rebalances
+ * the game does not belong on a link somebody might share, and a match code
+ * does not carry it, so a run played with one is not a shareable match.
+ */
+function mercyClamp(): number {
+  const override = (globalThis as { __mercyOverride?: number }).__mercyOverride;
+  return typeof override === 'number' && override > 0 ? override : DIFFICULTY.maxOverPlayer;
+}
+
 export class Difficulty {
   /** Perfect play: the best possible power level at this moment. */
   private ideal: Progress = { power: SQUAD.startPower, upgrades: freshUpgrades() };
@@ -37,7 +56,7 @@ export class Difficulty {
    */
   targetDps(playerDps: number): number {
     const fromPar = this.parDps * DIFFICULTY.targetFraction;
-    return Math.min(fromPar, playerDps * DIFFICULTY.maxOverPlayer);
+    return Math.min(fromPar, playerDps * mercyClamp());
   }
 
   /**

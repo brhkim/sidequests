@@ -19,8 +19,9 @@
  * rounding escalate with difficulty: widening the range would make picks
  * swingier, and this game is about precision rather than luck.
  *
- * Every tier must also have the same MEAN, or the legibility axis is a power
- * axis in disguise - see the note on the first tier below.
+ * Every tier must also have the same mean - both the arithmetic one and, since
+ * bonuses multiply, the GEOMETRIC one - or the legibility axis is a power axis
+ * in disguise. See the note on the first tier below.
  */
 export const ROOT_RANGE = { min: 1.05, max: 1.5 } as const;
 
@@ -49,21 +50,26 @@ function ladder(step: number): number[] {
  */
 export const LEGIBILITY: readonly Legibility[] = [
   /**
-   * Six round values, SYMMETRIC about the middle of the range.
+   * Six round values, matched to the ladders on the mean that actually
+   * governs: the GEOMETRIC one.
    *
-   * The symmetry is load-bearing, not tidiness. The original table was
-   * `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, whose values bunch low: mean 1.2583
-   * against 1.2750 for both ladders below, which are symmetric by
-   * construction. That is 1.32% less per draw, and draws MULTIPLY - about 48%
-   * less power over thirty offers. So escalating legibility was quietly
-   * escalating strength, and a hard run, which starts a tier in, was handing
-   * out bigger bonuses rather than harder sums. `npm run model` measures the
-   * mean of every tier and fails if they drift apart again.
+   * The original table, `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, bunched low - 1.32%
+   * under the ladders on the arithmetic mean, 1.48% on the geometric, about
+   * 55% less power over thirty offers. So moving up a legibility tier was a
+   * power increase wearing a legibility costume, and a hard run, which starts
+   * a tier in, was handing out bigger bonuses rather than harder sums.
    *
-   * Gaps of 0.05 / 0.10 / 0.15 / 0.10 / 0.05 keep every value a multiple of
-   * 0.05, which is what makes this tier mentally tractable.
+   * The first repair matched the ARITHMETIC mean and left 0.26% per draw on
+   * the geometric one - still 7.5% over a run, because bonuses MULTIPLY and a
+   * table spread toward its extremes has a lower geometric mean at the same
+   * average. Matching both leaves 0.05% per draw, 1.6% over a run, which is
+   * inside the noise of anything this project can measure.
+   *
+   * Every value is still a multiple of 0.05, which is what makes this tier
+   * mentally tractable; `npm run model` checks both means of every tier and
+   * fails if they drift apart again.
    */
-  { minWave: 1,  sigFigs: 2, roots: [1.05, 1.1, 1.2, 1.35, 1.45, 1.5] },
+  { minWave: 1,  sigFigs: 2, roots: [1.05, 1.15, 1.25, 1.3, 1.4, 1.5] },
   { minWave: 6,  sigFigs: 2, roots: ladder(0.05) },
   { minWave: 11, sigFigs: 3, roots: ladder(0.01) },
 ];

@@ -431,24 +431,29 @@ setMode('normal');
 // compound over every offer of a run.
 // ---------------------------------------------------------------------------
 console.log('\n=== legibility tiers must not differ in strength ===');
-console.log('  minWave   values   mean root   vs tier 0');
-const means = LEGIBILITY.map((t) => t.roots.reduce((a, b) => a + b, 0) / t.roots.length);
+console.log('  minWave   values   arith mean   geo mean   geo vs tier 0');
+const amean = (x) => x.reduce((a, b) => a + b, 0) / x.length;
+// The geometric mean is the one that governs: bonuses MULTIPLY, so a table
+// spread toward its extremes is weaker than a tighter one with the same
+// average. Matching only the arithmetic mean left 0.26% per draw - 7.5% over a
+// run - and that was a real, measured miss, not a theoretical one.
+const gmean = (x) => Math.exp(x.reduce((a, b) => a + Math.log(b), 0) / x.length);
+const geo = LEGIBILITY.map((t) => gmean(t.roots));
 for (let i = 0; i < LEGIBILITY.length; i++) {
-  const drift = (means[i] / means[0] - 1) * 100;
+  const drift = (geo[i] / geo[0] - 1) * 100;
   console.log(
     String(LEGIBILITY[i].minWave).padStart(9),
     String(LEGIBILITY[i].roots.length).padStart(8),
-    means[i].toFixed(4).padStart(11),
-    `${drift >= 0 ? '+' : ''}${drift.toFixed(2)}%`.padStart(11),
+    amean(LEGIBILITY[i].roots).toFixed(4).padStart(12),
+    geo[i].toFixed(4).padStart(10),
+    `${drift >= 0 ? '+' : ''}${drift.toFixed(3)}%`.padStart(15),
   );
 }
-// Compounded over a run's worth of offers, which is the number that matters:
-// a fraction of a percent per draw is not nothing when every draw multiplies.
 const OFFERS = 30;
-const worstTier = means.reduce((a, b) => (Math.abs(b - means[0]) > Math.abs(a - means[0]) ? b : a));
-const perDraw = worstTier / means[0];
+const worstTier = geo.reduce((a, b) => (Math.abs(b - geo[0]) > Math.abs(a - geo[0]) ? b : a));
+const perDraw = worstTier / geo[0];
 console.log(
-  `  worst tier is ${((perDraw - 1) * 100).toFixed(2)}% per draw,`
+  `  worst tier is ${((perDraw - 1) * 100).toFixed(3)}% per draw,`
   + ` ${(Math.pow(perDraw, OFFERS) * 100 - 100).toFixed(1)}% over ${OFFERS} offers`,
 );
 // 0.5% per draw is ~16% over 30 offers - already larger than most effects this
@@ -456,9 +461,16 @@ console.log(
 const TOLERANCE = 0.005;
 if (Math.abs(perDraw - 1) > TOLERANCE) {
   throw new Error(
-    `legibility tiers differ in mean strength by ${((perDraw - 1) * 100).toFixed(2)}%`
-    + ' per draw — escalating legibility is secretly escalating power',
+    `legibility tiers differ in geometric mean by ${((perDraw - 1) * 100).toFixed(2)}%`
+    + ' per draw - escalating legibility is secretly escalating power',
   );
+}
+const ARITH_TOLERANCE = 0.005;
+const worstArith = LEGIBILITY.map((t) => amean(t.roots))
+  .reduce((a, b) => (Math.abs(b - amean(LEGIBILITY[0].roots))
+    > Math.abs(a - amean(LEGIBILITY[0].roots)) ? b : a));
+if (Math.abs(worstArith / amean(LEGIBILITY[0].roots) - 1) > ARITH_TOLERANCE) {
+  throw new Error('legibility tiers differ in arithmetic mean');
 }
 
 console.log('PASS');

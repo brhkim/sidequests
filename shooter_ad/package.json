@@ -13,6 +13,7 @@
     "balance": "node scripts/balance.mjs",
     "repeat": "node scripts/repeat.mjs",
     "sweep": "node scripts/sweep.mjs",
+    "mercy": "node scripts/mercy.mjs",
     "model": "node --experimental-strip-types scripts/model.mjs",
     "hud": "node scripts/hud-preview.mjs",
     "behaviour": "node scripts/behaviour.mjs",

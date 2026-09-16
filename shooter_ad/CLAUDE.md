@@ -396,21 +396,25 @@ feel bigger.
 `notes.md` says of the legibility axis: "No mechanic changes — only how hard the
 arithmetic is." That is a claim about the MEAN of each tier's root table, and it
 was false. The original first tier, `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, bunches
-low: mean 1.2583 against 1.2750 for both ladders, which are symmetric over the
-range by construction. **1.32% less per draw, and draws multiply — about 48%
-less power over thirty offers.**
+low: 1.32% under the ladders on the arithmetic mean and 1.48% on the geometric
+one — **about 55% less power over thirty offers**, because bonuses multiply.
 
 So escalating legibility was quietly escalating strength, and hard mode, which
-starts a tier in, was handing out bigger bonuses rather than harder sums. It is
-why the probe measured hard mode as easier than normal at every skill level.
-The first tier is now symmetric (`[1.05, 1.1, 1.2, 1.35, 1.45, 1.5]`, gaps
-0.05/0.10/0.15/0.10/0.05, every value still a multiple of 0.05) and
-`npm run model` computes each tier's mean and fails if they drift apart by more
-than 0.5% per draw.
+starts a tier in, was handing out bigger bonuses rather than harder sums.
 
-Worth generalising: **any content table indexed by difficulty needs its mean
-checked, not just its range.** The range was fixed and documented as
-deliberately fixed, which is exactly what made the skew invisible.
+**The first repair was not enough, and that is the more useful half of the
+story.** Matching the ARITHMETIC mean left 0.26% per draw on the geometric one —
+still 7.5% over a run. A table spread toward its extremes has a lower geometric
+mean at the same average, and the geometric mean is the one that governs when
+draws compound. The tier is now `[1.05, 1.15, 1.25, 1.3, 1.4, 1.5]`, which
+matches on both, and `npm run model` checks both for every tier and fails past
+0.5% per draw.
+
+Worth generalising twice over: **any content table indexed by difficulty needs
+its mean checked, not just its range** — the range was fixed, and documented as
+deliberately fixed, which is exactly what made the skew invisible. And **check
+the mean that matches how the quantity combines.** An average is the wrong
+summary for anything that multiplies.
 
 ## Known-broken, measured, not yet fixed
 

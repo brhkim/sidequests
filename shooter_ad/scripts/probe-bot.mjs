@@ -104,13 +104,19 @@ export async function installBot(page, { seed, skill }) {
  * fast this machine polls cannot change the run it is watching.
  */
 export async function playSeed(
-  browser, port, { seed, skill, seconds, mode = 'normal', sampleEvery = 5 },
+  browser, port, { seed, skill, seconds, mode = 'normal', mercy, sampleEvery = 5 },
 ) {
   const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await installBot(page, { seed, skill });
+  // The mercy clamp, injected per page rather than rebuilt per value - see the
+  // seam in Difficulty.ts. Injected BEFORE the page loads so the very first
+  // budget is computed with it.
+  if (typeof mercy === 'number') {
+    await page.addInitScript((v) => { window.__mercyOverride = v; }, mercy);
+  }
   // `?seed=` is the instrument form and skips the start screen; `?m=` is the
   // shared form and does not. `mode` rides alongside so a probe can play the
   // same seed on either difficulty.
@@ -149,7 +155,7 @@ export async function playSeed(
   // they remain different quantities and only this one is a property of the
   // game rather than of the machine it ran on.
   return {
-    seed, mode, rows, errors,
+    seed, mode, mercy, rows, errors,
     // Whether the run ENDED or merely ran out of budget. Read off the final
     // poll, never off the last sampled row: rows are bucketed every few
     // simulated seconds, so the last one is a snapshot from before the end and
