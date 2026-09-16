@@ -21,8 +21,10 @@
 import { register } from 'node:module';
 register('./ts-resolve.mjs', import.meta.url);
 
-const { squadDps, freshUpgrades, applyGate, cloneProgress, pierceMultiplier } =
-  await import('../src/systems/Progression.ts');
+const {
+  squadDps, freshUpgrades, applyGate, cloneProgress, pierceMultiplier,
+  deliverableDps, shotsPerSecond, MAX_SHOTS_PER_SECOND,
+} = await import('../src/systems/Progression.ts');
 const { SQUAD } = await import('../src/config.ts');
 const { tierFor, TIERS } = await import('../src/data/tiers.ts');
 const { rawShare } = await import('../src/data/gates.ts');
@@ -471,6 +473,139 @@ const worstArith = LEGIBILITY.map((t) => amean(t.roots))
     > Math.abs(a - amean(LEGIBILITY[0].roots)) ? b : a));
 if (Math.abs(worstArith / amean(LEGIBILITY[0].roots) - 1) > ARITH_TOLERANCE) {
   throw new Error('legibility tiers differ in arithmetic mean');
+}
+
+
+// ---------------------------------------------------------------------------
+// Ordinary enemies must not stop scaling with the player.
+//
+// The finding, from a real play session: non-boss enemies should scale at least
+// somewhat more with the player's damage output. `Difficulty.throttle` already
+// does scale them - incoming enemy HP per second is
+// `squadDps(par) * targetFraction * pressure`, which is LINEAR in par - so the
+// interesting question was where that linearity stops.
+//
+// It stops at `DIFFICULTY.maxHpMult`. Past
+//   parDps = maxHpMult * maxSpawnRate * avgBaseHp / (targetFraction * pressure)
+// the budget is capped and no further growth in the player's damage output
+// reaches the enemies at all: the wave is thereafter the same wave forever,
+// while par DPS keeps compounding by roughly a quarter per offer. That is a
+// guard rail behaving as a balance ceiling, and it was silent - the probe bot
+// dies long before it binds, so no run this project ever measured crossed it.
+//
+// This measures the crossover in OFFERS, which is the unit the player feels,
+// and fails if it lands inside a run anyone will actually play.
+// ---------------------------------------------------------------------------
+const { DIFFICULTY, WAVE } = await import('../src/config.ts');
+const { poolAverageHp } = await import('../src/data/enemies.ts');
+
+console.log('\n=== the enemy budget must not stop scaling with par ===');
+const budgetShare = DIFFICULTY.targetFraction * DIFFICULTY.pressure;
+// The most HP a wave can carry: every enemy at the ceiling, arriving as fast as
+// the authored curve ever sends them.
+const lateAvgHp = poolAverageHp(30);
+const ceilingHpPerSec = DIFFICULTY.maxHpMult * WAVE.maxSpawnRate * lateAvgHp;
+const ceilingParDps = ceilingHpPerSec / budgetShare;
+console.log(`  budget share (targetFraction x pressure): ${budgetShare.toFixed(3)}`);
+console.log(`  shots/s the bullet pool can deliver:      ${Math.round(MAX_SHOTS_PER_SECOND)}`);
+console.log(`  average enemy HP in the late pool:        ${lateAvgHp.toFixed(1)}`);
+console.log(`  most HP a wave can carry:                 ${Math.round(ceilingHpPerSec)}/s`);
+console.log(`  par DPS at which the budget pins:         ${Math.round(ceilingParDps)}`);
+
+// Par's own growth, played by the shipped scoring on the shipped offer roller -
+// not a growth rate assumed here. Median across runs, because one lucky run is
+// not a schedule.
+const PROBE_OFFERS = 60;
+const parCurves = [];
+for (let run = 0; run < 60; run++) {
+  let s0 = run * 40503 + 7;
+  const rng = () => ((s0 = (s0 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const par = state(SQUAD.startPower);
+  const curve = [];
+  for (let offer = 0; offer < PROBE_OFFERS; offer++) {
+    const wave = 1 + Math.floor(offer / 2);
+    const ctx = {
+      power: par.power,
+      damageBonus: par.upgrades.damageBonus,
+      rateBonus: par.upgrades.rateBonus,
+    };
+    const gates = rollOffer(G.perOffer, wave, ctx, rng);
+    if (gates.length > 0) applyGate(par, gates[scoreOffer(par, gates, wave).best]);
+    // Both, because the gap between them is the finding. `analytic` is what the
+    // build implies and what `Scoring` prices; `deliverable` is what the bullet
+    // pool lets the squad put in the air, and what the curve is budgeted on.
+    curve.push({ analytic: squadDps(par), deliverable: deliverableDps(par), want: shotsPerSecond(par) });
+  }
+  parCurves.push(curve);
+}
+const medianAt = (i) => {
+  // Median of each field independently. They come from the same run at the
+  // median of `analytic`, so take that run rather than mixing rows.
+  const rows = parCurves.map((c) => c[i]).sort((a, b) => a.analytic - b.analytic);
+  return rows[Math.floor(rows.length / 2)];
+};
+console.log('\n  offer   ~minutes   analytic DPS   delivers   budgeted DPS   hpMult wanted   capped');
+let pinOffer = -1;
+for (let i = 9; i < PROBE_OFFERS; i += 10) {
+  const r = medianAt(i);
+  const wanted = r.deliverable * budgetShare / (WAVE.maxSpawnRate * lateAvgHp);
+  console.log(
+    String(i + 1).padStart(7),
+    ((i + 1) * GATES.interval / 60).toFixed(1).padStart(10),
+    r.analytic.toExponential(2).padStart(14),
+    `${(r.deliverable / r.analytic * 100).toFixed(0)}%`.padStart(10),
+    r.deliverable.toExponential(2).padStart(14),
+    wanted.toExponential(2).padStart(15),
+    (wanted > DIFFICULTY.maxHpMult ? 'YES' : 'no').padStart(9),
+  );
+}
+for (let i = 0; i < PROBE_OFFERS; i++) {
+  const wanted = medianAt(i).deliverable * budgetShare / (WAVE.maxSpawnRate * lateAvgHp);
+  if (wanted > DIFFICULTY.maxHpMult) { pinOffer = i + 1; break; }
+}
+if (pinOffer < 0) {
+  console.log(`\n  the budget still scales at offer ${PROBE_OFFERS}`
+    + ` (~${(PROBE_OFFERS * GATES.interval / 60).toFixed(1)} min of play)`);
+} else {
+  console.log(`\n  the budget PINS at offer ${pinOffer}`
+    + ` (~${(pinOffer * GATES.interval / 60).toFixed(1)} min of play)`);
+}
+// A run this project has watched a human play lasts several minutes, and offers
+// arrive every GATES.interval seconds. A ceiling inside that is not a guard
+// rail, it is the difficulty curve's last word.
+if (pinOffer >= 0 && pinOffer <= PROBE_OFFERS) {
+  console.error(
+    `FAIL: enemy scaling stops after ${pinOffer} offers`
+    + ` (~${(pinOffer * GATES.interval / 60).toFixed(1)} minutes)`,
+    '\n      DIFFICULTY.maxHpMult is acting as a balance ceiling rather than a',
+    '\n      guard rail: past it the player keeps compounding and the wave does not',
+  );
+  process.exit(1);
+}
+
+// The other half of the same finding. The budget is denominated in DPS, so it
+// has to be denominated in DPS somebody can actually do: past the pool's
+// throughput ceiling the analytic figure runs away from the deliverable one and
+// budgeting against it asks the player for damage the game will not let them
+// deal. This asserts the budget reads the deliverable number, by checking it
+// never exceeds what par can physically put in the air.
+const lastRow = medianAt(PROBE_OFFERS - 1);
+console.log(`\n  by offer ${PROBE_OFFERS}, par wants ${Math.round(lastRow.want)} shots/s`
+  + ` and can fire ${Math.round(MAX_SHOTS_PER_SECOND)}`);
+console.log(`  so it delivers ${(lastRow.deliverable / lastRow.analytic * 100).toFixed(1)}%`
+  + ' of the damage its build implies');
+if (!(lastRow.deliverable * budgetShare < lastRow.deliverable)) {
+  console.error('FAIL: the budget asks for more damage than par can deliver');
+  process.exit(1);
+}
+if (!(lastRow.deliverable < lastRow.analytic * 0.9)) {
+  console.error(
+    'FAIL: the delivery ceiling is not being modelled.',
+    '\n      Par wants far more shots a second than the bullet pool can recycle,',
+    '\n      so deliverableDps must fall well below squadDps by this point. If it',
+    '\n      does not, the budget has gone back to believing the analytic figure.',
+  );
+  process.exit(1);
 }
 
 console.log('PASS');

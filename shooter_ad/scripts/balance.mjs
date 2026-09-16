@@ -89,7 +89,7 @@ console.log(`survival: ${survivals.join('s, ')}s   median ${med(survivals)}s`);
 console.log(`optimal:  ${optimals.map((o) => (o * 100).toFixed(0) + '%').join(', ')}`
   + `   median ${(med(optimals) * 100).toFixed(0)}%`);
 console.log(`standing: median ${med(stands).toFixed(2)}`
-  + `   (mercy clamp governs below ${(0.7 / 1.35).toFixed(2)})`);
+  + `   (mercy clamp governs below ${med(results.map((r) => r.clampThreshold)).toFixed(2)})`);
 
 // Why runs end, and what steering cost. These separate "the player chose badly"
 // from "the player could not be in two places at once": if a high-skill bot

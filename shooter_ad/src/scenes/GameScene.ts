@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
 } from '../config';
-import { TIERS } from '../data/tiers';
+import { bulletTint, TIERS } from '../data/tiers';
 import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
 import { EnemyBullets } from '../systems/EnemyBullets';
@@ -17,7 +17,7 @@ import { createRng } from '../systems/Rng';
 import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
 import { modeFromQuery, setMode } from '../systems/Mode';
 import { VERSION } from '../version';
-import { moveSpeed, pierceMultiplier } from '../systems/Progression';
+import { MAX_SHOTS_PER_SECOND, moveSpeed, pierceMultiplier } from '../systems/Progression';
 import { PAUSE_BUTTON } from './hud/PauseScreen';
 import { RAIL_HEIGHT } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
@@ -86,6 +86,12 @@ export class GameScene extends Phaser.Scene {
    */
   private breachLoss = 0;
   private fireLoss = 0;
+  /**
+   * Bresenham accumulator deciding which shots are DRAWN. Rendering state; it
+   * is read by nothing in the simulation and reset with the run only so a new
+   * run's first bullets are not a hangover from the last one's stride.
+   */
+  private drawCredit = 0;
   private traveled = 0;
   private lastX = VIEW.width / 2;
   private streak = 0;
@@ -252,6 +258,7 @@ export class GameScene extends Phaser.Scene {
     this.accumulator = 0;
     this.breachLoss = 0;
     this.fireLoss = 0;
+    this.drawCredit = 0;
     this.traveled = 0;
     this.lastX = VIEW.width / 2;
     this.waiting = false;
@@ -375,6 +382,19 @@ export class GameScene extends Phaser.Scene {
 
   private fire(dt: number): void {
     const { guns, pierce } = this.squad.upgrades;
+    // Rendering only. Recomputed every step from the build, so nothing here is
+    // state that can drift, and nothing reaches spawn counts or collision.
+    //
+    // The rate that matters is the one the pool will actually honour, not the
+    // one the build asks for. Reading the intended rate put a density of x212
+    // on the late state and left FOUR bullets on screen, because the other
+    // 16,000 shots a second it was dividing by were never fired.
+    const streamRate = Math.min(this.squad.shotsPerSecond(), MAX_SHOTS_PER_SECOND);
+    const drawnShare = streamRate > 0
+      ? Math.min(1, RENDER.maxVisibleShotsPerSecond / streamRate)
+      : 1;
+    const density = drawnShare > 0 ? 1 / drawnShare : 1;
+
     for (const u of this.squad.units) {
       u.cooldown -= dt;
       if (u.cooldown > 0) continue;
@@ -387,10 +407,19 @@ export class GameScene extends Phaser.Scene {
         const lateral = guns === 1
           ? 0
           : (g / (guns - 1) - 0.5) * WEAPON.volleyWidth;
+        // Bresenham stride over the spawn sequence: an even one-in-N sample
+        // rather than a random one, so the drawn subset stays spread across
+        // every unit and every gun and the volley still reads as a column.
+        // NOT drawn from the seeded RNG - consuming a number here would shift
+        // the whole gameplay stream and make a rendering knob a balance knob.
+        this.drawCredit += drawnShare;
+        const drawn = this.drawCredit >= 1;
+        if (drawn) this.drawCredit -= 1;
         this.bullets.spawn(
           u.x + lateral, u.y - 10,
           0, -WEAPON.bulletSpeed,
           damage, pierce,
+          drawn, density,
         );
       }
     }
@@ -586,6 +615,10 @@ export class GameScene extends Phaser.Scene {
       parDps: par.parDps,
       dps: Math.round(this.squad.dps),
       hpMult: Number(this.enemies.hpMult.toFixed(2)),
+      // The difficulty knobs in force, so no instrument has to hardcode them.
+      clampThreshold: par.clampThreshold,
+      targetFraction: par.targetFraction,
+      pressure: par.pressure,
       rate: Number(this.enemies.spawnRate.toFixed(2)),
       wave: this.enemies.wave.index,
       tier: this.squad.topTier,
@@ -666,11 +699,20 @@ export class GameScene extends Phaser.Scene {
     this.cagePool.end();
   }
 
+  /**
+   * Draws the bounded subset `fire` marked, tinted by how much of the stream
+   * each one stands for.
+   *
+   * The simulation is untouched here: every bullet in `items` is still flying
+   * and still colliding, drawn or not. Skipping the undrawn ones is the whole
+   * mechanism - at high GUNS and RATE the true stream is thousands of shots a
+   * second and the playfield went solid cream.
+   */
   private renderBullets(): void {
     this.bulletPool.begin();
     for (const b of this.bullets.items) {
-      if (!b.active) continue;
-      this.bulletPool.claim().setPosition(b.x, b.y).setTint(COLORS.bullet);
+      if (!b.active || !b.drawn) continue;
+      this.bulletPool.claim().setPosition(b.x, b.y).setTint(bulletTint(b.density));
     }
     this.bulletPool.end();
   }

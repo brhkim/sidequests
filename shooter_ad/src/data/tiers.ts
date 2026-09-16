@@ -70,3 +70,32 @@ export function unitStats(powerPerUnit: number): { damage: number; fireRate: num
     fireRate: lo.fireRate * Math.pow(hi.fireRate / lo.fireRate, f),
   };
 }
+
+/**
+ * Bullet colour by DENSITY - how many real bullets one drawn bullet stands for.
+ *
+ * At high GUNS and RATE the true stream is thousands of shots a second and the
+ * playfield becomes a solid cream mass: you can no longer see what is being
+ * hit, or by how much. The renderer therefore draws a bounded SUBSET of the
+ * stream (see `RENDER.maxVisibleShotsPerSecond`) and colours each drawn bullet
+ * by how much of the stream it represents.
+ *
+ * This deliberately reuses the shirt ladder above rather than inventing a
+ * second scale. It is already the game's vocabulary for "this thing stands for
+ * more than it looks like" - a red unit is a unit carrying 32 power, not one
+ * body - so a red bullet reads as heavy fire without the player learning
+ * anything new. Thresholds double, which is the right shape: fire rate
+ * compounds multiplicatively, so a linear scale would sit at the top for most
+ * of a run.
+ *
+ * Tier 0 is the cream a bullet has always been, because at density under 2 a
+ * drawn bullet IS a real bullet and nothing is being collapsed. The ladder
+ * starts exactly where the lie starts.
+ */
+export const BULLET_BASE = 0xfff3b0;
+
+const BULLET_TINTS: readonly number[] = [BULLET_BASE, ...TIERS.slice(1).map((t) => t.shirt)];
+
+export function bulletTint(density: number): number {
+  return BULLET_TINTS[Math.min(tierFor(density), BULLET_TINTS.length - 1)];
+}

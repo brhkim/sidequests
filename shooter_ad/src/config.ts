@@ -3,7 +3,7 @@
  * gameplay code.
  */
 
-import { MAX_PER_UNIT } from './data/tiers';
+import { BULLET_BASE, MAX_PER_UNIT } from './data/tiers';
 
 export const VIEW = { width: 540, height: 960 } as const;
 
@@ -219,9 +219,30 @@ export const DIFFICULTY = {
    * difficulty rather than a verdict on how losing control feels.
    */
   maxOverPlayer: 2.5,
-  /** Guard rails, so a pathological run cannot produce absurd enemies. */
+  /**
+   * Guard rails on the derived HP multiplier.
+   *
+   * `maxHpMult` is NUMERIC, not a balance value, and it was 400 - which made it
+   * a balance value by accident, and a decisive one.
+   *
+   * The budget is linear in par DPS, and par DPS compounds by roughly a quarter
+   * per offer, so at 400 the budget pinned after about THIRTY offers - under
+   * four minutes of play. Past that point the wave was the same wave forever
+   * while the player kept compounding, which is exactly the finding this came
+   * out of: ordinary enemies stopped scaling with damage output. It was silent
+   * because the probe bot dies around wave 3-6 and has never once crossed it,
+   * so every measurement this project has ever taken was below the ceiling.
+   *
+   * `npm run model` now measures the crossover in OFFERS and fails if it lands
+   * inside a run anyone would play. The honest statement about the new value is
+   * NOT "it never binds": par grows geometrically, so any constant eventually
+   * does. It is that it binds nowhere near a playable run - at 1e12 the pin
+   * sits far past the sixty-offer (~7.5 minute) horizon the check uses, where
+   * the wanted multiplier is still only ~3.5e6. What it still buys is the thing
+   * a guard rail is for: no Infinity, no NaN, no enemy with a non-finite HP.
+   */
   minHpMult: 0.6,
-  maxHpMult: 400,
+  maxHpMult: 1e12,
   /**
    * A boss is sized by the DEADLINE it creates, not by a pressure budget.
    *
@@ -358,11 +379,47 @@ export const STREAK = {
   bonus: 2,
 } as const;
 
+/**
+ * Pure presentation. Nothing here may reach the simulation.
+ *
+ * The single rule for this section: a number in RENDER changes what is DRAWN
+ * and never what is spawned, moved, or hit. The moment one of these feeds a
+ * spawn count or a collision, a legibility fix has silently become a balance
+ * change and every measured number on the branch is stale - and `npm run
+ * repeat` would not catch it, because a differently-balanced game is still a
+ * deterministic one. `npm run sweep` before and after is the check.
+ */
+export const RENDER = {
+  /**
+   * Ceiling on bullets DRAWN per second. The squad keeps firing and colliding
+   * at its true rate; the renderer draws a stable one-in-N subset of the stream
+   * and tints each drawn bullet by how many real shots it stands for (see
+   * `bulletTint` in data/tiers.ts).
+   *
+   * At high GUNS and RATE the true rate runs into the thousands per second and
+   * the playfield went solid cream - the player could no longer see which
+   * column was being hit or how hard. A bullet lives about 0.9s crossing the
+   * screen, so this is roughly the on-screen bullet count.
+   *
+   * 60 is chosen against the range the stream actually spans, not against the
+   * range the build implies. The bullet pool caps real throughput at about 1000
+   * shots a second (`MAX_SHOTS_PER_SECOND`), so dividing by 60 puts the top of
+   * the observed stream at a density of ~16 - five rungs up the shirt ladder,
+   * cream through orange, with every rung reachable in play. Dividing by a
+   * larger number would compress the whole run into the first two colours.
+   *
+   * Sized above the full-ring baseline (19 grey units at 2.6 shots/s is ~49/s)
+   * so the cap never bites on an unupgraded squad - an early game that already
+   * draws every shot should keep drawing every shot.
+   */
+  maxVisibleShotsPerSecond: 60,
+} as const;
+
 export const COLORS = {
   bg: 0x0a0c14,
   lane: 0x151a2b,
   breach: 0xff4d5e,
-  bullet: 0xfff3b0,
+  bullet: BULLET_BASE,
   text: '#e8ecf8',
   cage: 0xb9a06a,
   enemyBullet: 0xff8a5c,

@@ -135,15 +135,27 @@ export function accessFactor(r: number): number {
 /**
  * What a progress state is WORTH to a decision, as opposed to what it kills.
  *
- * `squadDps` is what actually destroys enemies and is what the difficulty model
- * budgets against - access does not kill anything, so folding it into the
- * budget would tell the curve the player is stronger than they are. Scoring is
- * the other question: given two offers, which leaves you better off over the
- * rest of the run. Reaching future offers is part of that answer, so this is
- * what `Scoring.scoreOffer` prices with. Keep the two separate.
+ * Two corrections ride on this one line, and they pull in opposite directions:
+ *
+ * - **Access is added**, because reaching the option you judged best is part of
+ *   being better off over the rest of the run. The difficulty budget keeps
+ *   ignoring it - access does not kill anything, and folding it in would tell
+ *   the curve a squad that merely moves well is destroying more than it is.
+ * - **Delivery is subtracted**, because a bonus the bullet pool refuses to
+ *   honour is not worth anything at all. Priced on analytic `squadDps`, a
+ *   `x1.4 RATE` at 500,000 intended shots a second scores a clean +40% and
+ *   changes literally nothing: par takes it, the halo flashes green, and the
+ *   death screen tells the player their best available pick was a no-op. That
+ *   is the exact failure `notes.md` records for the rank ladder saturating at
+ *   608 power - "par starts picking at random, including traps" - arriving by a
+ *   different route, and it showed up the same way, as par's budgeted DPS
+ *   FALLING between offers 50 and 60 while its analytic DPS kept climbing.
+ *
+ * So both par and the player price a state by what it can actually deliver, and
+ * both still price access on top. `npm run model` measures the consequence.
  */
 export function progressValue(p: Progress, wave: number): number {
-  return squadDps(p) * accessFactor(reach(wave, p.upgrades));
+  return deliverableDps(p) * accessFactor(reach(wave, p.upgrades));
 }
 
 export function damageFactor(u: Upgrades): number { return (1 + u.damageBonus) * u.damageMult; }
@@ -186,6 +198,79 @@ export function squadDps(p: Progress): number {
  */
 export function singleTargetDps(p: Progress): number {
   return squadDps(p) / pierceMultiplier(p.upgrades.pierce);
+}
+
+/**
+ * Shots per second the build WANTS to fire, guns included.
+ *
+ * Analytic, and the same arithmetic `squadDps` does - split out because the
+ * bullet pool does not honour it past a point, and the difference is the whole
+ * of `deliverableDps` below.
+ */
+export function shotsPerSecond(p: Progress): number {
+  const rate = rateFactor(p.upgrades);
+  let shots = 0;
+  for (const share of unitShares(p.power)) {
+    shots += WEAPON.baseFireRate * unitStats(share).fireRate * rate;
+  }
+  return shots * p.upgrades.guns;
+}
+
+/**
+ * The most shots a second the game can actually put in the air.
+ *
+ * `Bullets.spawn` gives up rather than overwrite a live bullet, so the pool is
+ * a hard throughput ceiling: `maxBullets` divided by how long a bullet takes to
+ * cross the screen. A conservative floor rather than an exact figure - bullets
+ * also die on impact, so a busy board recycles faster and the measured rate
+ * runs about 20% above this. Conservative is the right direction: the budget
+ * that reads it then asks for slightly LESS than the squad can do, never more.
+ */
+const BULLET_FLIGHT_SECONDS = (ARENA.laneY + 20) / WEAPON.bulletSpeed;
+export const MAX_SHOTS_PER_SECOND = WEAPON.maxBullets / BULLET_FLIGHT_SECONDS;
+
+/**
+ * Damage per second the squad can actually DELIVER, as opposed to what its
+ * build implies.
+ *
+ * **This is the correction behind a real playtest finding** - "ordinary enemies
+ * should scale more with the player's damage output" - and the story is worth
+ * keeping, because two separate ceilings were cancelling each other out and
+ * removing either one alone would have broken the game.
+ *
+ * `squadDps` is analytic: it multiplies every unit's damage by every unit's
+ * fire rate and believes the answer. Past `MAX_SHOTS_PER_SECOND` the bullet
+ * pool refuses the surplus, so the squad fires at the pool's recycle rate and
+ * no faster. Measured with `npm run hud`, at the late upgrade state the build
+ * wants 16943 shots/s, fires 1195, and delivers **under 4%** of the damage the
+ * HUD claims for it.
+ *
+ * The difficulty budget is denominated in DPS, so budgeting against the
+ * analytic figure means budgeting against damage nobody can do. That was
+ * survivable only because `DIFFICULTY.maxHpMult` pinned the budget after about
+ * thirty offers - which is the same ceiling that made ordinary enemies stop
+ * scaling in the first place. Raising one without the other turns the late game
+ * from free into impossible.
+ *
+ * So the budget reads this and `Scoring` does not. Same asymmetry, and same
+ * reason, as `singleTargetDps` for the Titan: what a pick is WORTH and what the
+ * squad can DO are different questions, and the curve must be budgeted on the
+ * second one.
+ *
+ * Note what this does NOT fix: `scoreOffer` still prices `+1 GUN` and `xRATE`
+ * as though every extra shot lands, so past the ceiling the death screen can
+ * still call a rate bonus optimal when it changes nothing. Fixing that moves
+ * par's picks, and therefore every measured number on this branch, so it is
+ * named here rather than smuggled in.
+ */
+export function deliverableDps(p: Progress): number {
+  const want = shotsPerSecond(p);
+  if (want <= MAX_SHOTS_PER_SECOND) return squadDps(p);
+  // Damage is linear in shot count, so the shortfall in shots IS the shortfall
+  // in damage. Nothing about per-shot damage is capped - a squad that stops
+  // gaining from RATE keeps gaining from DMG and ARMY, which is the behaviour
+  // the ceiling should have.
+  return squadDps(p) * (MAX_SHOTS_PER_SECOND / want);
 }
 
 /** Applies a gate. Returns the label for the floating feedback text. */
