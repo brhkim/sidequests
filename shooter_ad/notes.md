@@ -583,6 +583,11 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 14. **Rebuild the probe bot** on real gate scoring, with a `PROBE_SKILL` knob.
 
 ### Next
+0. **Decide the delivery-ceiling question** — see "What one session of real play
+   found". The bullet pool caps real throughput at ~1000 shots/s, so RATE and
+   GUNS go dead late. Modelled honestly for now; the alternative is to collapse
+   the stream in the simulation the way the renderer already does. **This is the
+   only thing on this list that is blocked on a design decision.**
 15. **Help / pause screen** — resume, restart, options, and a full explanation of
    every bonus type. Must teach the additive-vs-multiplicative distinction, or
    the core mechanic is hidden.
@@ -606,13 +611,117 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 
 ---
 
+## What one session of real play found
+
+The author played the game. That produced seven findings, several of which no
+instrument here had caught in weeks of work, and it is worth saying plainly why:
+every automated check in this project watches a bot that dies around wave 3 to
+6, so **the entire late game has never been observed by anything but a human.**
+Two of the findings are recorded here because they changed the design rather
+than only the code.
+
+### The bullet stream has to be collapsed, not merely drawn faster
+
+At high GUNS and RATE the stream becomes a solid mass and it is visually
+impossible to follow what is going on - which column is being hit, how hard, or
+whether anything is getting through. That is not a performance problem. It is
+the same failure the ring cap exists to prevent, arriving by a different route:
+**a quantity grew past the point where more of it carries any information.**
+
+The ring cap's answer is the model. Army beyond nineteen bodies is not drawn as
+more bodies; it is spent promoting the bodies you can already see, and the shirt
+colour is how you read what a unit now stands for. Bullets get the same
+treatment: past a bounded visible rate, a drawn bullet stands for several real
+ones and its colour says how many, on the **same ladder** the shirts use. The
+player learns the idea once - *colour means this stands for more than it looks
+like* - and it pays off in two places.
+
+**The constraint that makes or breaks it: the simulation must keep firing and
+colliding at the true rate.** This is a rendering change and nothing else. If
+the number of bullets actually spawned moves with the number drawn, a legibility
+fix has silently become a balance change, and no existing instrument would say
+so - a differently-balanced game is still a deterministic one, so `npm run
+repeat` passes, and `npm run sweep` can only ever report "within noise" against
+spreads larger than most effects worth catching. `npm run neutral` exists for
+exactly this: it plays the same seeds against the pre-change build and the
+current one and asserts every sampled field is identical.
+
+### Ordinary enemies stopped scaling, and it was a guard rail doing it
+
+The finding was that non-boss enemies should scale at least somewhat more with
+the player's damage output. The closed-loop budget already does scale them -
+incoming enemy HP per second is `squadDps(par) x targetFraction x pressure`,
+linear in par - so the useful question turned out to be where that linearity
+**stops**.
+
+It stopped twice, in opposite directions, and **each ceiling was concealing the
+other** - which is why the knobs could not fix it and why removing either alone
+would have broken the game.
+
+The first is `DIFFICULTY.maxHpMult`, a number introduced as a guard rail against
+pathological runs. Par compounds by roughly a quarter per offer, so at 400 the
+budget pinned after about thirty offers - **under four minutes of play**. Past
+that the wave was the same wave forever while the player kept growing. Every
+later wave was free.
+
+The second is that **`squadDps` is a claim, not a measurement.** The bullet pool
+refuses to spawn past a live cap, so real throughput is the pool's recycle rate
+- about a thousand shots a second. At the late upgrade state the build wants
+sixteen thousand, fires eleven hundred, and delivers **7% of the damage the HUD
+was showing**. Budgeting against the analytic figure means budgeting against
+damage nobody can do; the only reason the game was playable is that the first
+ceiling pinned the budget before that mattered.
+
+The repair is to make the model tell the truth - `deliverableDps` - and to let
+the budget, `standing`, the HUD and **the scoring** all read it. The scoring is
+the part that was not obvious and is the most interesting consequence. Priced
+analytically, a `x1.4 RATE` at half a million intended shots a second scores a
+clean +40% and changes nothing at all: par takes it, the halo flashes green, and
+the death screen tells the player their best available pick was a no-op. That is
+precisely the failure recorded above for the rank ladder saturating at 608
+power - "par starts picking at random, including traps" - reached by a different
+road, and it announced itself the same way, as par's budgeted damage FALLING
+while its analytic damage climbed.
+
+**The open design question, and it is a real one.** Past the delivery ceiling,
+RATE and GUNS genuinely do nothing, so pricing them honestly means two of six
+axes go dead late. That is exactly the failure the prestige ranks exist to
+prevent on the army axis, and this document is explicit that a bonus which does
+not change damage output is noise. The alternative is to remove the ceiling
+rather than model it: let one spawned bullet carry the damage of the several it
+stands for - **the same collapse the renderer now does, applied to the
+simulation** - so the axis stays live at any rate and `squadDps` becomes true
+again. It costs some fidelity in overkill and pierce, and it lives in a regime
+no instrument here can reach, so it is the author's call rather than a fix to be
+made quietly.
+
+Three things generalise from all of that, and the third is the one worth
+keeping:
+
+- **A guard rail on a derived quantity is a balance value in disguise** unless
+  you have checked where it binds. Nothing here was wrong at the moment it was
+  written; the ceiling simply sat below the reach of a system designed to grow.
+- **It was invisible for the usual reason.** The probe dies far short of it, so
+  no measurement this project ever took crossed it - and the absence of a
+  reading looked exactly like the absence of a problem.
+- **Measure a ceiling in the units the player feels.** "400" says nothing;
+  "offer 30, about four minutes in" is a claim anyone can argue with.
+  `npm run model` now reports the crossover that way and fails if it lands
+  inside a run somebody would play.
+- **Two ceilings that cancel look like no ceiling.** Neither was visible in
+  play, and the game was survivable only because they happened to point in
+  opposite directions. Any single-knob fix would have exposed the other.
+
 ## Open questions
 
 
+- **Do RATE and GUNS stay dead late, or does the simulation collapse its stream
+  too?** The full argument is under "What one session of real play found". This
+  is the one open question that changes what the game IS rather than how it
+  reads.
 - How is pierce shown to the player? Its value swings with the board, so a
   static label undersells it. A live "≈1.6×" readout might be better — or might
   give away too much of the judgment.
-- Nothing currently blocked on a decision.
 - **Settled: the root table's range does not widen with difficulty.** It stays
   fixed at `[1.05, 1.50]` at every legibility tier; only granularity and
   significant-figure rounding escalate. Widening it would make picks swingier,

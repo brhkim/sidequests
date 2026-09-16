@@ -5,14 +5,11 @@ Paste everything below the line into a fresh session.
 ---
 
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo.
-The redesign roadmap is complete and a first pass of playtest fixes has landed,
-all pushed to `claude/laughing-feynman-ghh9r3`. `main` is untouched and no PR is
-open.
+The redesign roadmap is complete and both open playtest findings have landed, all
+pushed to `claude/laughing-feynman-ghh9r3`. `main` is untouched and no PR is open.
 
-**The user has now actually played this game.** That matters more than anything
-else in this file: one session of real play produced seven findings, several of
-which no instrument here had caught in weeks of work. Two of those findings are
-your job.
+**There is exactly one thing here that is blocked on the author rather than on
+work.** It is in section 3. Everything else is follow-through.
 
 ## 1. Orient before touching anything
 
@@ -21,13 +18,13 @@ Read in this order:
 1. `CLAUDE.md` at the repo root — repo conventions, plus a section on subagents
    sharing one working tree.
 2. `shooter_ad/CLAUDE.md` — how the code works. Read **"Measurement is the hard
-   part here"** twice, then **"Legibility must stay difficulty-neutral, and once
-   did not"**. Between them they record five separate occasions on which this
-   project was misled by its own instruments — including one where a *fix* was
-   measured and found insufficient.
-3. `shooter_ad/notes.md` — **the design intent**, and the most important
-   document here. If it and `CLAUDE.md` disagree, `notes.md` wins and
-   `CLAUDE.md` is stale — say so rather than quietly following the code.
+   part here"** twice. It now records six occasions on which this project was
+   misled by its own instruments, and the newest one is the most useful: a check
+   written specifically to catch a rendering change masquerading as a balance
+   change was itself fooled by its own sampler on its first run.
+3. `shooter_ad/notes.md` — **the design intent**, and the most important document
+   here. If it and `CLAUDE.md` disagree, `notes.md` wins and `CLAUDE.md` is stale
+   — say so rather than quietly following the code.
 4. `git log --oneline -20` — commit messages carry the reasoning, including two
    explicit retractions and one withdrawal.
 
@@ -35,9 +32,10 @@ Then:
 
 ```bash
 cd shooter_ad && npm ci && npm run build && npm run verify && npm run model
+npm run hud     # look at hud-late.png; it used to be six solid cream bars
 ```
 
-Look at `.verify/screenshot.png`. Do not start until you have seen it render.
+Do not start until you have seen `.verify/screenshot.png` render.
 
 ## 2. What the game is
 
@@ -50,146 +48,116 @@ your current pool** — `a = (root − 1) × (1 + pool)` — so at a +210% pool 
 of 1.1 presents as `+31% DMG` and is worth exactly ×1.10. Neither form is ever
 dominant; the player's skill is doing the conversion.
 
-## 3. Your two tasks
+## 3. The one open decision: do RATE and GUNS stay dead late?
 
-### A. Cap the visible bullets and tier their colour by density
+This is a design call, not a bug, and it is the only thing here you should not
+simply decide for yourself.
 
-**The finding, in the user's words:** at high GUNS and RATE the stream becomes a
-solid mass and it is visually hard to follow what is going on. The proposal is
-to cap how many bullets are drawn and let one drawn bullet *stand for several*,
-upgrading its colour the way unit shirts tier with power-per-unit — so a single
-bright bullet reads as heavy fire.
+`WEAPON.maxBullets` caps how many bullets can be alive, and `Bullets.spawn`
+gives up rather than overwrite a live one. So real throughput is the pool's
+recycle rate — about **988 shots/s** analytically, ~1200 measured. `squadDps` is
+analytic and knew nothing about this. Measured with `npm run hud` at the late
+upgrade state: the build wants 16,943 shots/s, fires 1,154, and delivers **7% of
+the damage the HUD was claiming for it.**
 
-**The hard constraint, and the whole risk of this task: the simulation must keep
-firing and colliding at the true rate.** This is a rendering change only. If the
-number of bullets actually spawned changes, this stops being a legibility fix
-and silently becomes a balance change — and every measured number on this branch
-becomes stale. `npm run repeat` will not catch that; it would happily report a
-deterministic, differently-balanced game.
+That is now modelled (`Progression.deliverableDps`), and the budget, `standing`,
+the HUD and `Scoring` all read it. The consequence is real and unwelcome: **past
+the ceiling, RATE and GUNS bonuses genuinely do nothing**, and pricing them
+honestly means the game says so instead of recommending them. That is two of six
+axes going quiet late — exactly the failure the prestige ranks were added to
+prevent on the army axis, and exactly what `notes.md` calls noise to be cut.
 
-Shape of the work:
+The alternative is to **remove the ceiling rather than model it**: let one
+spawned bullet carry the damage of the several it stands for — the same collapse
+the renderer now does, applied to the simulation. That keeps every axis live and
+makes `squadDps` true again. It costs fidelity in overkill and pierce, and it
+lives in a regime no instrument here can reach.
 
-- Collapse true shots-per-second into a maximum *visible* rate. The ratio
-  between the two is what drives the tint, so one drawn bullet represents
-  `true / visible` real bullets.
-- Tier the colour the way `data/tiers.ts` tiers shirts — that ladder is the
-  existing vocabulary for "this thing represents more than it looks like", and
-  reusing it means the player learns the idea once.
-- GUNS and RATE both feed the true rate and both must feed the collapse.
-- The volley is now a **parallel cylinder** (`WEAPON.volleyWidth`), not a cone.
-  Extra guns widen a parallel column sized to a Titan's diameter. Whatever you
-  draw has to stay legible as a column.
+Put the choice to the author before building either. The full argument is under
+"What one session of real play found" in `notes.md`.
 
-**How to verify it did not change balance:** run `npm run sweep` before and
-after and show the numbers are unchanged within noise. If they move, you changed
-the simulation. Also add a state to `npm run hud` — it already forces early /
-mid / late upgrade states, and late is where this problem lives; `verify` only
-ever photographs an empty build and will never show you the failure mode.
+## 4. What landed, so you do not re-derive it
 
-### B. Scale ordinary enemies harder against par DPS
+**The bullet stream is collapsed for legibility.** The renderer draws a bounded
+subset (`RENDER.maxVisibleShotsPerSecond`, 60) and tints each drawn bullet by how
+many real shots it stands for, on the shirt ladder from `data/tiers.ts`. Drawn
+count is now flat at ~53 from the earliest state to the latest. The subset is a
+Bresenham stride, never the seeded RNG — consuming a number there would turn a
+rendering knob into a balance knob.
 
-**The finding:** non-boss enemies should scale at least somewhat more with the
-player's DPS, or with par DPS.
+**Enemies were pinned by two ceilings that were hiding each other.**
+`DIFFICULTY.maxHpMult` was 400, which froze the budget at 46,315 HP/s from offer
+30 — under four minutes of play — while `squadDps` was simultaneously claiming
+damage the bullet pool refused to deliver. Removing either alone breaks the game
+in opposite directions. Budgeted DPS now rises monotonically to offer 60 and is
+~1000× its old pinned value there. `npm run model` measures the crossover in
+OFFERS and fails if it lands inside a run anyone would play.
 
-The machinery already exists — `systems/Difficulty.ts` budgets enemy HP against
-par:
+**Two new instruments**, plus two stale ones repaired:
 
-```
-budget/sec = squadDps(par) * targetFraction * pressure
-hpMult     = budget/sec / (spawnRate * avgPoolHp)
-```
+- `npm run neutral` — plays the same seeds against a reference `dist/` and
+  asserts an identical TERMINAL state. This is the only thing here that can tell
+  a rendering change from a balance change. Snapshot `cp -r dist /tmp/dist-baseline`
+  **before** rebuilding; there is no way to make one afterwards.
+- `npm run pressure` — sweeps `DIFFICULTY.pressure` and `targetFraction` by
+  injection, printing the clamp threshold in every row because one of those two
+  knobs moves it and the other does not.
+- `balance` and `mercy` both printed a mercy-clamp threshold of **0.52** from
+  hardcoded constants that had moved to 0.28. Both now read it off the build.
 
-So this is a tuning question about `DIFFICULTY.targetFraction`,
-`DIFFICULTY.pressure`, or how the budget splits between toughness and wave
-thickness. **Do not invent a new mechanism before trying the knobs that exist.**
+## 5. Ground rules
 
-Four things that will bite you:
-
-- **Most sweep medians are FLOORS.** Runs that hit the 150s budget rather than
-  dying are marked `+`, and any median containing one is a floor. Read the
-  `died` column. Say "floor" rather than "survival" when quoting one.
-- **Differences under ~5% are noise.** Run `npm run repeat` first to confirm the
-  instrument is still exact, then `npm run sweep` before and after.
-- **The mercy clamp threshold is now 0.28**, not 0.52. At current constants no
-  skill level's median standing reaches it, so every sweep row is par-driven.
-  Raising `targetFraction` moves that threshold and would confound the reading —
-  see the clamp section in `CLAUDE.md`, which has a measured table.
-- **Hard mode cannot be evaluated by the probe at all.** Its entire content is
-  less time to read three labels, and the bot decides in zero simulated seconds.
-  Every sweep reports hard mode as easier. Check it does not crash or spiral;
-  claim nothing else about it.
-
-Do not touch the Titan while doing this. Its HP is now derived from the deadline
-it creates, not from this budget — see below.
-
-## 4. Ground rules
-
-- **A typecheck is not verification, and neither is a green exit code.** Four
+- **A typecheck is not verification, and neither is a green exit code.** Five
   bugs on this branch were found by looking at an image or running the game that
-  every automated signal called a pass. The most recent: removing a HUD column
-  left its `update` writing five columns into four, which typechecked cleanly
-  and crashed on load.
-- **The simulation runs on a fixed 1/60s step** (`SIM` in `config.ts`). Nothing
-  gameplay-affecting may read a real frame delta. `npm run repeat` keeps this
-  honest and a nonzero spread from it is a regression.
+  every automated signal called a pass.
+- **The simulation runs on a fixed 1/60s step** (`SIM`). Nothing gameplay-
+  affecting may read a real frame delta. `npm run repeat` keeps this honest; a
+  nonzero spread is a regression. Currently 0.00%.
 - **Measure in simulated seconds, never wall-clock** (`stats.elapsed`).
 - **`Progression.ts` is the single definition of squad strength; `Scoring.ts`
-  prices every offer exactly once; `Mode.ts` holds the run's difficulty.** Par,
-  the decision log, the halo flash and the probe bot all read the same
-  functions. A second copy drifts silently and the death screen starts lying to
-  players about their own mistakes.
+  prices every offer exactly once; `Mode.ts` holds the run's difficulty.** Note
+  `Progression` now has three DPS functions and they are not interchangeable:
+  `squadDps` (analytic build strength), `singleTargetDps` (no pierce, for the
+  Titan) and `deliverableDps` (what the pool will honour, for the budget, the
+  HUD and scoring). Each carries its reason in a comment.
 - Commit subjects prefixed `shooter_ad:`. Stage **explicit paths**, never
   `git add -A` — subagents share this working tree unless given
   `isolation: "worktree"`.
 - **No CI on pull requests**, by the user's choice. Pages deploys only after
   merge to `main`. Your local `verify` is the real gate.
 
-## 5. What changed most recently, so you do not re-derive it
-
-The playtest pass that just landed (`93ffb41`):
-
-- **Gate lanes tile the full width.** The old `GATES.gap` was real dead space in
-  the hit test — a player could slide between blocks and take nothing. The
-  separation is now an inset on the drawn rectangle only.
-- **The volley is a parallel cylinder, not a cone.** Extra guns used to fan
-  bullets angularly, so more guns *scattered* damage at range.
-- **An arriving Titan ends the run**, and the end screen names that death
-  differently from attrition.
-- **Titan HP is derived from its deadline**: `bossKillPar` (0.9) of par over the
-  time to cover `bossKillDistance` (0.75) of the descent.
-- **That budget uses `singleTargetDps`, not `squadDps`.** Pierce is worth
-  ×1.5 / ×1.75 / ×1.875 at pierce 1/2/3 because a bullet may meet another body
-  after a hit — against one Titan there is no other body, so pierce is worth
-  nothing. Sizing the boss off `squadDps` would have given a pierce-3 build a
-  boss nearly twice as tough as intended, for damage it cannot deliver.
-- **SQUAD left the top rail** (it competed with ARMY), and **`startPower` is now
-  1** rather than 6.
-
-**Seeds are not comparable across that commit.** Gameplay moved.
-
 ## 6. Known gaps — name these as unverified if you report on them
 
-- **Nothing is verified at true phone scale.** Every screen was judged on
-  540×960 PNGs, not a real panel under `Scale.FIT`.
+- **The probe has never entered the regime the last change was for.** It dies at
+  wave 5 to 9 with a shot rate in the low hundreds, so it never reaches the
+  delivery ceiling or the old HP pin. The full sweep is byte-identical before and
+  after. Everything about the late game rests on `npm run model`'s arithmetic and
+  on `npm run hud`'s forced states, not on a played run.
+- **`DIFFICULTY.pressure` was not changed**, and should not be on the strength of
+  what is recorded. A two-seed smoke test of `npm run pressure` showed 0.82 →
+  1.15 cutting median survival 103.2s → 74.3s and waves 8 → 5, which says the
+  knob reaches the enemies and nothing more. Two seeds is not a reading.
+- **Nothing is verified at true phone scale.** Every screen judged on 540×960
+  PNGs, not a real panel under `Scale.FIT`.
 - **The halo flash has never been observed in motion.** Stills only.
-- **`npm run endscreen` was still running at handoff** and is unconfirmed
-  against the playtest changes. Run it early — the end screen gained a new
-  title state (`THE TITAN LANDED`) that nothing has photographed yet.
-- **The Titan-as-loss path has never been seen.** The probe rarely reaches a
-  boss wave, so no automated check has watched a Titan land or confirmed the HP
-  budget is achievable in practice. Consider forcing it, the way
+- **The Titan-as-loss path has never been seen.** `npm run endscreen` now passes
+  against the playtest changes (confirmed this session), but every run in it died
+  by attrition, so `THE TITAN LANDED` is still unphotographed and the Titan HP
+  budget is still unconfirmed in practice. Consider forcing it the way
   `npm run behaviour` spawns cohorts directly.
 - **`SQUAD.moveSpeed` 620 → 260 was never A/B'd** against the new gate speeds.
 - **The probe bot cannot dodge.** No threat avoidance, no positioning.
 
 ## 7. Settled — do not relitigate
 
-- Raw draws scale to the pool; `npm run model` has guards that fail if this
-  regresses, on both the arithmetic and geometric means.
-- Scoring prices access; `Difficulty` budgets raw DPS. `×MOVE` and `+TIME` must
-  never contribute to par DPS, and do not.
-- Match codes, not raw seed URLs. A shared link lands on a start screen and
-  waits rather than auto-starting.
+- Raw draws scale to the pool; `npm run model` guards this on both the
+  arithmetic and geometric means.
+- Scoring prices access; `Difficulty` budgets DPS without it. `×MOVE` and `+TIME`
+  must never contribute to par's enemy budget, and do not.
+- The bullet collapse is rendering only, proven by `npm run neutral` on five
+  seeds with identical terminal state. Do not "improve" it by changing how many
+  bullets are spawned.
+- Match codes, not raw seed URLs. A shared link lands on a start screen and waits.
 - Pierce uses a fixed `q`, not live density.
 - Hard mode is a wave offset on the judgment axes only — never enemy pressure.
 
@@ -197,6 +165,5 @@ The playtest pass that just landed (`93ffb41`):
 
 What landed, what the instruments say (with seeds), what you could not verify,
 and what you would do next. **Name unverified claims as unverified.** This
-project has been fooled by its own instruments five times now, and the most
-confident of those was the one where the warning was being quoted while the
-mistake was made.
+project has now been fooled by its own instruments six times, and the most recent
+was an instrument written for the sole purpose of not being fooled.
