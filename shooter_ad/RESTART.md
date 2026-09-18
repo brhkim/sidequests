@@ -85,11 +85,11 @@ rows stay, as **one cycle** of the palette rather than as the whole ladder:
 - `damage` and `fireRate` continue their geometric progression past the last
   authored row. Extract the per-step ratios from the existing table rather than
   inventing new ones, so the curve through the authored region is unchanged.
-- Colour cycles: row `n` wears `TIERS[n % 12]`'s shirt, and the **pass number**
-  `floor(n / 12)` is what distinguishes cycle-2 Gold from cycle-1 Gold. Pick one
-  cheap, legible treatment — a trim ring, a brightness step, a pip — and say why
-  in a comment. The art is procedural and tinted at runtime, so this is a tint
-  and a small overlay, not new assets.
+- Colour cycles: row `n` wears `TIERS[n % 12]`'s shirt, and **that is all.** Do
+  not mark the pass number. The author's call: nobody is watching for the loop
+  itself and a cycle marker would not read; what has to be legible is the change
+  from one rung to the NEXT. So the requirement is adjacent-rung contrast, not
+  cycle identity. Cycle-2 Gold looks like cycle-1 Gold, on purpose.
 - `SQUAD.maxPower` then has no reason to exist as a *design* limit. Keep a large
   finite guard anyway, chosen so `squadDps` cannot reach a float that stops
   being a number, and comment it as an overflow guard rather than a balance
@@ -104,10 +104,27 @@ stronger claim than it was, and it should now hold at any power. Then
 `npm run hud` at a forced state above the old cap, and **look at it**: the point
 is that a second-cycle rank is visibly not a first-cycle one.
 
-### Part B — unbounded delivery
+### Part B — unbounded delivery, IF it stays simple
 
-Apply the collapse the renderer already does to the **simulation**: one spawned
-bullet carries the damage of the several it stands for.
+The author chose this over modelling the ceiling — but conditionally, and the
+condition is precise. Apply the collapse the renderer already does to the
+**simulation**: one spawned bullet carries the damage of the several it stands
+for.
+
+**The complication the author named, and the fallback if it bites.** A fat
+bullet that overkills is not a pierce — the surplus should carry on as if
+nothing had been spent. But if the player HAS pierce, the thin bullets that this
+fat one stands for would each have hit, killed, and spent a pierce doing it. So a
+single spawned bullet has to remember, per body it meets, how much of its bundle
+was consumed and how many of the shots it represents have used their pierce.
+That is entity tracking per bullet. If it turns into that, **stop and fall back
+to A**: leave the ceiling modelled by `deliverableDps`, price RATE and GUNS
+honestly as dead past it, and rely on enemy health scaling well — which the
+`maxHpMult` work already secured. The author is explicit that A is acceptable.
+Do not build a half-correct B; a wrong pierce interaction is worse than an
+honest ceiling, because it lies to the death screen.
+
+Decide which branch you are on early, say so, and do not drift between them.
 
 - `shotsPerSecond(p)` is what the build wants. Spawn at the deliverable rate and
   multiply each bullet's damage by `wanted / deliverable`.
@@ -117,6 +134,10 @@ bullet carries the damage of the several it stands for.
   what the HUD claims.
 - The renderer's tint already encodes density on the shirt ladder. With part A
   done, that ratio is unbounded too, so the visual can keep up.
+- **Bullets and units use the SAME ladder and cycle the SAME way.** Author's
+  decision. It is a shared language: a bullet at Gold density and a unit at Gold
+  rank are telling the player the same thing with the same colour. Do not give
+  the bullet stream its own palette or its own cycle length.
 
 **Choose the collapse ratio deliberately; do not maximise `WEAPON.maxBullets`.**
 An earlier draft of this section said to raise the pool "as far as performance
@@ -250,6 +271,13 @@ OFFERS and fails if it lands inside a run anyone would play.
   the code or the next person will read one as the other.
 - Match codes, not raw seed URLs. A shared link lands on a start screen and waits.
 - Pierce uses a fixed `q`, not live density.
+- **The Titan is pinned to par SINGLE-TARGET DPS** — `titanHp` reads
+  `singleTargetDps(par)`, not `deliverableDps` and not the player's own number.
+  Author's decision: the Titan is a damage check, so it is sized against the
+  reference player's true single-body output. Do not move it onto the pool's
+  delivered rate even after part B; if B lands, `singleTargetDps` and
+  `deliverableDps` converge anyway, and if A is kept the Titan must still ask
+  for what par could do, not what the pool happens to honour.
 - Hard mode is a wave offset on the judgment axes only — never enemy pressure.
 
 ## 8. How to report
