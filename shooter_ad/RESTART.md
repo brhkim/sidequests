@@ -118,9 +118,26 @@ bullet carries the damage of the several it stands for.
 - The renderer's tint already encodes density on the shirt ladder. With part A
   done, that ratio is unbounded too, so the visual can keep up.
 
-**Raise `WEAPON.maxBullets` first, as far as performance allows, and collapse
-only above that.** A lower collapse ratio costs less fidelity, and the three
-costs below are all proportional to it:
+**Choose the collapse ratio deliberately; do not maximise `WEAPON.maxBullets`.**
+An earlier draft of this section said to raise the pool "as far as performance
+allows". That is untestable advice here and it was withdrawn: nothing in this
+project is verified at phone scale, so "performance allows" measured in headless
+Chromium on a cloud container sizes the pool for hardware the game will never run
+on. A 5-inch panel under `Scale.FIT` is the target device and it will fall over
+long before the container does.
+
+Note what raising the pool does NOT do: it does not hurt visual clarity. The
+renderer divides by the DELIVERED rate
+(`MAX_SHOTS_PER_SECOND = maxBullets / BULLET_FLIGHT_SECONDS`), so a bigger pool
+widens the stride and heats the tint while drawn bullets stay pinned near
+`RENDER.maxVisibleShotsPerSecond`. The two constants are coupled, though: 60 was
+calibrated so real densities land about five rungs up the shirt ladder with every
+rung reachable, so moving the pool without revisiting that wastes the
+calibration.
+
+Size the pool by SIMULATION FIDELITY instead - how much of the distortion below
+you are willing to accept - and state the ratio you picked and why. The three
+costs are all proportional to it:
 
 - **Overkill.** One fat bullet overkills a weak enemy, wasting damage that
   several thin bullets would have spread across several bodies. This makes
