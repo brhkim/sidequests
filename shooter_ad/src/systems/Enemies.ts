@@ -84,6 +84,16 @@ export class Enemies {
     };
   }
 
+  /**
+   * Instrument seam for `npm run from`: begin at a later wave, so the enemy
+   * pool, the spawn curve and the gate speed all match an injected squad
+   * rather than sending wave-1 fodder at a late-game build. Nothing in a
+   * shipped game calls it.
+   */
+  startAt(wave: number): void {
+    this.wave = this.buildWave(Math.max(1, Math.floor(wave)));
+  }
+
   get hpMult(): number { return this.throttled.hpMult; }
   get spawnRate(): number { return this.throttled.spawnRate; }
 
@@ -144,8 +154,13 @@ export class Enemies {
     if (next % WAVE.bossEvery === 0) {
       const boss = ENEMY_BY_ID.get('titan');
       if (boss) {
-        const scale = this.difficulty.bossHpScale(boss.hp * this.hpMult);
-        this.spawn(boss, VIEW.width / 2, ARENA.spawnY - 40, scale);
+        // Sized by the distance it has to cover, not by a pressure budget: the
+        // Titan ends the run when it arrives, so the only question is whether a
+        // competent player can kill it on the way down.
+        const spawnY = ARENA.spawnY - 40;
+        const travelSeconds = (ARENA.laneY - spawnY) / boss.speed;
+        const hp = this.difficulty.titanHp(travelSeconds);
+        this.spawn(boss, VIEW.width / 2, spawnY, Math.max(1, hp / boss.hp));
       }
     }
     return true;
@@ -220,15 +235,25 @@ export class Enemies {
     return true;
   }
 
-  /** Enemies past the breach line. Removes them and reports the power cost. */
-  collectBreaches(): number {
+  /**
+   * Enemies past the breach line. Removes them and reports the power cost, plus
+   * whether a Titan got through.
+   *
+   * A Titan arriving is not damage, it is the end of the run. A boss that can be
+   * absorbed like any other body is not a boss, and the whole point of sizing
+   * its HP against par is that reaching you is supposed to be fatal - otherwise
+   * the deadline it creates is a suggestion.
+   */
+  collectBreaches(): { cost: number; titan: boolean } {
     let cost = 0;
+    let titan = false;
     for (const e of this.items) {
       if (!e.active || e.y < ARENA.breachY) continue;
+      if (e.type.id === 'titan') titan = true;
       cost += e.type.damage;
       e.active = false;
     }
-    return cost;
+    return { cost, titan };
   }
 
   reset(): void {

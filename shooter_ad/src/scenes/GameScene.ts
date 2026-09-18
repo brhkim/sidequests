@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
 } from '../config';
-import { TIERS } from '../data/tiers';
+import { bulletTint, tierRow } from '../data/tiers';
 import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
 import { EnemyBullets } from '../systems/EnemyBullets';
@@ -17,7 +17,9 @@ import { createRng } from '../systems/Rng';
 import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
 import { modeFromQuery, setMode } from '../systems/Mode';
 import { VERSION } from '../version';
-import { moveSpeed, pierceMultiplier } from '../systems/Progression';
+import { bundleFactor, moveSpeed, pierceMultiplier, type Upgrades } from '../systems/Progression';
+import { armorAgainst } from '../systems/EnemyMotion';
+import { strike } from '../systems/Bullets';
 import { PAUSE_BUTTON } from './hud/PauseScreen';
 import { RAIL_HEIGHT } from './hud/TopRail';
 import type { HudPayload } from './hud/types';
@@ -31,6 +33,13 @@ interface ScoredGate {
   pair: number;
   delta: number;
   best: boolean;
+}
+
+/** See `GameScene.applyStartOverride`. Instruments only. */
+interface StartOverride {
+  power: number;
+  upgrades: Partial<Upgrades>;
+  wave: number;
 }
 
 /** See `GameScene.steerAutopilot`. Instruments only. */
@@ -86,10 +95,34 @@ export class GameScene extends Phaser.Scene {
    */
   private breachLoss = 0;
   private fireLoss = 0;
+  /**
+   * Bresenham accumulator deciding which shots are DRAWN. Rendering state; it
+   * is read by nothing in the simulation and reset with the run only so a new
+   * run's first bullets are not a hangover from the last one's stride.
+   */
+  private drawCredit = 0;
+  /**
+   * The SIMULATION's stride, which is a different thing and must stay one.
+   * `simCredit` decides which shots become bullets past
+   * `WEAPON.maxSimShotsPerSecond`; the shots in between are banked in
+   * `pendingShots` / `pendingDamage` and ride in the next bullet spawned. This
+   * is gameplay state - it changes what is spawned and what is hit - so it is
+   * deterministic by construction (no RNG, simulated steps only) and
+   * `npm run repeat` keeps it so.
+   */
+  private simCredit = 0;
+  private pendingShots = 0;
+  private pendingDamage = 0;
   private traveled = 0;
+  /** Highest power the run reached. The sweep reports it; a run's peak is what
+   * says whether the old ceilings were ever within reach of real play. */
+  private peakPower = 0;
   private lastX = VIEW.width / 2;
   private streak = 0;
   private over = false;
+  /** Why the run ended, for the instruments: a Titan landing and attrition are
+   * different failures and the runner has to tell them apart. */
+  private cause: 'overrun' | 'titan' | null = null;
   /** Held at the start screen until the player commits. */
   private waiting = true;
   /** Frozen on the pause/help screen. */
@@ -153,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     // so it is not left unseen by every automated check.
     const params = new URLSearchParams(window.location.search);
     if (params.has('seed')) {
+      this.applyStartOverride();
       this.waiting = false;
       return;
     }
@@ -240,6 +274,7 @@ export class GameScene extends Phaser.Scene {
 
   private restart(): void {
     this.over = false;
+    this.cause = null;
     this.kills = 0;
     this.streak = 0;
     this.targetX = VIEW.width / 2;
@@ -252,11 +287,17 @@ export class GameScene extends Phaser.Scene {
     this.accumulator = 0;
     this.breachLoss = 0;
     this.fireLoss = 0;
+    this.drawCredit = 0;
+    this.simCredit = 0;
+    this.pendingShots = 0;
+    this.pendingDamage = 0;
     this.traveled = 0;
+    this.peakPower = 0;
     this.lastX = VIEW.width / 2;
     this.waiting = false;
     this.enemies.reset();
     this.gates.reset();
+    this.applyStartOverride();
     this.game.events.emit('restart');
     this.emitHud();
   }
@@ -305,6 +346,7 @@ export class GameScene extends Phaser.Scene {
     this.squad.update(dt, this.targetX);
     this.traveled += Math.abs(this.squad.x - this.lastX);
     this.lastX = this.squad.x;
+    if (this.squad.power > this.peakPower) this.peakPower = this.squad.power;
     this.enemies.playerDps = this.squad.dps;
     this.enemies.targetX = this.squad.x;
     this.enemies.targetY = this.squad.y;
@@ -328,6 +370,29 @@ export class GameScene extends Phaser.Scene {
     this.checkGates();
     this.applyBreaches();
     this.applyIncomingFire();
+  }
+
+  /**
+   * Instrument seam for `npm run from`. When `window.__startOverride` is
+   * installed, the run begins from that squad state, at that wave, with par
+   * set equal to it - see `Difficulty.seedPar`.
+   *
+   * This exists because the probe bot dies at wave 5 to 9 and has never once
+   * reached the regime the late-game work is for: the delivery ceiling, the
+   * old power ceiling, the HP pin. Until this, every claim about the late game
+   * rested on `npm run model`'s arithmetic and `npm run hud`'s forced stills.
+   * Nothing installs it in a shipped game, and it is deliberately not a URL
+   * parameter: a run started from an injected state is not a shareable match.
+   */
+  private applyStartOverride(): void {
+    const o = (window as unknown as { __startOverride?: StartOverride }).__startOverride;
+    if (!o) return;
+    this.squad.progress.power = Math.max(1, o.power);
+    Object.assign(this.squad.progress.upgrades, o.upgrades);
+    this.squad.rebuild();
+    this.difficulty.seedPar(this.squad.progress);
+    this.enemies.startAt(o.wave);
+    this.peakPower = this.squad.power;
   }
 
   /**
@@ -375,20 +440,85 @@ export class GameScene extends Phaser.Scene {
 
   private fire(dt: number): void {
     const { guns, pierce } = this.squad.upgrades;
+    const want = this.squad.shotsPerSecond();
+
+    // Two collapses of the stream, and they are different things.
+    //
+    // The SIMULATION's: past `WEAPON.maxSimShotsPerSecond`, one spawned bullet
+    // stands for `bundle` real shots and carries their damage. This changes
+    // what is spawned and what is hit; `Bullets.strike` keeps the accounting
+    // exact. Below the cap `bundle` is 1 and every shot is its own bullet.
+    const bundle = bundleFactor(this.squad.progress);
+    const simShare = 1 / bundle;
+    // The RENDERER's: of the bullets actually spawned, a bounded subset is
+    // drawn. Rendering only - nothing here reaches spawn counts or collision.
+    // Read off the SPAWN rate, which is what the pool honours, never the
+    // intended rate: reading the intended rate once put a density of x212 on
+    // the late state and left four bullets on screen.
+    const spawnRate = Math.min(want, WEAPON.maxSimShotsPerSecond);
+    const drawnShare = spawnRate > 0
+      ? Math.min(1, RENDER.maxVisibleShotsPerSecond / spawnRate)
+      : 1;
+    // Real shots per DRAWN bullet: both collapses multiplied. The tint reads
+    // this; encoding the render stride alone would read wrong past the sim
+    // ceiling, where every drawn bullet is already several shots.
+    const density = bundle / drawnShare;
+
     for (const u of this.squad.units) {
       u.cooldown -= dt;
       if (u.cooldown > 0) continue;
-      u.cooldown += this.squad.shotInterval(u.share);
+      // Every shot the unit is owed this step, not one. Past sixty shots a
+      // second per unit the interval is shorter than a step, and firing once
+      // per step silently capped the whole ring at 60 x units x guns - a third
+      // ceiling, hidden behind the pool's, that made the late build fire a
+      // quarter of what it was owed even with the pool no longer refusing.
+      const interval = this.squad.shotInterval(u.share);
+      const n = 1 + Math.floor(-u.cooldown / interval);
+      u.cooldown += n * interval;
       const damage = this.squad.damagePerShot(u.share);
       for (let g = 0; g < guns; g++) {
-        const offset = guns === 1 ? 0 : (g - (guns - 1) / 2) * WEAPON.volleySpread;
-        const angle = -Math.PI / 2 + offset * 0.12;
-        this.bullets.spawn(
-          u.x, u.y - 10,
-          Math.cos(angle) * WEAPON.bulletSpeed,
-          Math.sin(angle) * WEAPON.bulletSpeed,
-          damage, pierce,
-        );
+        // Bresenham stride over the shot sequence, for the simulation. An even
+        // one-in-K sample, so the bundled bullets stay spread across every
+        // unit and every gun and the volley still reads as a column. NOT drawn
+        // from the seeded RNG: a deterministic stride is what keeps a seed a
+        // seed. A skipped shot is not lost - it is banked and rides in the
+        // next bullet honoured, so every shot the build fires is carried by
+        // exactly one bullet.
+        this.simCredit += n * simShare;
+        this.pendingShots += n;
+        this.pendingDamage += n * damage;
+        const honoured = Math.floor(this.simCredit);
+        if (honoured < 1) continue;
+        this.simCredit -= honoured;
+        // Shots from different units carry different damage; the bundle holds
+        // their mean so the total is conserved exactly. Whole shots per bullet,
+        // dealt out as `unitShares` deals power.
+        const total = this.pendingShots;
+        const perShot = this.pendingDamage / total;
+        this.pendingShots = 0;
+        this.pendingDamage = 0;
+        const base = Math.floor(total / honoured);
+        const extra = total % honoured;
+
+        // Parallel, not fanned. Extra guns widen the column rather than the
+        // angle, so damage stays focused at any range and a full volley lands
+        // on a single body - which is what makes the Titan's HP budget honest.
+        const lateral = guns === 1
+          ? 0
+          : (g / (guns - 1) - 0.5) * WEAPON.volleyWidth;
+        for (let k = 0; k < honoured; k++) {
+          // The render stride, over SPAWNED bullets. Same shape, separate
+          // state, and it may never feed anything above this line.
+          this.drawCredit += drawnShare;
+          const drawn = this.drawCredit >= 1;
+          if (drawn) this.drawCredit -= 1;
+          this.bullets.spawn(
+            u.x + lateral, u.y - 10,
+            0, -WEAPON.bulletSpeed,
+            perShot, pierce, base + (k < extra ? 1 : 0),
+            drawn, density,
+          );
+        }
       }
     }
   }
@@ -405,9 +535,13 @@ export class GameScene extends Phaser.Scene {
         const r = e.radius + WEAPON.bulletRadius;
         if (dx * dx + dy * dy > r * r) return;
         const len = Math.hypot(b.vx, b.vy) || 1;
-        if (this.enemies.damage(e, b.damage, b.vx / len, b.vy / len)) this.onKill();
-        if (b.pierce > 0) b.pierce--;
-        else b.active = false;
+        const ux = b.vx / len, uy = b.vy / len;
+        // The body consumes as many of the bullet's shots as it takes to kill
+        // it, each spending a pierce; the rest fly on. A one-shot bullet is the
+        // old rule exactly: one hit, then pierce down or gone.
+        const perShot = b.damage * (1 - armorAgainst(e, ux, uy));
+        const consumed = strike(b, e.hp, perShot, true);
+        if (this.enemies.damage(e, consumed * b.damage, ux, uy)) this.onKill();
       });
 
       if (!b.active) continue;
@@ -416,15 +550,17 @@ export class GameScene extends Phaser.Scene {
         const dx = c.x - b.x, dy = c.y - b.y;
         const r = CAGE.radius + WEAPON.bulletRadius;
         if (dx * dx + dy * dy > r * r) continue;
-        c.hp -= b.damage;
-        b.active = false;
+        // A cage stops every shot that hits it, pierce or not; shots past the
+        // one that opens it carry on.
+        const consumed = strike(b, c.hp, b.damage, false);
+        c.hp -= consumed * b.damage;
         if (c.hp <= 0) {
           c.active = false;
           this.squad.addPower(CAGE.reward);
           this.difficulty.awardCage();
           this.toast(`RESCUED +${CAGE.reward}`);
         }
-        break;
+        if (!b.active) break;
       }
     }
   }
@@ -458,14 +594,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyBreaches(): void {
-    const cost = this.enemies.collectBreaches();
+    const { cost, titan } = this.enemies.collectBreaches();
     if (cost <= 0) return;
     this.squad.addPower(-cost * SQUAD.breachLoss);
     this.breachLoss += cost * SQUAD.breachLoss;
-    this.cameras.main.shake(120, 0.006);
-    if (!this.squad.alive) {
+    // A Titan reaching the line ends the run outright, whatever power is left.
+    // Its HP is budgeted so that killing it is achievable at 90% of par over
+    // three quarters of its descent; letting it land and merely taking damage
+    // would make that budget meaningless.
+    this.cameras.main.shake(titan ? 260 : 120, titan ? 0.014 : 0.006);
+    if (titan || !this.squad.alive) {
       this.over = true;
-      this.emitGameOver();
+      this.emitGameOver(titan ? 'titan' : 'overrun');
     }
   }
 
@@ -511,9 +651,11 @@ export class GameScene extends Phaser.Scene {
    * The end screen's whole payload, including the match code, because that
    * screen is a shareable artefact rather than a summary - see hud/EndScreen.
    */
-  private emitGameOver(): void {
+  private emitGameOver(cause: 'overrun' | 'titan' = 'overrun'): void {
+    this.cause = cause;
     const match = { seed: this.seed, mode: this.mode };
     this.game.events.emit('gameover', {
+      cause,
       wave: this.enemies.wave.index,
       kills: this.kills,
       optimal: this.log.fractionOfOptimal,
@@ -578,18 +720,24 @@ export class GameScene extends Phaser.Scene {
       parDps: par.parDps,
       dps: Math.round(this.squad.dps),
       hpMult: Number(this.enemies.hpMult.toFixed(2)),
+      // The difficulty knobs in force, so no instrument has to hardcode them.
+      clampThreshold: par.clampThreshold,
+      targetFraction: par.targetFraction,
+      pressure: par.pressure,
       rate: Number(this.enemies.spawnRate.toFixed(2)),
       wave: this.enemies.wave.index,
       tier: this.squad.topTier,
-      tierName: TIERS[this.squad.topTier].name,
+      tierName: tierRow(this.squad.topTier).name,
       units: this.squad.units.length,
       kills: this.kills,
       over: this.over,
+      cause: this.cause,
       seed: this.seed,
       gates,
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
       traveled: Math.round(this.traveled),
+      peakPower: Math.floor(this.peakPower),
       // SIMULATED seconds, which is what a run should be measured in. The
       // simulation advances on clamped frame deltas, so wall-clock time and
       // game time are not the same quantity and their ratio moves with how much
@@ -604,8 +752,8 @@ export class GameScene extends Phaser.Scene {
       power: Math.floor(this.squad.power),
       wave: this.enemies.wave.index,
       tier: this.squad.topTier,
-      tierName: TIERS[this.squad.topTier].name,
-      tierColor: TIERS[this.squad.topTier].shirt,
+      tierName: tierRow(this.squad.topTier).name,
+      tierColor: tierRow(this.squad.topTier).shirt,
       kills: this.kills,
       capped: this.squad.power > SQUAD.ringCap,
       units: this.squad.units.length,
@@ -658,11 +806,20 @@ export class GameScene extends Phaser.Scene {
     this.cagePool.end();
   }
 
+  /**
+   * Draws the bounded subset `fire` marked, tinted by how much of the stream
+   * each one stands for.
+   *
+   * The simulation is untouched here: every bullet in `items` is still flying
+   * and still colliding, drawn or not. Skipping the undrawn ones is the whole
+   * mechanism - at high GUNS and RATE the true stream is thousands of shots a
+   * second and the playfield went solid cream.
+   */
   private renderBullets(): void {
     this.bulletPool.begin();
     for (const b of this.bullets.items) {
-      if (!b.active) continue;
-      this.bulletPool.claim().setPosition(b.x, b.y).setTint(COLORS.bullet);
+      if (!b.active || !b.drawn) continue;
+      this.bulletPool.claim().setPosition(b.x, b.y).setTint(bulletTint(b.density));
     }
     this.bulletPool.end();
   }
@@ -683,7 +840,7 @@ export class GameScene extends Phaser.Scene {
     this.bodyPool.begin();
     this.headPool.begin();
     for (const u of this.squad.units) {
-      const tier = TIERS[u.tier];
+      const tier = tierRow(u.tier);
       // Slot 0 is the centre of the formation and the unit that actually
       // selects a gate. Drawing it larger is the only cue that says so.
       const lead = u.slot === 0;
@@ -759,7 +916,8 @@ export class GameScene extends Phaser.Scene {
       // figures on top of each other exactly where the player reads par.
       const reveal = Phaser.Math.Clamp((g.y - RAIL_HEIGHT - 6) / 44, 0, 1);
       v.rect.setVisible(reveal > 0).setPosition(g.x, g.y)
-        .setSize(g.width - 4, GATES.height)
+        // Inset for the visual separation the hit test no longer has.
+        .setSize(g.width - GATES.gap, GATES.height)
         .setFillStyle(g.type.color, 0.22 * reveal)
         .setStrokeStyle(3, g.type.color, 0.9 * reveal);
       v.label.setVisible(reveal > 0).setPosition(g.x, g.y).setAlpha(reveal);

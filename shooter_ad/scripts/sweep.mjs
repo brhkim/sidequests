@@ -39,7 +39,7 @@ const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromi
 
 console.log(`mode ${MODE}, seeds ${SEEDS.join(',')}, budget ${SECONDS}s simulated\n`);
 console.log('  skill   survival   optimal   standing   waves   breach/min'
-  + '   travel/min   offers/min   died');
+  + '   travel/min   offers/min   peak power   died');
 
 const table = [];
 for (const skill of SKILLS) {
@@ -60,6 +60,10 @@ for (const skill of SKILLS) {
     // so is any median built from it. Counted from the run's OWN end state.
     died: runs.filter((r) => r.died).length,
     decisions: med(runs.map((r) => (r.survived > 0 ? (r.decisions / r.survived) * 60 : 0))),
+    // Whether real play ever gets near the ceilings the late-game work is
+    // about. The old power cap was 38,912; nobody had measured how close a
+    // run came, and arguing about the cap's urgency without this was guesswork.
+    peakPower: med(runs.map((r) => r.peakPower)),
     optimalShare: med(runs.map((r) => r.optimal)),
     errors: runs.reduce((n, r) => n + r.errors.length, 0),
     // Marked, so a floor is never read as a survival time.
@@ -75,6 +79,7 @@ for (const skill of SKILLS) {
     row.breach.toFixed(1).padStart(13),
     String(Math.round(row.travel)).padStart(13),
     row.decisions.toFixed(1).padStart(12),
+    String(Math.round(row.peakPower)).padStart(13),
     `${row.died}/${SEEDS.length}`.padStart(7),
   );
 }

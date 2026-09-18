@@ -12,13 +12,16 @@
     "verify": "node scripts/verify.mjs",
     "balance": "node scripts/balance.mjs",
     "repeat": "node scripts/repeat.mjs",
+    "neutral": "node scripts/neutral.mjs",
     "sweep": "node scripts/sweep.mjs",
     "mercy": "node scripts/mercy.mjs",
+    "pressure": "node scripts/pressure.mjs",
     "model": "node --experimental-strip-types scripts/model.mjs",
     "hud": "node scripts/hud-preview.mjs",
     "behaviour": "node scripts/behaviour.mjs",
     "matchcode": "node --experimental-strip-types scripts/matchcode.mjs",
-    "endscreen": "node scripts/endscreen.mjs"
+    "endscreen": "node scripts/endscreen.mjs",
+    "from": "node --experimental-strip-types scripts/from.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0",

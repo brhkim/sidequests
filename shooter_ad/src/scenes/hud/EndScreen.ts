@@ -4,6 +4,8 @@ import { hex } from './types';
 import type { MatchMode } from '../../systems/MatchCode';
 
 export interface EndPayload {
+  /** What ended the run. A Titan landing is not the same failure as attrition. */
+  readonly cause?: 'overrun' | 'titan';
   readonly wave: number;
   readonly kills: number;
   readonly optimal: number;
@@ -41,6 +43,7 @@ export class EndScreen {
   private readonly codeLabel: Phaser.GameObjects.Text;
   private readonly version: Phaser.GameObjects.Text;
   private readonly copyLabel: Phaser.GameObjects.Text;
+  private readonly title: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
     const cx = VIEW.width / 2;
@@ -52,7 +55,7 @@ export class EndScreen {
     // a context the viewer is no longer in.
     const panel = scene.add.rectangle(cx, VIEW.height / 2, VIEW.width, VIEW.height, 0x05070f, 1);
 
-    const title = scene.add.text(cx, 150, 'OVERRUN', {
+    this.title = scene.add.text(cx, 150, 'OVERRUN', {
       fontFamily: font, fontSize: '30px', color: '#ff5566', fontStyle: 'bold',
     }).setOrigin(0.5);
 
@@ -122,7 +125,7 @@ export class EndScreen {
     }).setOrigin(0.5);
 
     this.root = scene.add.container(0, 0, [
-      panel, title, this.wave, waveLabel, this.optimal, optimalLabel,
+      panel, this.title, this.wave, waveLabel, this.optimal, optimalLabel,
       this.tally, tallyLabel, this.detail, rule, this.codeLabel, this.code,
       this.copyLabel, this.version, hint,
     ]).setDepth(50).setVisible(false);
@@ -151,6 +154,7 @@ export class EndScreen {
     this.link = link;
     this.copyLabel.setText('tap here to copy link');
     this.wave.setText(String(p.wave));
+    this.title.setText(p.cause === 'titan' ? 'THE TITAN LANDED' : 'OVERRUN');
 
     const pct = Math.round(p.optimal * 100);
     const grade = pct >= 90 ? GREEN : pct >= 70 ? AMBER : RED;

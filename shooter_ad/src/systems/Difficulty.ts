@@ -1,7 +1,7 @@
 import { CAGE, DIFFICULTY, SQUAD, STREAK, WAVE } from '../config';
 import type { GateType } from '../data/gates';
 import {
-  applyGate, cloneProgress, freshUpgrades, squadDps, type Progress,
+  applyGate, cloneProgress, freshUpgrades, singleTargetDps, squadDps, type Progress,
 } from './Progression';
 import { scoreOffer } from './Scoring';
 
@@ -38,6 +38,44 @@ function mercyClamp(): number {
   return typeof override === 'number' && override > 0 ? override : DIFFICULTY.maxOverPlayer;
 }
 
+/**
+ * The same seam for the two knobs that decide how hard ordinary enemies are.
+ *
+ * `npm run pressure` sweeps them. They are separated here rather than folded
+ * into one number because they behave differently under measurement, and that
+ * difference is the whole reason the sweep is worth running:
+ *
+ * - **`pressure` scales the budget and nothing else.** The mercy clamp is
+ *   applied to `targetDps` BEFORE pressure multiplies it in `throttle`, so
+ *   moving pressure leaves the clamp threshold exactly where it was and every
+ *   run stays in the regime it was already in.
+ * - **`targetFraction` moves the threshold with it** (`targetFraction /
+ *   maxOverPlayer`), so raising it makes the game meaner AND hands some runs to
+ *   a different regime. A reading that does not report the threshold alongside
+ *   it is confounded, which is why `pressure.mjs` prints both.
+ */
+function targetFraction(): number {
+  const o = (globalThis as { __targetFractionOverride?: number }).__targetFractionOverride;
+  return typeof o === 'number' && o > 0 ? o : DIFFICULTY.targetFraction;
+}
+
+function pressure(): number {
+  const o = (globalThis as { __pressureOverride?: number }).__pressureOverride;
+  return typeof o === 'number' && o > 0 ? o : DIFFICULTY.pressure;
+}
+
+/**
+ * Standing below which the mercy clamp, rather than par, decides the budget.
+ *
+ * Derived and published in the stats payload so no instrument has to hardcode
+ * it. Two scripts did, against constants that had since moved, and reported a
+ * threshold of 0.52 for a game whose real threshold was 0.28 - a stale reading
+ * printed in the footer of every balance run.
+ */
+export function clampThreshold(): number {
+  return targetFraction() / mercyClamp();
+}
+
 export class Difficulty {
   /** Perfect play: the best possible power level at this moment. */
   private ideal: Progress = { power: SQUAD.startPower, upgrades: freshUpgrades() };
@@ -47,6 +85,14 @@ export class Difficulty {
   private smoothedTarget = 0;
 
   get parPower(): number { return this.ideal.power; }
+  /**
+   * The budget is denominated in DPS, so it has to be denominated in DPS
+   * somebody can actually do. That is `squadDps` again: the simulation bundles
+   * shots past `WEAPON.maxSimShotsPerSecond` instead of refusing them, so what
+   * the build implies and what lands are one number. While the bullet pool was
+   * a ceiling this read a separate `deliverableDps`, because budgeting against
+   * the analytic figure was asking for damage nobody could do.
+   */
   get parDps(): number { return squadDps(this.ideal); }
 
   /**
@@ -55,7 +101,7 @@ export class Difficulty {
    * note; this is what stops a missed gate from becoming a death spiral.
    */
   targetDps(playerDps: number): number {
-    const fromPar = this.parDps * DIFFICULTY.targetFraction;
+    const fromPar = this.parDps * targetFraction();
     return Math.min(fromPar, playerDps * mercyClamp());
   }
 
@@ -144,7 +190,7 @@ export class Difficulty {
    */
   throttle(authoredRate: number, avgBaseHp: number): { hpMult: number; spawnRate: number } {
     if (authoredRate <= 0 || avgBaseHp <= 0) return { hpMult: 1, spawnRate: authoredRate };
-    const budget = this.smoothedTarget * DIFFICULTY.pressure;
+    const budget = this.smoothedTarget * pressure();
 
     const wanted = budget / (authoredRate * avgBaseHp);
     if (wanted >= 1) {
@@ -163,9 +209,36 @@ export class Difficulty {
   }
 
   /** Bosses are budgeted as a burst of several seconds of the same pressure. */
-  bossHpScale(baseHp: number): number {
-    const budget = this.smoothedTarget * DIFFICULTY.pressure * DIFFICULTY.bossSeconds;
-    return Math.max(1, budget / baseHp);
+  /**
+   * Titan HP, derived from the deadline it creates rather than from a pressure
+   * budget.
+   *
+   * The Titan ends the run when it reaches the squad, so the only question that
+   * matters is whether a competent player can kill it in the distance it has to
+   * cover. HP is therefore `bossKillPar` of par's SINGLE-TARGET damage, times
+   * the seconds it takes to cover `bossKillDistance` of the way down.
+   *
+   * Single-target, not `squadDps`, because pierce is worth nothing against one
+   * body - see `singleTargetDps`. Sizing the boss off a pierce-inflated par
+   * would hand a pierce build a boss it cannot hurt fast enough.
+   */
+  titanHp(travelSeconds: number): number {
+    const parSingle = singleTargetDps(this.ideal);
+    const killSeconds = travelSeconds * DIFFICULTY.bossKillDistance;
+    return Math.max(1, parSingle * DIFFICULTY.bossKillPar * killSeconds);
+  }
+
+
+  /**
+   * Instrument seam for `npm run from`: par starts EQUAL to an injected player
+   * state, as if the player had kept up perfectly to this point, and the
+   * budget snaps to it on the first update rather than easing from zero. The
+   * runner therefore asks "can a player at standing 1.0 survive here?", which
+   * is the author's chosen question. Nothing in a shipped game calls it.
+   */
+  seedPar(p: Progress): void {
+    this.ideal = cloneProgress(p);
+    this.smoothedTarget = 0;
   }
 
   reset(): void {
@@ -181,6 +254,12 @@ export class Difficulty {
       parPower: Math.floor(this.ideal.power),
       parDps: Math.round(this.parDps),
       idealKills: this.idealKills,
+      // The knobs actually in force, overrides included. Published rather than
+      // recomputed by each script: `balance` and `mercy` both carried their own
+      // copies of these numbers and both had gone stale.
+      targetFraction: targetFraction(),
+      pressure: pressure(),
+      clampThreshold: Number(clampThreshold().toFixed(3)),
     };
   }
 }

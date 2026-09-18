@@ -3,8 +3,8 @@ import { tierFor, unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { SLOTS } from './Formation';
 import {
-  applyGate, damageFactor, freshUpgrades, moveSpeed, rateFactor, squadDps, unitShares,
-  type Progress, type Upgrades,
+  applyGate, damageFactor, freshUpgrades, moveSpeed, rateFactor,
+  shotsPerSecond, squadDps, unitShares, type Progress, type Upgrades,
 } from './Progression';
 
 export interface Unit {
@@ -46,6 +46,15 @@ export class Squad {
   get power(): number { return this.progress.power; }
   get upgrades(): Upgrades { return this.progress.upgrades; }
   get alive(): boolean { return this.progress.power > 0; }
+  /**
+   * Deliberately the same quantity par is measured in, because this feeds
+   * `standing` and the difficulty budget, and a ratio of two different
+   * quantities is the mistake that once produced standings above 20. It is also
+   * what the HUD shows. It is honest because the simulation bundles shots past
+   * `WEAPON.maxSimShotsPerSecond` rather than dropping them - see
+   * `bundleFactor`; when the pool used to refuse them this had to read a
+   * separate `deliverableDps`, and the HUD was claiming damage nobody could do.
+   */
   get dps(): number { return squadDps(this.progress); }
 
   /** Tier of the strongest unit, for the HUD. */
@@ -109,6 +118,21 @@ export class Squad {
 
   damagePerShot(share: number): number {
     return WEAPON.baseDamage * unitStats(share).damage * damageFactor(this.progress.upgrades);
+  }
+
+  /**
+   * Shots the build WANTS to fire per second, guns included.
+   *
+   * Delegated rather than recomputed here: `Progression` is the single
+   * definition of squad strength, the difficulty budget reads the same figure
+   * through `deliverableDps`, and a second copy would drift.
+   *
+   * `GameScene.fire` reads it for both collapses: the simulation's, which
+   * decides how many shots ride in each spawned bullet, and the renderer's,
+   * which decides how many spawned bullets are drawn.
+   */
+  shotsPerSecond(): number {
+    return shotsPerSecond(this.progress);
   }
 
   shotInterval(share: number): number {

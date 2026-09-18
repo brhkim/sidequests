@@ -135,12 +135,19 @@ export function accessFactor(r: number): number {
 /**
  * What a progress state is WORTH to a decision, as opposed to what it kills.
  *
- * `squadDps` is what actually destroys enemies and is what the difficulty model
- * budgets against - access does not kill anything, so folding it into the
- * budget would tell the curve the player is stronger than they are. Scoring is
- * the other question: given two offers, which leaves you better off over the
- * rest of the run. Reaching future offers is part of that answer, so this is
- * what `Scoring.scoreOffer` prices with. Keep the two separate.
+ * Access is added, because reaching the option you judged best is part of
+ * being better off over the rest of the run. The difficulty budget keeps
+ * ignoring it - access does not kill anything, and folding it in would tell
+ * the curve a squad that merely moves well is destroying more than it is.
+ *
+ * Nothing is subtracted for delivery any more, and that is deliberate. For a
+ * while this priced on a `deliverableDps` that modelled the bullet pool's
+ * throughput ceiling, because a `x1.4 RATE` the pool refused to honour was
+ * being scored +40% for changing nothing. The ceiling is gone - past
+ * `WEAPON.maxSimShotsPerSecond` the simulation bundles shots into heavier
+ * bullets rather than dropping them - so `squadDps` is true again and is the
+ * right price. If a delivery gap ever reappears, it belongs here as well as in
+ * the budget, or par will recommend bonuses that do nothing.
  */
 export function progressValue(p: Progress, wave: number): number {
   return squadDps(p) * accessFactor(reach(wave, p.upgrades));
@@ -169,6 +176,60 @@ export function squadDps(p: Progress): number {
       * (WEAPON.baseFireRate * stats.fireRate * rate);
   }
   return dps * p.upgrades.guns * pierceMultiplier(p.upgrades.pierce);
+}
+
+/**
+ * Damage per second against ONE body, which is `squadDps` without the pierce
+ * multiplier.
+ *
+ * Pierce is worth `1 + q + q^2 + ...` because a bullet may meet another enemy
+ * after a hit. Against a single target there is no other enemy, so it is worth
+ * exactly nothing - and at pierce 3 that is a 1.875x gap between what
+ * `squadDps` reports and what the squad can actually do to a boss.
+ *
+ * The Titan's HP is derived from this rather than from `squadDps`, or a
+ * pierce-heavy build would face a boss almost twice as tough as intended for
+ * damage it cannot deliver.
+ */
+export function singleTargetDps(p: Progress): number {
+  return squadDps(p) / pierceMultiplier(p.upgrades.pierce);
+}
+
+/**
+ * Shots per second the build fires, guns included. Analytic, and the same
+ * arithmetic `squadDps` does - split out because the simulation reads it to
+ * decide how many of those shots ride in each spawned bullet (`bundleFactor`).
+ */
+export function shotsPerSecond(p: Progress): number {
+  const rate = rateFactor(p.upgrades);
+  let shots = 0;
+  for (const share of unitShares(p.power)) {
+    shots += WEAPON.baseFireRate * unitStats(share).fireRate * rate;
+  }
+  return shots * p.upgrades.guns;
+}
+
+/**
+ * How many real shots one SPAWNED bullet stands for: 1 up to
+ * `WEAPON.maxSimShotsPerSecond`, and the ratio above it.
+ *
+ * This is the SIMULATION's collapse of the stream, and it must stay
+ * distinguishable from the renderer's. The renderer draws a bounded subset of
+ * spawned bullets and changes nothing about what is hit; this changes what is
+ * spawned, and keeps the total honest by making each bullet carry the shots it
+ * replaces (`Bullets.strike`). Both are read in `GameScene.fire`, and the tint
+ * encodes their product.
+ *
+ * It replaces a ceiling that was an accident of two unrelated numbers - the
+ * pool size and the bullet speed - and that made `squadDps` a lie past ~988
+ * shots/s: the difficulty budget was asking for damage nobody could do, and
+ * RATE and GUNS were no-ops that par kept recommending. For a while
+ * `deliverableDps` modelled that ceiling so the budget and the scoring would at
+ * least stop believing it; bundling removes it instead, so there is one DPS
+ * again and it is true.
+ */
+export function bundleFactor(p: Progress): number {
+  return Math.max(1, shotsPerSecond(p) / WEAPON.maxSimShotsPerSecond);
 }
 
 /** Applies a gate. Returns the label for the floating feedback text. */

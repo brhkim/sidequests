@@ -16,15 +16,37 @@ import { existsSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
 
-const DIST = new URL('../dist/', import.meta.url).pathname;
+// HUD_DIST lets this photograph a build that is not the working `dist/`, so a
+// long probe can keep serving that folder undisturbed.
+const DIST = process.env.HUD_DIST ?? new URL('../dist/', import.meta.url).pathname;
 const OUT_DIR = new URL('../.verify/', import.meta.url).pathname;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
 
-/** Progress states worth looking at, not a sample of play. */
+/**
+ * Progress states worth looking at, not a sample of play.
+ *
+ * `hud-stream` exists for the bullet stream rather than for the HUD. The
+ * playfield went solid cream at high GUNS and RATE, and the two states that
+ * bracket that - `hud-mid` barely collapses, `hud-late` collapses by two orders
+ * of magnitude - left the interesting middle unphotographed. It sits where one
+ * drawn bullet first stands for a handful of real ones, which is where the
+ * tiering has to read as deliberate rather than as a bug.
+ */
 const STATES = [
   { name: 'hud-early', power: 24, u: { damageBonus: 0.35, damageMult: 1, rateBonus: 0.1, rateMult: 1.2, guns: 1, pierce: 0 } },
   { name: 'hud-mid', power: 640, u: { damageBonus: 2.1, damageMult: 1.32, rateBonus: 0.85, rateMult: 1.1, guns: 2, pierce: 1 } },
+  { name: 'hud-stream', power: 4200, u: { damageBonus: 6.4, damageMult: 3.1, rateBonus: 2.4, rateMult: 1.9, guns: 3, pierce: 2 } },
   { name: 'hud-late', power: 38400, u: { damageBonus: 18.4, damageMult: 9.65, rateBonus: 7.2, rateMult: 4.4, guns: 4, pierce: 3 } },
+  // The palette loop. `hud-cap` is the last rung of the first cycle - every
+  // unit Prismatic, at exactly the old 38,912 ceiling - and `hud-loop`
+  // is the first rung of the second, where the ring wears Grey again. What has
+  // to read is the contrast between those two adjacent rungs, not which cycle
+  // either is in; the cycle is deliberately unmarked.
+  { name: 'hud-cap', power: 19 * 2048, u: { damageBonus: 18.4, damageMult: 9.65, rateBonus: 7.2, rateMult: 4.4, guns: 4, pierce: 3 } },
+  { name: 'hud-loop', power: 19 * 4096, u: { damageBonus: 18.4, damageMult: 9.65, rateBonus: 7.2, rateMult: 4.4, guns: 4, pierce: 3 } },
+  // Deep into the second cycle: Gold again, at a power the old ladder could not
+  // represent at all.
+  { name: 'hud-loop-gold', power: 19 * 2 ** 20, u: { damageBonus: 40, damageMult: 30, rateBonus: 12, rateMult: 8, guns: 5, pierce: 4 } },
 ];
 
 const server = createServer(async (req, res) => {
@@ -58,9 +80,57 @@ for (const state of STATES) {
     scene.squad.progress.power = power;
     scene.squad.rebuild();
   }, state);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(600);
   await page.screenshot({ path: join(OUT_DIR, `${state.name}.png`) });
-  console.log(`${state.name}.png`);
+  // The stream numbers, because "it looks better" is not a measurement. `true`
+  // is what the simulation fires and collides with; `drawn` is what the
+  // renderer puts on screen. If `true` ever moves when only rendering changed,
+  // the collapse has leaked into the simulation.
+  // Sampled over an interval of SIMULATED time, so what this machine was doing
+  // meanwhile cannot change the figure.
+  const sample = () => page.evaluate(() => {
+    const scene = window.game.scene.getScene('Game');
+    const items = scene.bullets.items.filter((b) => b.active);
+    return {
+      elapsed: scene.registry.get('stats').elapsed,
+      spawned: scene.bullets.spawned,
+      shots: scene.bullets.shotsSpawned,
+      refused: scene.bullets.refused,
+      want: scene.squad.shotsPerSecond(),
+      dps: scene.squad.dps,
+      perShot: scene.squad.damagePerShot(scene.squad.units[0].share),
+      live: items.length,
+      drawn: items.filter((b) => b.drawn).length,
+      density: items.length ? Math.max(...items.map((b) => b.density)) : 1,
+    };
+  });
+  const a = await sample();
+  await page.waitForTimeout(1200);
+  const b = await sample();
+  const dt = Math.max(1e-6, b.elapsed - a.elapsed);
+  const fired = (b.spawned - a.spawned) / dt;
+  const carried = (b.shots - a.shots) / dt;
+  const lost = (b.refused - a.refused) / dt;
+  // `fired` is bullets the simulation spawned; `carried` is the real shots
+  // they stand for, which is what collides. Past `WEAPON.maxSimShotsPerSecond`
+  // the first is flat and the second keeps tracking `want` - that gap is the
+  // simulation's bundle. `refused` must be zero everywhere now: the pool is
+  // sized from the cap, so a refusal is a pool sized wrong.
+  console.log(
+    `${state.name}.png  want ${Math.round(b.want)}/s  fired ${Math.round(fired)}/s`
+    + ` carrying ${Math.round(carried)}/s  refused ${Math.round(lost)}/s`
+    + `  live ${b.live}  drawn ${b.drawn}  density x${b.density.toFixed(1)}`,
+  );
+  // Delivery, as a pure RATE ratio. Damage is linear in shot count, so shots
+  // carried over shots wanted IS the fraction of the build's analytic DPS that
+  // reaches an enemy - no damage model restated here, nothing to drift. An
+  // earlier version multiplied by the leader's per-shot damage and reported
+  // 1.45 where the answer had to be 1.00.
+  console.log(
+    `              delivers ${(carried / Math.max(1, b.want) * 100).toFixed(0)}%`
+    + ` of what the build implies   dps on the HUD ${b.dps.toExponential(2)}`,
+  );
+  if (lost > 0) errors.push(`${state.name}: the bullet pool refused ${Math.round(lost)} spawns/s`);
 }
 console.log(`errors: ${errors.length}`);
 for (const e of errors) console.log(`  ${e}`);

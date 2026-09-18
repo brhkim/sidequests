@@ -115,9 +115,14 @@ export class Gates {
     if (offer.length === 0) return;
     const pair = this.nextPair++;
     this.pending.push({ pair, types: offer });
-    const lane = (VIEW.width - GATES.gap * (offer.length - 1)) / offer.length;
+    // Lanes tile the full width with NO gap between them, so every x position
+    // is inside exactly one option. The gap used to be real: a player could
+    // slide between two blocks and take nothing, which turns a missed offer
+    // from a decision into a geometry accident. The separation is drawn as an
+    // inset on the rectangle instead - visual, never in the hit test.
+    const lane = VIEW.width / offer.length;
     for (let i = 0; i < offer.length; i++) {
-      const x = i * (lane + GATES.gap) + lane / 2;
+      const x = i * lane + lane / 2;
       this.push({ x, width: lane, type: offer[i], pair, index: i });
     }
   }

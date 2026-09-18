@@ -22,7 +22,10 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
-const DIST = new URL('../dist/', import.meta.url).pathname;
+// PROBE_DIST points every probe at a build other than the working `dist/`,
+// which is how a before/after pair is measured without rebuilding between the
+// two halves - the same reason `npm run hud` honours HUD_DIST.
+const DIST = process.env.PROBE_DIST ?? new URL('../dist/', import.meta.url).pathname;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript' };
 
 /** Seeded so a given (seed, skill) pair reproduces exactly. */
@@ -35,12 +38,19 @@ export function mulberry32(a) {
   };
 }
 
-/** Serves `dist/` on an ephemeral port. Returns `{ port, close }`. */
-export async function serveDist() {
+/**
+ * Serves a built game on an ephemeral port. Returns `{ port, close }`.
+ *
+ * Defaults to `dist/`. The argument exists for `npm run neutral`, which plays
+ * the same seeds against two builds at once to prove a change was rendering
+ * only - that needs both served simultaneously, because rebuilding between them
+ * would mean the two runs never existed at the same time to be compared.
+ */
+export async function serveDist(dir = DIST) {
   const server = createServer(async (req, res) => {
     const p = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname));
     if (p === '/favicon.ico') { res.writeHead(204).end(); return; }
-    const file = join(DIST, p === '/' ? 'index.html' : p);
+    const file = join(dir, p === '/' ? 'index.html' : p);
     try {
       const body = await readFile(file);
       res.writeHead(200, {
@@ -104,7 +114,8 @@ export async function installBot(page, { seed, skill }) {
  * fast this machine polls cannot change the run it is watching.
  */
 export async function playSeed(
-  browser, port, { seed, skill, seconds, mode = 'normal', mercy, sampleEvery = 5 },
+  browser, port,
+  { seed, skill, seconds, mode = 'normal', mercy, pressure, targetFraction, start, sampleEvery = 5 },
 ) {
   const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
   const errors = [];
@@ -116,6 +127,22 @@ export async function playSeed(
   // budget is computed with it.
   if (typeof mercy === 'number') {
     await page.addInitScript((v) => { window.__mercyOverride = v; }, mercy);
+  }
+  // Same seam, same reason, for the two knobs that set how hard ordinary
+  // enemies are - see `npm run pressure`. Answering "how much pressure" means
+  // dozens of runs across several values, and rebuilding between each would
+  // measure every value against a slightly different dist/.
+  if (typeof pressure === 'number') {
+    await page.addInitScript((v) => { window.__pressureOverride = v; }, pressure);
+  }
+  if (typeof targetFraction === 'number') {
+    await page.addInitScript((v) => { window.__targetFractionOverride = v; }, targetFraction);
+  }
+  // An injected starting state - `{ power, upgrades, wave }` - for
+  // `npm run from`. The scene applies it as the run begins and sets par equal
+  // to it; see `GameScene.applyStartOverride`.
+  if (start) {
+    await page.addInitScript((v) => { window.__startOverride = v; }, start);
   }
   // `?seed=` is the instrument form and skips the start screen; `?m=` is the
   // shared form and does not. `mode` rides alongside so a probe can play the
@@ -155,13 +182,18 @@ export async function playSeed(
   // they remain different quantities and only this one is a property of the
   // game rather than of the machine it ran on.
   return {
-    seed, mode, mercy, rows, errors,
+    seed, mode, mercy, pressure, targetFraction, start, rows, errors,
     // Whether the run ENDED or merely ran out of budget. Read off the final
     // poll, never off the last sampled row: rows are bucketed every few
     // simulated seconds, so the last one is a snapshot from before the end and
     // its `over` is false in every run, dead or not. A truncation column built
     // that way reported every run truncated including ones that died at 43s.
     died: last?.over === true,
+    // 'titan' or 'overrun'. A Titan landing at the same simulated second on
+    // every seed is not a coincidence, since wave durations do not depend on
+    // the seed - but the instrument should say so rather than leave it to be
+    // inferred from the clock.
+    cause: last?.over === true ? (last.cause ?? 'overrun') : null,
     survived: Number((last?.elapsed ?? 0).toFixed(1)),
     wave: last?.wave ?? 0,
     optimal: last?.optimal ?? 1,
@@ -170,8 +202,14 @@ export async function playSeed(
     breachLoss: last?.breachLoss ?? 0,
     fireLoss: last?.fireLoss ?? 0,
     traveled: last?.traveled ?? 0,
+    peakPower: last?.peakPower ?? 0,
     kills: last?.kills ?? 0,
     dps: last?.dps ?? 0,
     parDps: last?.parDps ?? 0,
+    hpMult: last?.hpMult ?? 1,
+    // Read off the running build rather than recomputed here. Two scripts used
+    // to carry their own copies of the difficulty constants and both printed a
+    // threshold from a version that no longer existed.
+    clampThreshold: last?.clampThreshold ?? 0,
   };
 }

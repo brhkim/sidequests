@@ -5,15 +5,22 @@
  * player can actually destroy. `notes.md` wants it softened substantially -
  * "losing control should be legible, not prevented" - and `CLAUDE.md` calls it
  * the constant most likely to make the game miserable if overcorrected.
- * Removing it entirely reproduces a death spiral around wave 7.
+ *
+ * This file used to say that removing it reproduces a death spiral around wave
+ * 7. **That is withdrawn.** It did not reproduce when this instrument was
+ * finally run: at no clamp the median was 99.8s and runs reached comparable
+ * waves. The original reading predates both the fixed timestep and the
+ * root-table correction, so it is not comparable rather than contradicted - if
+ * the spiral is real it needs re-demonstrating on the current clock.
  *
  * So the question is not "is the clamp good" but "where does it stop rescuing
  * and start deciding", and that is a question about a REGIME rather than about
  * a survival time. The clamp governs exactly below
  * `standing = targetFraction / maxOverPlayer`; above that the curve is
- * par-driven and skill-responsive. Softening the clamp RAISES that threshold
- * and hands more of the run back to par. So this sweeps the constant and
- * reports, per value:
+ * par-driven and skill-responsive. Note the sign: a LARGER `maxOverPlayer` is
+ * LESS mercy, and softening the clamp therefore moves that threshold DOWN and
+ * hands more of the run back to par. So this sweeps the constant and reports,
+ * per value:
  *
  * - **threshold** - the standing below which the clamp is in charge.
  * - **below/runs** - how many runs actually spent their median under it. A
@@ -34,17 +41,15 @@
 import { chromium } from 'playwright';
 import { playSeed, serveDist } from './probe-bot.mjs';
 
-// 1.35 is the shipped value, so it is the control. 99 stands in for "no clamp",
-// which is where the death spiral was reproduced.
+// 2.5 is the shipped value, so it is the control; 1.35 is what it was softened
+// from, kept so the two are always read side by side. 99 stands in for "no
+// clamp" - it measured identically to 2.5 per-run, which is why 2.5 survives as
+// a guarantee rather than as an observed effect.
 const VALUES = (process.env.MERCY_VALUES ?? '1.35,1.8,2.5,99').split(',').map(Number);
 const SEEDS = (process.env.PROBE_SEEDS ?? '1,2,3,4,5').split(',').map(Number);
 const SKILLS = (process.env.MERCY_SKILLS ?? '0.3,0.5').split(',').map(Number);
 const SECONDS = Number(process.env.PROBE_SECONDS ?? 150);
 const MODE = process.env.MERCY_MODE ?? 'normal';
-
-// Must match DIFFICULTY.targetFraction; the threshold below is meaningless if
-// it drifts, so it is printed rather than assumed.
-const TARGET_FRACTION = 0.7;
 
 const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 
@@ -65,7 +70,10 @@ for (const clamp of VALUES) {
     }
   }
   const standings = runs.map((r) => med(r.rows.map((x) => x.standing)) ?? 0);
-  const threshold = TARGET_FRACTION / clamp;
+  // Read off the running build, which knows the clamp it was injected with.
+  // A hardcoded copy of `targetFraction` used to live here, and it went stale:
+  // the column reported 0.52 for a game whose threshold was 0.28.
+  const threshold = med(runs.map((r) => r.clampThreshold));
   const perMin = (v, r) => (r.survived > 0 ? (v / r.survived) * 60 : 0);
   console.log(
     String(clamp === 99 ? 'none' : clamp).padStart(7),

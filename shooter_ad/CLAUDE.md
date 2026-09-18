@@ -23,6 +23,9 @@ npm run hud     # screenshots the HUD in early / mid / late upgrade states
 npm run endscreen  # screenshots the end, start and pause screens after real runs
 npm run matchcode  # round-trips share codes; pure logic, fast
 npm run behaviour  # per-enemy movement signatures, shield taper, enemy fire
+npm run pressure   # sweeps the two knobs that set how hard ordinary enemies are
+npm run neutral    # proves a change was RENDERING-ONLY, against a reference build
+npm run from       # plays real runs from an INJECTED late-game state, par equal to it
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -35,7 +38,54 @@ the exit code.
 one into `.verify/`. `verify` plays from scratch, so it only ever photographs an
 empty build - no multipliers, no guns, no pierce - and the readout beneath the
 red line exists for the state `verify` never reaches. Judge HUD legibility off
-these, not off the verify frame.
+these, not off the verify frame. `HUD_DIST=/some/dist` photographs a build other
+than the working one, which is how to look at two versions side by side without
+rebuilding under a probe that is already running.
+
+It is also the instrument for the bullet stream, and it prints numbers as well
+as images. Per state it reports what the build WANTS to fire, what it actually
+fires, what the pool refuses, how many bullets are live, how many are drawn, and
+the density each drawn bullet stands for. Two of those columns are the whole
+subject of the two sections below:
+
+```
+hud-mid.png     want  303/s  fired  301/s  refused    0/s  live 272  drawn 55  density x5.1
+hud-late.png    want 16943/s  fired 1154/s  refused 3406/s  live 872  drawn 53  density x16.5
+```
+
+`npm run pressure` sweeps `DIFFICULTY.pressure` (and, if asked,
+`targetFraction`) by injecting the value per page, the way `npm run mercy` does.
+The two knobs are not interchangeable and the script prints the clamp threshold
+in every row for that reason: `pressure` scales the budget and leaves the regime
+boundary alone, while `targetFraction` drags the boundary with it, so a reading
+against it is two changes wearing one number.
+
+`npm run neutral` plays the same seeds against two builds at once and asserts
+they end in an identical state. It exists because **no other instrument here can
+tell a rendering change from a balance change**: a differently-balanced game is
+still deterministic, so `repeat` passes it, and `sweep` compares medians against
+spreads of 40s to 150s, so it can only ever say "within noise". Give it a `dist/`
+built before the change:
+
+```bash
+cp -r dist /tmp/dist-baseline     # BEFORE the change - there is no way to make one after
+npm run build
+NEUTRAL_REF=/tmp/dist-baseline npm run neutral
+```
+
+**It compares the state a run ENDS in, not the sampled series, and the reason is
+a mistake this file's own instrument made on its first run.** Comparing rows
+reported all five seeds as different on a change that was provably
+rendering-only, with survival agreeing to the last decimal on every one of them.
+The differences were `elapsed: 5.1 vs 5.08` and a spawn rate read either side of
+the first throttle: `playSeed` polls on wall clock and buckets on simulated
+seconds, so two runs of an identical simulation get photographed at slightly
+different simulated instants. That is the standing warning one level up - a
+deterministic system measured by a nondeterministic instrument is a
+nondeterministic measurement - and it cost the first thirty minutes of the check
+that was written to prevent exactly this class of error. A run that hits the
+time budget rather than dying was stopped by the poller, so it is reported as
+INCONCLUSIVE rather than as a pass.
 
 `npm run endscreen` plays real runs and photographs every screen that is not the
 playfield - the end screen at two qualities of play, the start screen reached by
@@ -65,7 +115,19 @@ measures movement, not whether that movement is any fun.
 
 `npm run balance` plays several fixed seeds and prints the series. Use it before
 and after any balance change. `PROBE_SECONDS=240 PROBE_SEEDS=1,2,3
-PROBE_VERBOSE=1` for a longer, fuller run.
+PROBE_VERBOSE=1` for a longer, fuller run. `PROBE_DIST=/some/dist` points it,
+and every other probe, at a build other than the working one - the before half
+of a before/after pair is measured against a snapshot rather than rebuilt.
+
+`npm run from` is the only instrument that reaches the late game. The probe bot
+dies at wave 5 to 9 and has never crossed the delivery ceiling, the old HP pin
+or the old power cap; `from` injects a starting `Progress` and a wave, sets par
+EQUAL to it (the author's choice - it asks "can a player at standing 1.0
+survive here?", not a chosen ratio), and plays real seeded runs from there.
+`--dps=1e6` fast-forwards a par-shaped build to that output through the shipped
+roller and scoring; `--power= --guns= --damageMult=` and the other `Upgrades`
+fields set one by hand; `--wave=` sets the enemy pool, spawn curve and gate
+speed to match. The bot is still the bot, so read it as a floor.
 
 **A passing typecheck is not verification.** Never report a gameplay change as
 working without `verify` output.
@@ -137,17 +199,33 @@ across seeds 1-5, normal mode, on the fixed-step clock and the corrected root
 tables, in simulated seconds. A `+` marks a run that hit the 150s budget rather
 than dying - its survival is a FLOOR, and so is any median containing one:
 
-| PROBE_SKILL | survival | optimal | standing | died | breach/min | travel/min |
-| --- | --- | --- | --- | --- | --- | --- |
-| 0.3 | 116.6s | 26% | 0.38 | 4/5 | 46.3 | 3443 |
-| 0.5 | 106.5s | 54% | 0.69 | 5/5 | 41.2 | 3260 |
-| 0.7 | 105.9s | 53% | 0.66 | 4/5 | 34.6 | 3444 |
-| 0.9 | 129.3s | 89% | 0.64 | 3/5 | 32.8 | 3540 |
-| 1.0 | 122.3s | 100% | 0.64 | 3/5 | 32.8 | 3630 |
+| PROBE_SKILL | survival | optimal | standing | waves | died | breach/min | travel/min |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.3 | 74.4s | 30% | 0.65 | 5 | 5/5 | 21.0 | 3281 |
+| 0.5 | 97.6s | 51% | 0.53 | 7 | 5/5 | 29.5 | 3476 |
+| 0.7 | 93.8s | 57% | 0.70 | 7 | 5/5 | 26.1 | 3445 |
+| 0.9 | 122.9s | 73% | 0.76 | 9 | 5/5 | 21.3 | 3307 |
+| 1.0 | 123.2s | 85% | 0.78 | 9 | 5/5 | 21.3 | 3307 |
 
-`optimal` separates 0.3 from 0.9 / 1.0 cleanly and is muddled in the middle -
-0.5 and 0.7 come out level here, within the noise of five seeds. Do not use it
-to compare good play against excellent play. Part of the ceiling is real - a bot
+**Every run now dies inside the budget, so for once no median here is a floor.**
+That is a change from the table this replaced, which had 3 to 5 truncations per
+level - and that older table also predates the playtest commit `93ffb41`, so it
+was describing a different game by the time anyone read it.
+
+**This table is identical before and after the stream collapse and the delivery
+ceiling.** Both sweeps were run in full, five seeds at five skill levels, and
+every cell matches to the digit except `standing` at skill 0.3 (0.64 to 0.65).
+Read that as the honest headline rather than as a null result: the collapse is
+rendering-only by construction, and the difficulty work lives past the delivery
+ceiling (~988 shots/s) and past the old HP pin (offer 30), **neither of which
+the probe has ever reached.** It dies at wave 5 to 9 with a shot rate in the low
+hundreds. So the sweep says nothing broke in the regime it can see, and cannot
+say anything at all about the regime the change was for.
+
+`optimal` now rises monotonically with skill - 30 / 51 / 57 / 73 / 85% - which
+it did not in the table this replaced, where 0.5 and 0.7 came out level. Five
+seeds still cannot support fine distinctions, so read the ends and not the
+middle. Part of the ceiling is real - a bot
 reaching for the best option most of the time captures most of the available
 growth - and part is an artefact: the metric compounds over DECISIONS, so a
 short run has little room to fall behind. A short excellent run and a long
@@ -160,14 +238,13 @@ chose and could not reach. Any claim of the form "a player picking well gets X"
 has to account for it, because the game charges for travel and the scoring does
 not.
 
-**Survival does not track skill, and most of these medians are floors anyway.**
-19 of 25 runs died and 6 hit the budget; within-level spreads run 40s to 150s.
-At five seeds these medians cannot support a trend either way. Do not read a
-slope into it.
+**Survival does not track skill reliably.** All 25 runs died, so these are real
+medians rather than floors - but within-level spreads still run 40s to 124s, and
+at five seeds that cannot support a trend. Do not read a slope into it.
 
-**`standing` no longer rises cleanly with skill, and that is expected now.**
-0.38 / 0.69 / 0.66 / 0.64 / 0.64: weak play is separated, and everything from
-0.5 up sits in a band. With the mercy clamp softened to 2.5 its threshold is
+**`standing` rises with skill apart from one inversion.** 0.65 / 0.53 / 0.70 /
+0.76 / 0.78 - skill 0.5 sits below skill 0.3, which at five seeds is not a
+finding either way. With the mercy clamp softened to 2.5 its threshold is
 0.28, which no skill level's median reaches, so every row here is par-driven.
 The two-regime split the old table showed at 0.52 is gone by design - see the
 clamp note below.
@@ -445,6 +522,71 @@ headline.
 Raise `targetFraction` toward 1 to make the game meaner; lower it to make wins
 feel bigger.
 
+### Ordinary enemies stopped scaling, and three ceilings were hiding each other
+
+**The finding, from real play:** non-boss enemies should scale at least somewhat
+more with the player's damage output. The budget above is already LINEAR in par,
+so the useful question was where that linearity stops. It stopped three times,
+each ceiling concealed by the one before it, and fixing any one alone would have
+broken the game.
+
+**Ceiling one: `DIFFICULTY.maxHpMult` was 400.** The budget pinned at
+`maxHpMult x maxSpawnRate x avgBaseHp` = 46,315 HP/s, reached at a par DPS of
+about 80,000 - **offer 30, under four minutes of play**. Past that the wave was
+the same wave forever while the player kept compounding by roughly a quarter
+per offer. It is now 1e12 and documented as numeric rather than balance;
+`npm run model` measures the crossover in OFFERS and FAILS if it lands inside a
+run somebody would play.
+
+**Ceiling two: the bullet pool.** `Bullets.spawn` gave up rather than overwrite
+a live bullet, so real throughput was the pool's recycle rate - 900 bullets over
+a 0.9s flight, ~988 shots/s, a coincidence of two unrelated numbers - and
+`squadDps`, which is analytic, did not know. At the late forced state the build
+wanted 16,943 shots/s and delivered 7% of the damage the HUD claimed. For one
+commit a `deliverableDps` modelled that ceiling so the budget, the HUD and the
+scoring would at least stop believing the analytic figure; the honest cost was
+that RATE and GUNS became correctly-priced no-ops late, two of six axes dead.
+
+**The author's decision was to remove the ceiling rather than model it**, by
+applying the collapse the renderer already does to the simulation. Past
+`WEAPON.maxSimShotsPerSecond` (300, a design constant the pool is now sized
+FROM, not the reverse) one spawned bullet stands for several real shots and
+carries their damage. `Bullets.strike` resolves a bundle meeting a body as the
+thin-shot model at one instant: the body consumes exactly `ceil(hp / perShot)`
+of the shots, each spends one pierce, the rest fly on untouched. Per bullet that
+is a histogram of shots by remaining pierce - a `(pierce + 1)`-entry array, not
+entity tracking - consumed from the lowest level up, because the shots that
+have hit most bodies are the leading edge and meet the next body first. A
+bullet standing for one shot reduces to the old rule exactly, so the regime
+below the cap is untouched. `npm run model` asserts the rule case by case.
+
+So there is one `squadDps` again and it is true: the budget, `standing`, the
+HUD and `Scoring` all read it, and `deliverableDps` is gone. Measured with
+`npm run hud`, delivery is 100% at every forced state up to 124,000 shots/s,
+spawns are flat at 300/s and drawn bullets flat at 55.
+
+**Ceiling three was found by that measurement, and nobody knew it existed.**
+With the pool no longer refusing, the late state still fired only 81 bullets a
+second. `fire` advanced each unit's cooldown once per step, so a unit could
+fire at most 60 times a second - 4,560 shot events for a full ring with four
+guns, whatever the build wanted. It was invisible behind ceiling two, which sat
+lower. A unit now fires every shot it is owed in a step. Below 60 shots/s per
+unit that is the same one shot it always was.
+
+**The residual, named rather than smuggled:** a fat bullet is spatially one
+column where the thin shots it stands for were spread over a fraction of a
+second and across units. Against ordinary bodies that lumps damage; against the
+Titan it changes nothing, which is why `singleTargetDps` and the Titan budget
+are untouched. The difficulty budget carries no overkill factor because the
+bundle wastes at most one shot per body, which is what a thin stream wastes.
+Whether the late game past these ceilings is any GOOD is what `npm run from`
+exists to ask. Its first answer, twelve runs across four injected states from
+1e5 to 1e10 DPS: every ceiling is gone in play, peak power reaches 500,000
+with the ring in its second palette cycle, and **every late run ends by a
+Titan landing** - the bot survives the first Titan it meets and dies to the
+second, at 0.4 to 0.7 of par. That is the first observation of the Titan-as-
+loss path at all. Full tables in `RESTART.md`.
+
 ### Legibility must stay difficulty-neutral, and once did not
 
 `notes.md` says of the legibility axis: "No mechanic changes — only how hard the
@@ -526,13 +668,78 @@ platinum → diamond → prismatic). The remainder goes to innermost units first
 the leader ranks up before the outer ring — which is why a mid-run squad shows
 two colours at once.
 
-Thresholds double per rank, from 1 to 2048 power-per-unit; `SQUAD.maxPower` is
-derived as that top threshold × `ringCap`, so there is no power range the ranks
-do not cover. **Damage and fire rate interpolate geometrically between rows
-rather than stepping at them** — bonus magnitudes are drawn from `[1.05, 1.50]`
-and thresholds double, so a stepped ladder would make a `×1.2 ARMY` worth
-nothing most of the time. The tier row is the visible rank; the stats are
-continuous in power.
+**The ladder has no last row.** Thresholds double per rank forever
+(`tierThreshold(n) = 2^n`), and damage and fire rate continue past the twelve
+authored rows at the per-doubling ratio extracted from those rows (x1.80 and
+x1.08). The authored table is one CYCLE of the palette: row 12 wears Grey
+again, row 20 Gold again, and the cycle is deliberately unmarked - what has to
+read is the contrast between one rung and the next, and cycle-2 Gold looking
+like cycle-1 Gold is the author's call. `tierRow(n)` is the only way to get a
+row; nothing may index `TIERS` by rank.
+
+That is the second time this bug has been fixed and the reason the fix is now
+structural. The ladder once saturated at red (608 power) and every army bonus
+above it was a measured no-op; adding six prestige ranks moved the cap to
+2048 x 19 = 38,912 rather than removing it. `SQUAD.maxPower` is therefore no
+longer derived from the table - it is an OVERFLOW GUARD at 1e15, chosen so
+`unitShares`'s `floor` and `%` stay exact (2^53 is the real line), and
+`npm run model` asserts the army bonus is worth the same ~19% at 1e12 power as
+at 19.
+
+**Damage and fire rate interpolate geometrically between rows rather than
+stepping at them** — bonus magnitudes are drawn from `[1.05, 1.50]` and
+thresholds double, so a stepped ladder would make a `×1.2 ARMY` worth nothing
+most of the time. The tier row is the visible rank; the stats are continuous in
+power.
+
+## The bullet stream is collapsed for legibility, and the simulation must not see it
+
+**The finding, from real play:** at high GUNS and RATE the stream becomes a
+solid mass and it is visually impossible to follow what is going on. The
+`hud-late` screenshot before this landed is six solid cream bars.
+
+The fix is the ring cap's answer applied to bullets. The renderer draws a
+bounded subset of the SPAWNED stream - `RENDER.maxVisibleShotsPerSecond`, 60,
+which is roughly the on-screen bullet count - and tints each drawn bullet by
+how many real shots it stands for, on **the shirt ladder from `data/tiers.ts`**.
+
+**There are now two collapses stacked, and they must stay distinguishable in
+the code.** The SIMULATION bundles real shots into spawned bullets past
+`WEAPON.maxSimShotsPerSecond` (K shots per bullet; see the three-ceilings
+section above - this one changes what is hit and is deliberate balance). The
+RENDERER then draws one in M of those (this one changes nothing). They are two
+Bresenham strides in `GameScene.fire` with separate state - `simCredit` and
+`drawCredit` - and the tint encodes **K x M**, real shots per drawn bullet.
+Encoding M alone read wrong past the sim ceiling, where every drawn bullet was
+already several shots before the renderer thinned it. Like the shirts, the
+bullet ladder cycles rather than saturating. That
+ladder is already the game's vocabulary for "this thing stands for more than it
+looks like", so a player who has learned that a red unit carries 32 power reads
+an orange bullet as heavy fire without learning anything new. Tier 0 stays the
+cream a bullet has always been, because below density 2 nothing is being
+collapsed.
+
+Three properties are load-bearing:
+
+- **It is rendering and nothing else.** `Bullet.drawn` and `Bullet.density` are
+  set at spawn and read only by `renderBullets`. Every bullet still flies,
+  collides and does damage whether or not it is drawn.
+- **The subset is chosen by a Bresenham stride, not by the RNG.** Consuming a
+  seeded number here would shift the entire gameplay stream and turn a rendering
+  knob into a balance knob. It is also chosen once at spawn rather than per
+  frame, so a bullet does not flicker on its way up the screen.
+- **The render stride is read off the SPAWN rate**, `min(shotsPerSecond,
+  maxSimShotsPerSecond)`, not the rate the build asks for. Reading the intended
+  rate once put a density of x212 on the late state and left FOUR bullets on
+  screen, because the shots it was dividing by were never spawned. Drawn count
+  is flat at ~55 from the earliest state to the latest, which is the property
+  that was wanted.
+
+**`npm run neutral` is what keeps this honest.** Measured on the change that
+introduced it: five seeds, ends identical on all five (93.8s / 57.9s / 103.2s /
+124s / 54.8s, same wave, kills, decisions, tally and par on each). That is a
+stronger claim than the sweep can make, and the sweep was the verification
+originally asked for.
 
 ## Collision is bespoke, not Arcade or Matter
 
@@ -544,7 +751,8 @@ matter and are in place:
   enemies on a slow frame - and, unlike the clamped real delta this replaced,
   the collision geometry resolves identically on every repeat of a seed.
 - Bullet-vs-enemy goes through the uniform `Grid` broad-phase, never a nested
-  loop.
+  loop, and each contact is resolved by `Bullets.strike`, which charges a body
+  exactly the shots in the bullet's bundle it would have taken.
 - Enemy-bullet-vs-squad is **swept**: `EnemyBullets.collide` measures each unit
   against the segment the bullet travelled this frame, not against its endpoint,
   and movement is additionally split into substeps of at most
