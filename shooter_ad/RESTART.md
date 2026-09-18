@@ -8,8 +8,8 @@ You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo.
 The redesign roadmap is complete and both open playtest findings have landed, all
 pushed to `claude/laughing-feynman-ghh9r3`. `main` is untouched and no PR is open.
 
-**There is exactly one thing here that is blocked on the author rather than on
-work.** It is in section 3. Everything else is follow-through.
+The open decision in the previous handoff has been **made by the author**, and
+section 3 is now a plan rather than a question. Nothing here is blocked.
 
 ## 1. Orient before touching anything
 
@@ -48,33 +48,99 @@ your current pool** — `a = (root − 1) × (1 + pool)` — so at a +210% pool 
 of 1.1 presents as `+31% DMG` and is worth exactly ×1.10. Neither form is ever
 dominant; the player's skill is doing the conversion.
 
-## 3. The one open decision: do RATE and GUNS stay dead late?
+## 3. Your task: a looping palette, and the two ceilings it removes
 
-This is a design call, not a bug, and it is the only thing here you should not
-simply decide for yourself.
+**The author's decision: remove both ceilings by letting the palette cycle.**
+This section is the whole job. Do it in the order given — part A is
+self-contained and part B is the risky one.
 
-`WEAPON.maxBullets` caps how many bullets can be alive, and `Bullets.spawn`
-gives up rather than overwrite a live one. So real throughput is the pool's
-recycle rate — about **988 shots/s** analytically, ~1200 measured. `squadDps` is
-analytic and knew nothing about this. Measured with `npm run hud` at the late
-upgrade state: the build wants 16,943 shots/s, fires 1,154, and delivers **7% of
-the damage the HUD was claiming for it.**
+### The finding that connects them
 
-That is now modelled (`Progression.deliverableDps`), and the budget, `standing`,
-the HUD and `Scoring` all read it. The consequence is real and unwelcome: **past
-the ceiling, RATE and GUNS bonuses genuinely do nothing**, and pricing them
-honestly means the game says so instead of recommending them. That is two of six
-axes going quiet late — exactly the failure the prestige ranks were added to
-prevent on the army axis, and exactly what `notes.md` calls noise to be cut.
+Two apparently unrelated ceilings turn out to be the same mistake: a bounded
+ladder used to represent an unbounded quantity.
 
-The alternative is to **remove the ceiling rather than model it**: let one
-spawned bullet carry the damage of the several it stands for — the same collapse
-the renderer now does, applied to the simulation. That keeps every axis live and
-makes `squadDps` true again. It costs fidelity in overkill and pierce, and it
-lives in a regime no instrument here can reach.
+- **`SQUAD.maxPower` = `MAX_PER_UNIT × ringCap` = 2048 × 19 = 38,912.** It is
+  derived from `data/tiers.ts` running out of rows at Prismatic. Past it,
+  `clampPower` silently caps and **every ARMY bonus becomes a measured no-op** —
+  `×1.5 ARMY` and `+8000 ARMY` both do nothing.
+- **`WEAPON.maxBullets` = 900**, and `Bullets.spawn` gives up rather than
+  overwrite a live one, so real throughput is the pool's recycle rate — ~988
+  shots/s. Past it, **RATE and GUNS become no-ops** for the same reason.
 
-Put the choice to the author before building either. The full argument is under
-"What one session of real play found" in `notes.md`.
+The first is the exact bug this project already fixed once. The ladder used to
+saturate at 608 power, which "turned every army bonus above it into a measured
+no-op and left par unable to tell its options apart", and two seeds showed par
+halving its own army. Adding six prestige ranks did not remove that bug — it
+**moved it from 608 to 38,912**. A finite ladder will always reintroduce it
+somewhere.
+
+A cycling palette has no last row, so neither ceiling has to exist.
+
+### Part A — an unbounded tier ladder
+
+Replace the 12-row lookup in `data/tiers.ts` with a generated one. The authored
+rows stay, as **one cycle** of the palette rather than as the whole ladder:
+
+- `threshold(n) = 2^n`, continuing forever rather than stopping at 2048.
+- `damage` and `fireRate` continue their geometric progression past the last
+  authored row. Extract the per-step ratios from the existing table rather than
+  inventing new ones, so the curve through the authored region is unchanged.
+- Colour cycles: row `n` wears `TIERS[n % 12]`'s shirt, and the **pass number**
+  `floor(n / 12)` is what distinguishes cycle-2 Gold from cycle-1 Gold. Pick one
+  cheap, legible treatment — a trim ring, a brightness step, a pip — and say why
+  in a comment. The art is procedural and tinted at runtime, so this is a tint
+  and a small overlay, not new assets.
+- `SQUAD.maxPower` then has no reason to exist as a *design* limit. Keep a large
+  finite guard anyway, chosen so `squadDps` cannot reach a float that stops
+  being a number, and comment it as an overflow guard rather than a balance
+  constant. Losing that guard entirely trades a no-op bug for a `NaN` bug.
+
+`unitStats` interpolates geometrically between row `i` and `i+1`; with a
+generated ladder both are just `row(n)` and `row(n+1)`, so that logic survives.
+
+**How to verify it:** `npm run model` already asserts no army bonus is ever a
+no-op. Extend its test points far past 38,912 — the assertion becomes a much
+stronger claim than it was, and it should now hold at any power. Then
+`npm run hud` at a forced state above the old cap, and **look at it**: the point
+is that a second-cycle rank is visibly not a first-cycle one.
+
+### Part B — unbounded delivery
+
+Apply the collapse the renderer already does to the **simulation**: one spawned
+bullet carries the damage of the several it stands for.
+
+- `shotsPerSecond(p)` is what the build wants. Spawn at the deliverable rate and
+  multiply each bullet's damage by `wanted / deliverable`.
+- `deliverableDps` then collapses back to `squadDps`, and the HUD stops
+  reporting a number the pool refuses to honour. Measured at the late `hud`
+  state, the build wants 16,943 shots/s, fires 1,154, and delivers **7%** of
+  what the HUD claims.
+- The renderer's tint already encodes density on the shirt ladder. With part A
+  done, that ratio is unbounded too, so the visual can keep up.
+
+**Raise `WEAPON.maxBullets` first, as far as performance allows, and collapse
+only above that.** A lower collapse ratio costs less fidelity, and the three
+costs below are all proportional to it:
+
+- **Overkill.** One fat bullet overkills a weak enemy, wasting damage that
+  several thin bullets would have spread across several bodies. This makes
+  `WEAPON.pierceQ = 0.5` less accurate, and pierce is priced off it.
+- **Pierce.** A fat bullet that pierces carries its whole bundle to the next
+  body. Defensible, but it changes what pierce is worth, and `Progression` and
+  the death screen must keep pricing it identically.
+- **Feel.** Damage arrives in lumpier packets. Nothing here can measure that.
+
+State the chosen ratio and its consequences plainly; do not let it drift in as
+an implementation detail.
+
+### Both parts are deliberate balance changes
+
+`npm run neutral` asserts an identical terminal state against a reference
+`dist/`. It will fail here, correctly. **Snapshot a baseline before rebuilding**
+(`cp -r dist /tmp/dist-baseline`) — there is no way to make one afterwards — and
+use it to record before/after rather than to assert neutrality. `npm run repeat`
+must still pass at 0.00%: these change what the game does, never whether it does
+the same thing twice.
 
 ## 4. What landed, so you do not re-derive it
 
@@ -128,11 +194,16 @@ OFFERS and fails if it lands inside a run anyone would play.
 
 ## 6. Known gaps — name these as unverified if you report on them
 
-- **The probe has never entered the regime the last change was for.** It dies at
-  wave 5 to 9 with a shot rate in the low hundreds, so it never reaches the
-  delivery ceiling or the old HP pin. The full sweep is byte-identical before and
-  after. Everything about the late game rests on `npm run model`'s arithmetic and
-  on `npm run hud`'s forced states, not on a played run.
+- **The probe has never entered the regime any of this is for, and will not
+  enter it for section 3 either.** It dies at wave 5 to 9 with a shot rate in the
+  low hundreds, so it never reaches the delivery ceiling, the old HP pin, or
+  38,912 power. Everything about the late game rests on `npm run model`'s
+  arithmetic and on `npm run hud`'s forced states, not on a played run. Expect to
+  finish section 3 able to prove the ceilings are gone and unable to say whether
+  the game past them is any good. Say so in those words.
+- **Nobody has measured whether 38,912 power is reachable in a real run.** The
+  sweep does not report peak power; it easily could, and that is worth adding
+  before arguing about how urgent part A is.
 - **`DIFFICULTY.pressure` was not changed**, and should not be on the strength of
   what is recorded. A two-seed smoke test of `npm run pressure` showed 0.82 →
   1.15 cutting median survival 103.2s → 74.3s and waves 8 → 5, which says the
@@ -154,9 +225,12 @@ OFFERS and fails if it lands inside a run anyone would play.
   arithmetic and geometric means.
 - Scoring prices access; `Difficulty` budgets DPS without it. `×MOVE` and `+TIME`
   must never contribute to par's enemy budget, and do not.
-- The bullet collapse is rendering only, proven by `npm run neutral` on five
-  seeds with identical terminal state. Do not "improve" it by changing how many
-  bullets are spawned.
+- The **render** collapse is rendering only, proven by `npm run neutral` on five
+  seeds with identical terminal state. It draws a bounded subset and tints by
+  density; it must never consume the seeded RNG or change a spawn. That rule
+  still stands and is not what section 3 part B changes — part B adds a separate,
+  deliberate collapse in the SIMULATION, and the two must stay distinguishable in
+  the code or the next person will read one as the other.
 - Match codes, not raw seed URLs. A shared link lands on a start screen and waits.
 - Pierce uses a fixed `q`, not live density.
 - Hard mode is a wave offset on the judgment axes only — never enemy pressure.
