@@ -104,74 +104,86 @@ stronger claim than it was, and it should now hold at any power. Then
 `npm run hud` at a forced state above the old cap, and **look at it**: the point
 is that a second-cycle rank is visibly not a first-cycle one.
 
-### Part B — unbounded delivery, IF it stays simple
+### Part B — unbounded delivery
 
-The author chose this over modelling the ceiling — but conditionally, and the
-condition is precise. Apply the collapse the renderer already does to the
-**simulation**: one spawned bullet carries the damage of the several it stands
-for.
+Apply the collapse the renderer already does to the **simulation**: one spawned
+bullet carries the damage of the several it stands for. The author has answered
+the design questions; what follows is decided, not open.
 
-**The complication the author named, and the fallback if it bites.** A fat
-bullet that overkills is not a pierce — the surplus should carry on as if
-nothing had been spent. But if the player HAS pierce, the thin bullets that this
-fat one stands for would each have hit, killed, and spent a pierce doing it. So a
-single spawned bullet has to remember, per body it meets, how much of its bundle
-was consumed and how many of the shots it represents have used their pierce.
-That is entity tracking per bullet. If it turns into that, **stop and fall back
-to A**: leave the ceiling modelled by `deliverableDps`, price RATE and GUNS
-honestly as dead past it, and rely on enemy health scaling well — which the
-`maxHpMult` work already secured. The author is explicit that A is acceptable.
-Do not build a half-correct B; a wrong pierce interaction is worse than an
-honest ceiling, because it lies to the death screen.
+**The cap is a design constant, not the pool's accident.** Today the ceiling is
+`maxBullets / flightSeconds` — 900 bullets over 900px/s, which is a coincidence
+of two unrelated numbers. Replace it with `WEAPON.maxSimShotsPerSecond` and
+derive `maxBullets` FROM it, exactly as `RENDER.maxVisibleShotsPerSecond` is a
+design constant the stride is derived from. **The author set it at ~300 real
+shots/s** — roughly the `hud-mid` state, where nothing is refused today and the
+board is visibly fine — which gives the phone a ~270-bullet live pool instead of
+900. Above 300, bullets get fatter. "Let's see how it goes" is the mandate: it is
+a first value, not a tuned one.
 
-Decide which branch you are on early, say so, and do not drift between them.
+**What one bullet's damage means against ordinary enemies — the author's
+choice, with a fallback.** Three options were put to the author:
 
-- `shotsPerSecond(p)` is what the build wants. Spawn at the deliverable rate and
-  multiply each bullet's damage by `wanted / deliverable`.
-- `deliverableDps` then collapses back to `squadDps`, and the HUD stops
-  reporting a number the pool refuses to honour. Measured at the late `hud`
-  state, the build wants 16,943 shots/s, fires 1,154, and delivers **7%** of
-  what the HUD claims.
-- The renderer's tint already encodes density on the shirt ladder. With part A
-  done, that ratio is unbounded too, so the visual can keep up.
-- **Bullets and units use the SAME ladder and cycle the SAME way.** Author's
-  decision. It is a shared language: a bullet at Gold density and a unit at Gold
-  rank are telling the player the same thing with the same colour. Do not give
-  the bullet stream its own palette or its own cycle length.
+- *(a) pure bundle*: one bullet does K× damage, overkill wasted. Simplest;
+  lumpier late, and it silently taxes RATE — a `+50% RATE` that only raises K
+  fattens bullets that were already overkilling, and par does not see the tax.
+- *(b) bundle with spill*: a bullet that kills carries its remaining damage into
+  the next body — pierce-until-spent. Near-exact DPS fidelity; makes pierce
+  partly redundant late.
+- *(c) pure bundle, budgeted against an overkill-corrected `deliverableDps`* with
+  a fixed factor, the way pierce uses a fixed `q`.
 
-**Choose the collapse ratio deliberately; do not maximise `WEAPON.maxBullets`.**
-An earlier draft of this section said to raise the pool "as far as performance
-allows". That is untestable advice here and it was withdrawn: nothing in this
-project is verified at phone scale, so "performance allows" measured in headless
-Chromium on a cloud container sizes the pool for hardware the game will never run
-on. A 5-inch panel under `Scale.FIT` is the target device and it will fall over
-long before the container does.
+**Do (b) if it stays simple.** The author called it "really nifty" and chose it
+first. The complication the author named is the one to watch: a fat bullet that
+overkills has NOT spent a pierce, but the thin shots it stands for that DID land
+and kill each spent one — so a spilling bullet has to know, per body it meets,
+how much of its bundle was consumed and how many of the represented shots have
+used their pierce. If that turns into entity tracking per bullet, **stop and fall
+back to (a), pure bundle.** The author is explicit that (a) is fine "especially
+if we continue to scale enemy health reasonably well" — which the `maxHpMult`
+work already secured. Do not build a half-correct (b); a wrong pierce
+interaction lies to the death screen, and an honest lumpy bundle does not.
 
-Note what raising the pool does NOT do: it does not hurt visual clarity. The
-renderer divides by the DELIVERED rate
-(`MAX_SHOTS_PER_SECOND = maxBullets / BULLET_FLIGHT_SECONDS`), so a bigger pool
-widens the stride and heats the tint while drawn bullets stay pinned near
-`RENDER.maxVisibleShotsPerSecond`. The two constants are coupled, though: 60 was
-calibrated so real densities land about five rungs up the shirt ladder with every
-rung reachable, so moving the pool without revisiting that wastes the
-calibration.
+If you land on (a), take the reviewer's variant of (c) with it: keep `Scoring`
+on pure `squadDps`, and put a **fixed overkill factor in the difficulty budget
+only**. Here is why that matters and it is the thing this plan most under-said
+before: once a bullet carries a bundle, `squadDps` is analytically true again
+but practically worse against small bodies, while unchanged against the Titan.
+Par's number and the player's score are then honest while what actually lands on
+ordinary enemies lags — a **systematic skew toward "harder than the curve
+thinks"**, not noise. (b) mostly closes it; (a) needs the budget to admit it.
 
-Size the pool by SIMULATION FIDELITY instead - how much of the distortion below
-you are willing to accept - and state the ratio you picked and why. The three
-costs are all proportional to it:
+**The tint must encode both collapses.** With part B there are two stacked:
+the sim bundle (each spawned bullet = K real shots) and the render stride (each
+drawn bullet = M spawned). The colour has to encode **K×M** — real shots per
+drawn bullet — or it reads wrong past the sim ceiling. Today it encodes M alone.
 
-- **Overkill.** One fat bullet overkills a weak enemy, wasting damage that
-  several thin bullets would have spread across several bodies. This makes
-  `WEAPON.pierceQ = 0.5` less accurate, and pierce is priced off it.
-- **Pierce.** A fat bullet that pierces carries its whole bundle to the next
-  body. Defensible, but it changes what pierce is worth, and `Progression` and
-  the death screen must keep pricing it identically.
-- **Feel.** Damage arrives in lumpier packets. Nothing here can measure that.
+**The Titan is the safe case.** A fat bullet on one large body loses nothing to
+overkill, so `singleTargetDps` needs no change and the Titan budget stays as it
+is. Ordinary enemies are the risky case, not the boss. See §7 for the author's
+ruling on what the Titan is pinned to.
 
-State the chosen ratio and its consequences plainly; do not let it drift in as
-an implementation detail.
+`SQUAD.maxPower` guard, from the review: `unitShares` uses `Math.floor(power)`
+and `%`, so a `1e15`-class guard is fine and **2^53 is the real line**.
 
-### Both parts are deliberate balance changes
+### Part C — a runner from an arbitrary start
+
+Nothing here can reach the regime parts A and B are for: the probe dies at wave
+5–9. Add `npm run from` (or extend `balance`) that injects a starting `Progress`
+— power plus every upgrade field, or a shorthand like `--dps=1e6` — and
+fast-forwards the curve to match. Two decisions the author made:
+
+- **Par starts EQUAL to the injected player state** — "as if they've perfectly
+  kept up, and then we see what happens from there." So the runner measures
+  "can a player at standing 1.0 survive here?", not a chosen standing ratio.
+- **It also starts at a specified wave** (`--wave=N`), so the enemy pool, the
+  spawn curve and the gate speed all match the injected state rather than
+  starting from wave 1 under a late-game squad.
+
+This is the instrument that finally lets a claim about the late game rest on a
+played run instead of on `npm run model`'s arithmetic. Build it third, after A
+and B, and then use it to look at both.
+
+### All three parts are deliberate balance changes
 
 `npm run neutral` asserts an identical terminal state against a reference
 `dist/`. It will fail here, correctly. **Snapshot a baseline before rebuilding**
@@ -274,10 +286,11 @@ OFFERS and fails if it lands inside a run anyone would play.
 - **The Titan is pinned to par SINGLE-TARGET DPS** — `titanHp` reads
   `singleTargetDps(par)`, not `deliverableDps` and not the player's own number.
   Author's decision: the Titan is a damage check, so it is sized against the
-  reference player's true single-body output. Do not move it onto the pool's
-  delivered rate even after part B; if B lands, `singleTargetDps` and
-  `deliverableDps` converge anyway, and if A is kept the Titan must still ask
-  for what par could do, not what the pool happens to honour.
+  reference player's true single-body output. The reviewer asked whether to pin
+  it to the PLAYER's deliverable DPS as a mercy floor instead; the answer was no.
+  A fat bullet on one large body loses nothing, so part B leaves the Titan's
+  arithmetic alone either way — it is the safe case, and it stays a check
+  against par rather than a concession to the player.
 - Hard mode is a wave offset on the judgment axes only — never enemy pressure.
 
 ## 8. How to report
