@@ -84,6 +84,16 @@ export class Enemies {
     };
   }
 
+  /**
+   * Instrument seam for `npm run from`: begin at a later wave, so the enemy
+   * pool, the spawn curve and the gate speed all match an injected squad
+   * rather than sending wave-1 fodder at a late-game build. Nothing in a
+   * shipped game calls it.
+   */
+  startAt(wave: number): void {
+    this.wave = this.buildWave(Math.max(1, Math.floor(wave)));
+  }
+
   get hpMult(): number { return this.throttled.hpMult; }
   get spawnRate(): number { return this.throttled.spawnRate; }
 

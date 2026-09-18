@@ -3,7 +3,7 @@
  * gameplay code.
  */
 
-import { BULLET_BASE, MAX_PER_UNIT } from './data/tiers';
+import { BULLET_BASE } from './data/tiers';
 
 export const VIEW = { width: 540, height: 960 } as const;
 
@@ -66,12 +66,22 @@ export const SQUAD = {
    */
   startPower: 1,
   /**
-   * Hard ceiling on army power, DERIVED from the ladder rather than picked.
-   * A cap above what the ranks cover is a region where power buys no damage at
-   * all, which turns every army bonus into a no-op and leaves the difficulty
-   * model's reference player unable to tell its options apart.
+   * OVERFLOW GUARD, not a balance constant. The rank ladder has no last row
+   * (see data/tiers.ts), so there is no power at which an army bonus stops
+   * buying damage and no design reason to cap power at all. This used to be
+   * derived from the top authored row - 2048 x 19 = 38,912 - and past it
+   * `clampPower` silently made every ARMY bonus a measured no-op, which is the
+   * exact bug the prestige ranks were added to fix at 608. A finite ladder
+   * always puts it somewhere.
+   *
+   * What a guard still buys is arithmetic that stays exact: `unitShares` deals
+   * power out with `Math.floor` and `%`, which are only honest below 2^53, and
+   * losing the guard entirely would trade a no-op bug for a NaN bug. 1e15 is
+   * chosen well under that line and far past any run - at 1e15 the ring wears
+   * row 45, four cycles up the palette. `npm run model` checks the ladder is
+   * still finite and increasing there.
    */
-  maxPower: MAX_PER_UNIT * RING_CAP,
+  maxPower: 1e15,
   /** Power lost when an enemy breaches the line, multiplied by enemy damage. */
   breachLoss: 1,
   /**
@@ -82,12 +92,46 @@ export const SQUAD = {
   fireLoss: 0.5,
 } as const;
 
+/** Referenced twice inside WEAPON, so they cannot be self-references. */
+const BULLET_SPEED = 900;
+const SIM_SHOT_CAP = 300;
+/** Seconds a bullet takes to cross the screen from the lane line. */
+const BULLET_FLIGHT_SECONDS = (ARENA.laneY + 20) / BULLET_SPEED;
+
 export const WEAPON = {
   baseDamage: 1,
   /** Shots per second, per unit, before tier and pickup multipliers. */
   baseFireRate: 2.6,
-  bulletSpeed: 900,
+  bulletSpeed: BULLET_SPEED,
   bulletRadius: 4,
+  /**
+   * Ceiling on bullets the SIMULATION spawns per second. A design constant,
+   * exactly as `RENDER.maxVisibleShotsPerSecond` is one: above it the squad
+   * keeps every shot it is owed, but the shots are BUNDLED - one spawned bullet
+   * stands for several and carries their damage, and `Bullets.strike` charges
+   * a body exactly the shots that would have hit it. Below it every shot is
+   * its own bullet and nothing changes.
+   *
+   * The ceiling used to be an accident: a 900-bullet pool that gave up rather
+   * than overwrite a live bullet, so real throughput was the pool's recycle
+   * rate, ~988 shots/s, and past that RATE and GUNS were measured no-ops -
+   * the late build wanted 16,943 shots/s and delivered 7% of its damage. The
+   * pool is now sized FROM this number (`maxBullets`), never the reverse.
+   *
+   * 300 is the author's first value, not a tuned one: roughly the `hud-mid`
+   * state, where nothing was refused and the board reads fine. It puts about
+   * 270 bullets in the air at the cap. Raise it and bullets thin out; lower it
+   * and they fatten sooner. The tint on every drawn bullet encodes how much it
+   * stands for, so the collapse is visible rather than hidden.
+   */
+  maxSimShotsPerSecond: SIM_SHOT_CAP,
+  /**
+   * Pool size, DERIVED: a full flight's worth of bullets at the cap, plus a
+   * quarter for the jitter of many units firing within one step. `refused` in
+   * `npm run hud` should read zero at every state; if it does not, this margin
+   * is wrong, not the cap.
+   */
+  maxBullets: Math.ceil(SIM_SHOT_CAP * BULLET_FLIGHT_SECONDS * 1.25),
   /** Firing is staggered across the ring so shots stream rather than pulse. */
   /**
    * Extra guns fire PARALLEL, spread across this width in pixels - not fanned
@@ -96,7 +140,6 @@ export const WEAPON = {
    * Titan's diameter so a full volley lands on the boss it exists to kill.
    */
   volleyWidth: 72,
-  maxBullets: 900,
   /**
    * Chance a piercing bullet meets another body after a hit. Tuned constant,
    * deliberately not live enemy density - see Progression.pierceMultiplier.
@@ -401,12 +444,12 @@ export const RENDER = {
    * column was being hit or how hard. A bullet lives about 0.9s crossing the
    * screen, so this is roughly the on-screen bullet count.
    *
-   * 60 is chosen against the range the stream actually spans, not against the
-   * range the build implies. The bullet pool caps real throughput at about 1000
-   * shots a second (`MAX_SHOTS_PER_SECOND`), so dividing by 60 puts the top of
-   * the observed stream at a density of ~16 - five rungs up the shirt ladder,
-   * cream through orange, with every rung reachable in play. Dividing by a
-   * larger number would compress the whole run into the first two colours.
+   * 60 is chosen against the range the SPAWNED stream spans, not the range the
+   * build implies. The simulation spawns at most `WEAPON.maxSimShotsPerSecond`
+   * bullets a second, so this stride is at most x5 - and the bundle each of
+   * those bullets carries is the other factor. The tint encodes the PRODUCT
+   * (real shots per drawn bullet), so past the sim ceiling the ladder keeps
+   * climbing through the bundle while the drawn count stays flat at ~55.
    *
    * Sized above the full-ring baseline (19 grey units at 2.6 shots/s is ~49/s)
    * so the cap never bites on an unupgraded squad - an early game that already

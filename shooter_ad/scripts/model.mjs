@@ -23,10 +23,11 @@ register('./ts-resolve.mjs', import.meta.url);
 
 const {
   squadDps, freshUpgrades, applyGate, cloneProgress, pierceMultiplier,
-  deliverableDps, shotsPerSecond, MAX_SHOTS_PER_SECOND,
+  shotsPerSecond, bundleFactor,
 } = await import('../src/systems/Progression.ts');
+const { strike } = await import('../src/systems/Bullets.ts');
 const { SQUAD } = await import('../src/config.ts');
-const { tierFor, TIERS } = await import('../src/data/tiers.ts');
+const { tierFor, tierRow, unitStats, CYCLE } = await import('../src/data/tiers.ts');
 const { rawShare } = await import('../src/data/gates.ts');
 const { scoreOffer } = await import('../src/systems/Scoring.ts');
 const { reach, gateDescentSeconds, waveGateSpeedMult } =
@@ -101,19 +102,27 @@ for (const pool of [0, 0.25, 0.5, 1, 2, 4, 8]) {
   );
 }
 
-console.log('\n=== no army bonus may be a no-op ===');
-console.log('  power    rank        +draw   x1.2 ARMY   +N ARMY');
+// The ladder has no last row, so this is asserted far past where any authored
+// row exists. The two ceilings this project has shipped were 608 (red, the last
+// of six rows) and 38,912 (Prismatic, the last of twelve): both are inside this
+// list, and so are powers a thousand and a billion times larger. The last point
+// sits just under the overflow guard, which is the only cap left.
+console.log('\n=== no army bonus may be a no-op, at ANY power ===');
+console.log('  power        rank   row     +draw       x1.2 ARMY   +N ARMY');
 let worst = Infinity;
-for (const power of [6, 19, 60, 200, 608, 2000, 9000, SQUAD.maxPower / 2]) {
+const armyPoints = [6, 19, 60, 200, 608, 2000, 9000, 19456, 38912, 77824, 1e6, 1e9, 1e12, SQUAD.maxPower / 2];
+for (const power of armyPoints) {
   const p = state(Math.round(power));
   const mult = delta(p, gate('army', 'mult', 1.2));
   const amount = Math.max(1, Math.round(power * 0.2));
   const raw = delta(p, gate('army', 'raw', amount));
   worst = Math.min(worst, mult, raw);
+  const row = tierFor(Math.round(power) / Math.min(Math.round(power), SQUAD.ringCap));
   console.log(
-    String(Math.round(power)).padStart(7),
-    TIERS[tierFor(Math.round(power) / Math.min(Math.round(power), SQUAD.ringCap))].name.padEnd(10),
-    `+${String(amount).padStart(6)}`,
+    String(Math.round(power)).padStart(15),
+    tierRow(row).name.padEnd(10),
+    String(row).padStart(3),
+    `+${amount.toExponential(1).padStart(9)}`,
     `${(mult * 100).toFixed(2).padStart(10)}%`,
     `${(raw * 100).toFixed(2).padStart(9)}%`,
   );
@@ -123,6 +132,37 @@ if (!(worst > 0.01)) {
   console.error('FAIL: an army bonus is worth ~nothing somewhere on the ladder');
   process.exit(1);
 }
+
+// The generated rows must continue the authored curve rather than restart or
+// flatten it: every row strictly stronger than the last, the authored rows
+// returned verbatim, and nothing non-finite anywhere up to the guard.
+console.log('\n=== the ladder past the authored rows ===');
+console.log('  row   rank        threshold      damage   fireRate');
+for (const n of [0, 5, 11, 12, 13, 20, 23, 24, 35, 45]) {
+  const r = tierRow(n);
+  console.log(
+    String(n).padStart(5), r.name.padEnd(10),
+    r.threshold.toExponential(1).padStart(12),
+    r.damage.toExponential(2).padStart(11), r.fireRate.toFixed(2).padStart(10),
+  );
+}
+const topRow = tierFor(SQUAD.maxPower / SQUAD.ringCap);
+for (let n = 1; n <= topRow + 1; n++) {
+  const lo = tierRow(n - 1), hi = tierRow(n);
+  if (!(hi.damage > lo.damage && hi.fireRate > lo.fireRate && hi.threshold === 2 * lo.threshold)) {
+    throw new Error(`tier row ${n} does not continue the ladder`);
+  }
+  if (n % CYCLE !== 0 && hi.shirt === lo.shirt) throw new Error(`rows ${n - 1} and ${n} share a shirt`);
+}
+const guardStats = unitStats(SQUAD.maxPower / SQUAD.ringCap);
+if (!Number.isFinite(squadDps(state(SQUAD.maxPower))) || !Number.isFinite(guardStats.damage)) {
+  throw new Error('squadDps is not finite at the overflow guard');
+}
+if (tierRow(CYCLE).shirt !== tierRow(0).shirt || tierRow(CYCLE).name !== tierRow(0).name) {
+  throw new Error('row CYCLE does not wear row 0\'s shirt - the palette is not cycling');
+}
+console.log(`  rows 0..${topRow + 1} strictly increase; row ${CYCLE} wears ${tierRow(CYCLE).name} again;`
+  + ` the ring at the guard (1e15) is row ${topRow}, ${tierRow(topRow).name}`);
 
 // The two guards that keep the central mechanic from quietly dying. Both
 // regressed once before and neither is visible in play until far into a run.
@@ -485,18 +525,17 @@ if (Math.abs(worstArith / amean(LEGIBILITY[0].roots) - 1) > ARITH_TOLERANCE) {
 // `squadDps(par) * targetFraction * pressure`, which is LINEAR in par - so the
 // interesting question was where that linearity stops.
 //
-// It stops at `DIFFICULTY.maxHpMult`. Past
-//   parDps = maxHpMult * maxSpawnRate * avgBaseHp / (targetFraction * pressure)
-// the budget is capped and no further growth in the player's damage output
-// reaches the enemies at all: the wave is thereafter the same wave forever,
-// while par DPS keeps compounding by roughly a quarter per offer. That is a
-// guard rail behaving as a balance ceiling, and it was silent - the probe bot
-// dies long before it binds, so no run this project ever measured crossed it.
-//
-// This measures the crossover in OFFERS, which is the unit the player feels,
-// and fails if it lands inside a run anyone will actually play.
+// It stopped twice, and the two ceilings hid each other. `DIFFICULTY.maxHpMult`
+// pinned the budget after about thirty offers; the bullet pool refused shots
+// past ~988/s, so `squadDps` was claiming damage nobody could do. The first is
+// now a numeric guard far past any run, checked here in OFFERS - the unit the
+// player feels. The second no longer exists: past `WEAPON.maxSimShotsPerSecond`
+// the simulation BUNDLES shots into fewer, heavier bullets rather than dropping
+// them, so the budget, the HUD and the scoring all read one true `squadDps`.
+// This section reports the bundle par is running at, and asserts that the pool
+// is sized to never refuse a spawn at the cap.
 // ---------------------------------------------------------------------------
-const { DIFFICULTY, WAVE } = await import('../src/config.ts');
+const { DIFFICULTY, WAVE, WEAPON, ARENA } = await import('../src/config.ts');
 const { poolAverageHp } = await import('../src/data/enemies.ts');
 
 console.log('\n=== the enemy budget must not stop scaling with par ===');
@@ -506,11 +545,19 @@ const budgetShare = DIFFICULTY.targetFraction * DIFFICULTY.pressure;
 const lateAvgHp = poolAverageHp(30);
 const ceilingHpPerSec = DIFFICULTY.maxHpMult * WAVE.maxSpawnRate * lateAvgHp;
 const ceilingParDps = ceilingHpPerSec / budgetShare;
+const flightSeconds = (ARENA.laneY + 20) / WEAPON.bulletSpeed;
 console.log(`  budget share (targetFraction x pressure): ${budgetShare.toFixed(3)}`);
-console.log(`  shots/s the bullet pool can deliver:      ${Math.round(MAX_SHOTS_PER_SECOND)}`);
+console.log(`  bullets/s the simulation spawns at most:  ${WEAPON.maxSimShotsPerSecond}`);
+console.log(`  bullet pool, derived from it:             ${WEAPON.maxBullets}`
+  + ` (${(WEAPON.maxBullets / (WEAPON.maxSimShotsPerSecond * flightSeconds)).toFixed(2)}x a full flight at the cap)`);
 console.log(`  average enemy HP in the late pool:        ${lateAvgHp.toFixed(1)}`);
 console.log(`  most HP a wave can carry:                 ${Math.round(ceilingHpPerSec)}/s`);
 console.log(`  par DPS at which the budget pins:         ${Math.round(ceilingParDps)}`);
+
+if (!(WEAPON.maxBullets >= WEAPON.maxSimShotsPerSecond * flightSeconds)) {
+  console.error('FAIL: the bullet pool cannot hold one flight of bullets at the sim cap, so it will refuse spawns');
+  process.exit(1);
+}
 
 // Par's own growth, played by the shipped scoring on the shipped offer roller -
 // not a growth rate assumed here. Median across runs, because one lucky run is
@@ -531,36 +578,36 @@ for (let run = 0; run < 60; run++) {
     };
     const gates = rollOffer(G.perOffer, wave, ctx, rng);
     if (gates.length > 0) applyGate(par, gates[scoreOffer(par, gates, wave).best]);
-    // Both, because the gap between them is the finding. `analytic` is what the
-    // build implies and what `Scoring` prices; `deliverable` is what the bullet
-    // pool lets the squad put in the air, and what the curve is budgeted on.
-    curve.push({ analytic: squadDps(par), deliverable: deliverableDps(par), want: shotsPerSecond(par) });
+    curve.push({
+      dps: squadDps(par), want: shotsPerSecond(par), bundle: bundleFactor(par), power: par.power,
+    });
   }
   parCurves.push(curve);
 }
 const medianAt = (i) => {
-  // Median of each field independently. They come from the same run at the
-  // median of `analytic`, so take that run rather than mixing rows.
-  const rows = parCurves.map((c) => c[i]).sort((a, b) => a.analytic - b.analytic);
+  // Median of each field independently would mix rows; take the run at the
+  // median of `dps` and report its other fields.
+  const rows = parCurves.map((c) => c[i]).sort((a, b) => a.dps - b.dps);
   return rows[Math.floor(rows.length / 2)];
 };
-console.log('\n  offer   ~minutes   analytic DPS   delivers   budgeted DPS   hpMult wanted   capped');
+console.log('\n  offer   ~minutes   par power   par DPS   shots/s wanted   shots per bullet   hpMult wanted   capped');
 let pinOffer = -1;
 for (let i = 9; i < PROBE_OFFERS; i += 10) {
   const r = medianAt(i);
-  const wanted = r.deliverable * budgetShare / (WAVE.maxSpawnRate * lateAvgHp);
+  const wanted = r.dps * budgetShare / (WAVE.maxSpawnRate * lateAvgHp);
   console.log(
     String(i + 1).padStart(7),
     ((i + 1) * GATES.interval / 60).toFixed(1).padStart(10),
-    r.analytic.toExponential(2).padStart(14),
-    `${(r.deliverable / r.analytic * 100).toFixed(0)}%`.padStart(10),
-    r.deliverable.toExponential(2).padStart(14),
+    Math.round(r.power).toExponential(1).padStart(11),
+    r.dps.toExponential(2).padStart(9),
+    Math.round(r.want).toExponential(2).padStart(16),
+    `x${r.bundle.toFixed(1)}`.padStart(18),
     wanted.toExponential(2).padStart(15),
     (wanted > DIFFICULTY.maxHpMult ? 'YES' : 'no').padStart(9),
   );
 }
 for (let i = 0; i < PROBE_OFFERS; i++) {
-  const wanted = medianAt(i).deliverable * budgetShare / (WAVE.maxSpawnRate * lateAvgHp);
+  const wanted = medianAt(i).dps * budgetShare / (WAVE.maxSpawnRate * lateAvgHp);
   if (wanted > DIFFICULTY.maxHpMult) { pinOffer = i + 1; break; }
 }
 if (pinOffer < 0) {
@@ -582,30 +629,82 @@ if (pinOffer >= 0 && pinOffer <= PROBE_OFFERS) {
   );
   process.exit(1);
 }
-
-// The other half of the same finding. The budget is denominated in DPS, so it
-// has to be denominated in DPS somebody can actually do: past the pool's
-// throughput ceiling the analytic figure runs away from the deliverable one and
-// budgeting against it asks the player for damage the game will not let them
-// deal. This asserts the budget reads the deliverable number, by checking it
-// never exceeds what par can physically put in the air.
-const lastRow = medianAt(PROBE_OFFERS - 1);
-console.log(`\n  by offer ${PROBE_OFFERS}, par wants ${Math.round(lastRow.want)} shots/s`
-  + ` and can fire ${Math.round(MAX_SHOTS_PER_SECOND)}`);
-console.log(`  so it delivers ${(lastRow.deliverable / lastRow.analytic * 100).toFixed(1)}%`
-  + ' of the damage its build implies');
-if (!(lastRow.deliverable * budgetShare < lastRow.deliverable)) {
-  console.error('FAIL: the budget asks for more damage than par can deliver');
-  process.exit(1);
+// The old power ceiling, in the unit the player feels. Par used to be clamped
+// at 38,912 and every ARMY pick after that was a no-op it kept recommending.
+let capOffer = -1;
+for (let i = 0; i < PROBE_OFFERS; i++) {
+  if (medianAt(i).power >= 38912) { capOffer = i + 1; break; }
 }
-if (!(lastRow.deliverable < lastRow.analytic * 0.9)) {
-  console.error(
-    'FAIL: the delivery ceiling is not being modelled.',
-    '\n      Par wants far more shots a second than the bullet pool can recycle,',
-    '\n      so deliverableDps must fall well below squadDps by this point. If it',
-    '\n      does not, the budget has gone back to believing the analytic figure.',
-  );
-  process.exit(1);
+console.log(`  par passes the OLD power ceiling (38,912) at offer ${capOffer < 0 ? '>60' : capOffer}`
+  + (capOffer < 0 ? '' : ` (~${(capOffer * GATES.interval / 60).toFixed(1)} min); the ladder now continues past it`));
+const lastRow = medianAt(PROBE_OFFERS - 1);
+console.log(`  by offer ${PROBE_OFFERS}, par fires ${Math.round(lastRow.want)} shots/s`
+  + ` in ${WEAPON.maxSimShotsPerSecond} bullets/s, x${lastRow.bundle.toFixed(1)} shots each`);
+
+// ---------------------------------------------------------------------------
+// The bundle rule itself, since it is what makes `squadDps` true again.
+//
+// `strike` is pure, so the cases that matter are asserted here rather than
+// inferred from a played run. Each is the thin-shot model resolved at one
+// instant: the body takes exactly the shots it needs, each spends one pierce,
+// the rest carry on untouched.
+// ---------------------------------------------------------------------------
+console.log('\n=== the bundle rule ===');
+const bullet = (shots, pierce) => {
+  const bundle = new Array(pierce + 1).fill(0);
+  bundle[pierce] = shots;
+  return { damage: 1, bundle, shots, active: true };
+};
+const expect = (label, ok) => {
+  console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${label}`);
+  if (!ok) { console.error(`FAIL: ${label}`); process.exit(1); }
+};
+{ // One shot, no pierce: one hit, bullet gone. The rule below the cap, unchanged.
+  const b = bullet(1, 0);
+  const used = strike(b, 10, 1, true);
+  expect('one shot, pierce 0, big body: 1 shot charged, bullet spent', used === 1 && !b.active);
+}
+{ // One shot with pierce: one hit, pierce down, bullet lives.
+  const b = bullet(1, 2);
+  const used = strike(b, 10, 1, true);
+  expect('one shot, pierce 2: 1 charged, now at pierce 1', used === 1 && b.active && b.bundle[1] === 1 && b.bundle[2] === 0);
+}
+{ // Three shots at pierce 2 meet a body needing two: two spend a pierce, one is untouched.
+  const b = bullet(3, 2);
+  const used = strike(b, 2, 1, true);
+  expect('3 shots @p2 vs hp 2: 2 charged, bundle [0,2,1]', used === 2 && b.bundle.join() === '0,2,1' && b.shots === 3);
+  // The next body needs five: the two leading shots go first (they have hit
+  // before), then the fresh one; only three exist, so it survives with 3 dealt.
+  const used2 = strike(b, 5, 1, true);
+  expect('then vs hp 5: 3 charged, leading edge consumed first, bundle [2,1,0]', used2 === 3 && b.bundle.join() === '2,1,0' && b.active);
+  // A third body needing three takes the two at level 0 (spent) and one at
+  // level 1 (down to 0): bundle [1,0,0], one shot left.
+  const used3 = strike(b, 3, 1, true);
+  expect('then vs hp 3: 3 charged, two spent, bundle [1,0,0]', used3 === 3 && b.bundle.join() === '1,0,0' && b.active && b.shots === 1);
+}
+{ // A cage stops every shot that hits it, pierce or not.
+  const b = bullet(3, 2);
+  const used = strike(b, 2, 1, false);
+  expect('cage: 3 shots @p2 vs hp 2: 2 charged and gone, bundle [0,0,1]', used === 2 && b.bundle.join() === '0,0,1');
+}
+{ // Full armour: every shot hits, none hurt.
+  const b = bullet(4, 0);
+  const used = strike(b, 5, 0, true);
+  expect('fully armoured body takes all 4 shots and the bullet is spent', used === 4 && !b.active);
+}
+{ // An exact multiple charges exactly, not one more for float noise.
+  const b = bullet(10, 0);
+  const used = strike(b, 0.3 * 3, 0.3, true);
+  expect('hp 0.9 at 0.3 per shot charges 3, not 4', used === 3 && b.shots === 7);
+}
+{ // Conservation across many bodies: shots consumed equals shots gone plus pierced.
+  const b = bullet(7, 1);
+  let charged = 0;
+  let bodies = 0;
+  while (b.active && bodies < 20) { charged += strike(b, 2, 1, true); bodies++; }
+  // 7 shots with one pierce each are charged exactly 14 times. Bodies six and
+  // seven each meet the last shot alone - one charge each - so it takes eight.
+  expect('7 shots @p1 are charged 14 times across eight 2-hp bodies then spent', charged === 14 && bodies === 8 && !b.active);
 }
 
 console.log('PASS');

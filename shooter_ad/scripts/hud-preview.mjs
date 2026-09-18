@@ -37,6 +37,16 @@ const STATES = [
   { name: 'hud-mid', power: 640, u: { damageBonus: 2.1, damageMult: 1.32, rateBonus: 0.85, rateMult: 1.1, guns: 2, pierce: 1 } },
   { name: 'hud-stream', power: 4200, u: { damageBonus: 6.4, damageMult: 3.1, rateBonus: 2.4, rateMult: 1.9, guns: 3, pierce: 2 } },
   { name: 'hud-late', power: 38400, u: { damageBonus: 18.4, damageMult: 9.65, rateBonus: 7.2, rateMult: 4.4, guns: 4, pierce: 3 } },
+  // The palette loop. `hud-cap` is the last rung of the first cycle - every
+  // unit Prismatic, at exactly the old 38,912 ceiling - and `hud-loop`
+  // is the first rung of the second, where the ring wears Grey again. What has
+  // to read is the contrast between those two adjacent rungs, not which cycle
+  // either is in; the cycle is deliberately unmarked.
+  { name: 'hud-cap', power: 19 * 2048, u: { damageBonus: 18.4, damageMult: 9.65, rateBonus: 7.2, rateMult: 4.4, guns: 4, pierce: 3 } },
+  { name: 'hud-loop', power: 19 * 4096, u: { damageBonus: 18.4, damageMult: 9.65, rateBonus: 7.2, rateMult: 4.4, guns: 4, pierce: 3 } },
+  // Deep into the second cycle: Gold again, at a power the old ladder could not
+  // represent at all.
+  { name: 'hud-loop-gold', power: 19 * 2 ** 20, u: { damageBonus: 40, damageMult: 30, rateBonus: 12, rateMult: 8, guns: 5, pierce: 4 } },
 ];
 
 const server = createServer(async (req, res) => {
@@ -84,6 +94,7 @@ for (const state of STATES) {
     return {
       elapsed: scene.registry.get('stats').elapsed,
       spawned: scene.bullets.spawned,
+      shots: scene.bullets.shotsSpawned,
       refused: scene.bullets.refused,
       want: scene.squad.shotsPerSecond(),
       dps: scene.squad.dps,
@@ -98,21 +109,28 @@ for (const state of STATES) {
   const b = await sample();
   const dt = Math.max(1e-6, b.elapsed - a.elapsed);
   const fired = (b.spawned - a.spawned) / dt;
+  const carried = (b.shots - a.shots) / dt;
   const lost = (b.refused - a.refused) / dt;
+  // `fired` is bullets the simulation spawned; `carried` is the real shots
+  // they stand for, which is what collides. Past `WEAPON.maxSimShotsPerSecond`
+  // the first is flat and the second keeps tracking `want` - that gap is the
+  // simulation's bundle. `refused` must be zero everywhere now: the pool is
+  // sized from the cap, so a refusal is a pool sized wrong.
   console.log(
     `${state.name}.png  want ${Math.round(b.want)}/s  fired ${Math.round(fired)}/s`
-    + `  refused ${Math.round(lost)}/s  live ${b.live}  drawn ${b.drawn}`
-    + `  density x${b.density.toFixed(1)}`,
+    + ` carrying ${Math.round(carried)}/s  refused ${Math.round(lost)}/s`
+    + `  live ${b.live}  drawn ${b.drawn}  density x${b.density.toFixed(1)}`,
   );
   // Delivery, as a pure RATE ratio. Damage is linear in shot count, so shots
-  // fired over shots wanted IS the fraction of the build's analytic DPS that
+  // carried over shots wanted IS the fraction of the build's analytic DPS that
   // reaches an enemy - no damage model restated here, nothing to drift. An
   // earlier version multiplied by the leader's per-shot damage and reported
   // 1.45 where the answer had to be 1.00.
   console.log(
-    `              delivers ${(fired / Math.max(1, b.want) * 100).toFixed(0)}%`
+    `              delivers ${(carried / Math.max(1, b.want) * 100).toFixed(0)}%`
     + ` of what the build implies   dps on the HUD ${b.dps.toExponential(2)}`,
   );
+  if (lost > 0) errors.push(`${state.name}: the bullet pool refused ${Math.round(lost)} spawns/s`);
 }
 console.log(`errors: ${errors.length}`);
 for (const e of errors) console.log(`  ${e}`);

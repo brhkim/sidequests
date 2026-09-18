@@ -290,6 +290,16 @@ Two follow-ons regardless of how far the ladder extends:
   the ladder must stretch that far or the cap should come down to something the
   ranks actually cover.
 
+**Done, and done structurally.** Six prestige ranks moved the saturation from
+608 to 38,912 rather than removing it, so the ladder is now generated: the
+threshold doubles forever and the twelve authored rows are one cycle of the
+palette, worn again from row 12. The cycle is unmarked on purpose - what has
+to be legible is the change from one rung to the next, not which pass you are
+on. `SQUAD.maxPower` survives only as an overflow guard. The bullet pool's
+throughput ceiling was the same mistake on another axis, and got the same
+answer: past a design cap the simulation bundles shots into heavier bullets
+rather than dropping them, and the tint says so.
+
 ## Numeric legibility as a difficulty axis
 
 The most interesting difficulty lever is not enemy HP — it is **how hard the

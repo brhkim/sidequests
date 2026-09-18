@@ -1,7 +1,7 @@
 import { CAGE, DIFFICULTY, SQUAD, STREAK, WAVE } from '../config';
 import type { GateType } from '../data/gates';
 import {
-  applyGate, cloneProgress, deliverableDps, freshUpgrades, singleTargetDps, type Progress,
+  applyGate, cloneProgress, freshUpgrades, singleTargetDps, squadDps, type Progress,
 } from './Progression';
 import { scoreOffer } from './Scoring';
 
@@ -86,18 +86,14 @@ export class Difficulty {
 
   get parPower(): number { return this.ideal.power; }
   /**
-   * Par's DELIVERABLE damage, not its analytic damage.
-   *
    * The budget is denominated in DPS, so it has to be denominated in DPS
-   * somebody can actually do. Past the bullet pool's throughput ceiling the two
-   * diverge by more than an order of magnitude - see `deliverableDps`, which
-   * carries the measurement and the reason.
-   *
-   * `Scoring` deliberately still reads plain `squadDps`: par CHOOSES on what a
-   * pick is worth and the curve is budgeted on what the squad can DO, exactly
-   * as par chooses on access-weighted value while the budget ignores access.
+   * somebody can actually do. That is `squadDps` again: the simulation bundles
+   * shots past `WEAPON.maxSimShotsPerSecond` instead of refusing them, so what
+   * the build implies and what lands are one number. While the bullet pool was
+   * a ceiling this read a separate `deliverableDps`, because budgeting against
+   * the analytic figure was asking for damage nobody could do.
    */
-  get parDps(): number { return deliverableDps(this.ideal); }
+  get parDps(): number { return squadDps(this.ideal); }
 
   /**
    * Damage per second the curve expects. Par-derived, but never more than
@@ -232,6 +228,18 @@ export class Difficulty {
     return Math.max(1, parSingle * DIFFICULTY.bossKillPar * killSeconds);
   }
 
+
+  /**
+   * Instrument seam for `npm run from`: par starts EQUAL to an injected player
+   * state, as if the player had kept up perfectly to this point, and the
+   * budget snaps to it on the first update rather than easing from zero. The
+   * runner therefore asks "can a player at standing 1.0 survive here?", which
+   * is the author's chosen question. Nothing in a shipped game calls it.
+   */
+  seedPar(p: Progress): void {
+    this.ideal = cloneProgress(p);
+    this.smoothedTarget = 0;
+  }
 
   reset(): void {
     this.ideal = { power: SQUAD.startPower, upgrades: freshUpgrades() };

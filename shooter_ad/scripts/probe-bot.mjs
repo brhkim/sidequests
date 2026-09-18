@@ -22,7 +22,10 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
-const DIST = new URL('../dist/', import.meta.url).pathname;
+// PROBE_DIST points every probe at a build other than the working `dist/`,
+// which is how a before/after pair is measured without rebuilding between the
+// two halves - the same reason `npm run hud` honours HUD_DIST.
+const DIST = process.env.PROBE_DIST ?? new URL('../dist/', import.meta.url).pathname;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript' };
 
 /** Seeded so a given (seed, skill) pair reproduces exactly. */
@@ -112,7 +115,7 @@ export async function installBot(page, { seed, skill }) {
  */
 export async function playSeed(
   browser, port,
-  { seed, skill, seconds, mode = 'normal', mercy, pressure, targetFraction, sampleEvery = 5 },
+  { seed, skill, seconds, mode = 'normal', mercy, pressure, targetFraction, start, sampleEvery = 5 },
 ) {
   const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
   const errors = [];
@@ -134,6 +137,12 @@ export async function playSeed(
   }
   if (typeof targetFraction === 'number') {
     await page.addInitScript((v) => { window.__targetFractionOverride = v; }, targetFraction);
+  }
+  // An injected starting state - `{ power, upgrades, wave }` - for
+  // `npm run from`. The scene applies it as the run begins and sets par equal
+  // to it; see `GameScene.applyStartOverride`.
+  if (start) {
+    await page.addInitScript((v) => { window.__startOverride = v; }, start);
   }
   // `?seed=` is the instrument form and skips the start screen; `?m=` is the
   // shared form and does not. `mode` rides alongside so a probe can play the
@@ -173,7 +182,7 @@ export async function playSeed(
   // they remain different quantities and only this one is a property of the
   // game rather than of the machine it ran on.
   return {
-    seed, mode, mercy, pressure, targetFraction, rows, errors,
+    seed, mode, mercy, pressure, targetFraction, start, rows, errors,
     // Whether the run ENDED or merely ran out of budget. Read off the final
     // poll, never off the last sampled row: rows are bucketed every few
     // simulated seconds, so the last one is a snapshot from before the end and
@@ -188,6 +197,7 @@ export async function playSeed(
     breachLoss: last?.breachLoss ?? 0,
     fireLoss: last?.fireLoss ?? 0,
     traveled: last?.traveled ?? 0,
+    peakPower: last?.peakPower ?? 0,
     kills: last?.kills ?? 0,
     dps: last?.dps ?? 0,
     parDps: last?.parDps ?? 0,

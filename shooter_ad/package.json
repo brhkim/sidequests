@@ -20,7 +20,8 @@
     "hud": "node scripts/hud-preview.mjs",
     "behaviour": "node scripts/behaviour.mjs",
     "matchcode": "node --experimental-strip-types scripts/matchcode.mjs",
-    "endscreen": "node scripts/endscreen.mjs"
+    "endscreen": "node scripts/endscreen.mjs",
+    "from": "node --experimental-strip-types scripts/from.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0",

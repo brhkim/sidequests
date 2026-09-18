@@ -3,8 +3,8 @@ import { tierFor, unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { SLOTS } from './Formation';
 import {
-  applyGate, damageFactor, deliverableDps, freshUpgrades, moveSpeed, rateFactor,
-  shotsPerSecond, unitShares, type Progress, type Upgrades,
+  applyGate, damageFactor, freshUpgrades, moveSpeed, rateFactor,
+  shotsPerSecond, squadDps, unitShares, type Progress, type Upgrades,
 } from './Progression';
 
 export interface Unit {
@@ -47,16 +47,15 @@ export class Squad {
   get upgrades(): Upgrades { return this.progress.upgrades; }
   get alive(): boolean { return this.progress.power > 0; }
   /**
-   * What the squad actually delivers, which past the bullet pool's throughput
-   * ceiling is well under what its build implies - see `deliverableDps`.
-   *
    * Deliberately the same quantity par is measured in, because this feeds
    * `standing` and the difficulty budget, and a ratio of two different
    * quantities is the mistake that once produced standings above 20. It is also
-   * what the HUD shows, so the number on screen is damage the player is really
-   * doing rather than a claim the bullet pool is quietly refusing.
+   * what the HUD shows. It is honest because the simulation bundles shots past
+   * `WEAPON.maxSimShotsPerSecond` rather than dropping them - see
+   * `bundleFactor`; when the pool used to refuse them this had to read a
+   * separate `deliverableDps`, and the HUD was claiming damage nobody could do.
    */
-  get dps(): number { return deliverableDps(this.progress); }
+  get dps(): number { return squadDps(this.progress); }
 
   /** Tier of the strongest unit, for the HUD. */
   get topTier(): number {
@@ -128,10 +127,9 @@ export class Squad {
    * definition of squad strength, the difficulty budget reads the same figure
    * through `deliverableDps`, and a second copy would drift.
    *
-   * Presentation reads it to decide how far the drawn stream has to be
-   * collapsed (`RENDER.maxVisibleShotsPerSecond`). Note it is the INTENDED
-   * rate: past `MAX_SHOTS_PER_SECOND` the pool refuses the surplus, so the tint
-   * at the very top of the ladder reads the build rather than the stream.
+   * `GameScene.fire` reads it for both collapses: the simulation's, which
+   * decides how many shots ride in each spawned bullet, and the renderer's,
+   * which decides how many spawned bullets are drawn.
    */
   shotsPerSecond(): number {
     return shotsPerSecond(this.progress);
