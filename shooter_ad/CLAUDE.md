@@ -580,7 +580,12 @@ Titan it changes nothing, which is why `singleTargetDps` and the Titan budget
 are untouched. The difficulty budget carries no overkill factor because the
 bundle wastes at most one shot per body, which is what a thin stream wastes.
 Whether the late game past these ceilings is any GOOD is what `npm run from`
-exists to ask, and the answer at the time of writing is in `RESTART.md`.
+exists to ask. Its first answer, twelve runs across four injected states from
+1e5 to 1e10 DPS: every ceiling is gone in play, peak power reaches 500,000
+with the ring in its second palette cycle, and **every late run ends by a
+Titan landing** - the bot survives the first Titan it meets and dies to the
+second, at 0.4 to 0.7 of par. That is the first observation of the Titan-as-
+loss path at all. Full tables in `RESTART.md`.
 
 ### Legibility must stay difficulty-neutral, and once did not
 

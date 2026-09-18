@@ -120,6 +120,9 @@ export class GameScene extends Phaser.Scene {
   private lastX = VIEW.width / 2;
   private streak = 0;
   private over = false;
+  /** Why the run ended, for the instruments: a Titan landing and attrition are
+   * different failures and the runner has to tell them apart. */
+  private cause: 'overrun' | 'titan' | null = null;
   /** Held at the start screen until the player commits. */
   private waiting = true;
   /** Frozen on the pause/help screen. */
@@ -271,6 +274,7 @@ export class GameScene extends Phaser.Scene {
 
   private restart(): void {
     this.over = false;
+    this.cause = null;
     this.kills = 0;
     this.streak = 0;
     this.targetX = VIEW.width / 2;
@@ -648,6 +652,7 @@ export class GameScene extends Phaser.Scene {
    * screen is a shareable artefact rather than a summary - see hud/EndScreen.
    */
   private emitGameOver(cause: 'overrun' | 'titan' = 'overrun'): void {
+    this.cause = cause;
     const match = { seed: this.seed, mode: this.mode };
     this.game.events.emit('gameover', {
       cause,
@@ -726,6 +731,7 @@ export class GameScene extends Phaser.Scene {
       units: this.squad.units.length,
       kills: this.kills,
       over: this.over,
+      cause: this.cause,
       seed: this.seed,
       gates,
       breachLoss: Math.round(this.breachLoss),

@@ -135,14 +135,15 @@ for (const r of results) {
     String(r.peakPower).padStart(13),
     r.dps.toExponential(2).padStart(9),
     r.parDps.toExponential(2).padStart(12),
-    (r.died ? 'yes' : 'no').padStart(8),
+    (r.died ? (r.cause === 'titan' ? 'TITAN' : 'yes') : 'no').padStart(8),
   );
   for (const e of r.errors) console.log('  ERROR ' + e);
 }
 const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 console.log(`\nmedian survival ${med(results.map((r) => r.survived))}s,`
   + ` median standing over the run ${med(results.flatMap((r) => r.rows.map((x) => x.standing))).toFixed(2)},`
-  + ` died ${results.filter((r) => r.died).length}/${results.length}`);
+  + ` died ${results.filter((r) => r.died).length}/${results.length}`
+  + ` (${results.filter((r) => r.cause === 'titan').length} to a Titan landing)`);
 const errors = results.reduce((n, r) => n + r.errors.length, 0);
 console.log(`errors: ${errors}`);
 if (results.some((r) => !r.died)) {

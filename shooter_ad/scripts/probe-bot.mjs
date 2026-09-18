@@ -189,6 +189,11 @@ export async function playSeed(
     // its `over` is false in every run, dead or not. A truncation column built
     // that way reported every run truncated including ones that died at 43s.
     died: last?.over === true,
+    // 'titan' or 'overrun'. A Titan landing at the same simulated second on
+    // every seed is not a coincidence, since wave durations do not depend on
+    // the seed - but the instrument should say so rather than leave it to be
+    // inferred from the clock.
+    cause: last?.over === true ? (last.cause ?? 'overrun') : null,
     survived: Number((last?.elapsed ?? 0).toFixed(1)),
     wave: last?.wave ?? 0,
     optimal: last?.optimal ?? 1,
