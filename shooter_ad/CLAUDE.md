@@ -132,6 +132,31 @@ at least 44px, and the end screen restarts only from `REPLAY_BUTTON`, which
 screenshot alone. The pause screen's SOUND line emits `mutetoggle` and
 follows the `muted` answer; it never asserts a state audio is not in.
 
+**Finish review** (impeccable, end of the 2026-09-19 session; rendering
+only, `npm run neutral` identical on 5/5 seeds). It changed: the rail
+backing and the pause button to 0.96 alpha, what the strip already used,
+because the stream and a Runner read through DPS and PAR; OVERRUN / THE
+TITAN LANDED to a 28px untracked heading, the step PAUSED uses, instead of
+a tracked kicker over the 112px number; the SENSE mark to an 8px bar with
+an alpha floor of 0.8, a 14px tag on a 64x22 backing and a white 2px
+stroke on the marked card (the targeted card keeps its brackets, so answer
+and target never look alike); the Grunt's legs, the Bomber's fuse and
+ember and the Spitter's tube and mouth, so those three read by silhouette
+at 50% (radii untouched, appendages within a quarter of r); the Lancer to
+indigo `0x6a5acd`, off the enemy-bullet magenta; pause notes to 13px with
+an alpha floor of 0.75 and the VALUE dimming on unheld rows; the coloured
+side stripes on strip cells and pause rows to 1px hairlines (the label is
+already in the axis colour); the boss bar to a 6px full-width bar directly
+under the standing bar with a small TITAN tag, off the offer at the head
+of its descent (the warning band keeps its row for 1.2s); one scale on the
+three screens (code 40, button 300x56, label 22, link 15); MISS 60px above
+the lane line, clear of the ring's heads; the end screen's two secondary
+captions to Small, untracked; the start version at 820; the DETAILS answer
+line as the one bright, bold line; ARMY-cell floats at 18px. The one
+review item NOT taken: the end screen keeps waves survived as its headline
+with the decision score beneath it, which is the author's intent in
+`notes.md` and is now recorded in `PRODUCT.md`.
+
 `npm run matchcode` round-trips share codes, including every 32-bit boundary and
 the ways a person mistypes one off a screenshot. A sharing code that loses a bit
 is worse than no sharing: two people compare scores on what they believe is one

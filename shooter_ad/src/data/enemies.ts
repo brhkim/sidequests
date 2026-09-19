@@ -163,7 +163,9 @@ export const ENEMIES: readonly EnemyType[] = [
     id: 'lancer', name: 'Lancer',
     // Hangs back and shells the lane rather than committing to the breach.
     motion: { kind: 'harass', advance: 2.6, retreat: 1.3, retreatSpeed: 0.8, maxRetreat: 110 },
-    color: 0xc2557f, accent: 0xfff0f4,
+    // Indigo, deliberately: the old rose was a shade off the enemy-bullet
+    // magenta, and a Lancer read as one of its own darts at a glance.
+    color: 0x6a5acd, accent: 0xe8e2ff,
     radius: 13, hp: 22, speed: 38, tier: 'medium', armor: 0.1, weight: 24, minWave: 7,
     gun: { interval: 2.6, count: 3, spread: 0.42, speed: 185, damage: 1, aimed: false },
   },

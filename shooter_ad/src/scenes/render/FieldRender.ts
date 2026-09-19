@@ -89,8 +89,10 @@ export class FieldRender {
     });
     ground.fillStyle(COLORS.breach, 0.6).fillRect(0, ARENA.breachY - 1, VIEW.width, 2);
     // Backing strip so the HUD stays legible as enemies walk in from the top.
+    // Near-opaque (0.96, what the strip uses): at 0.86 the stream, the cage and
+    // a Runner all read through the DPS and PAR numbers.
     const hud = this.scene.add.graphics().setDepth(30);
-    hud.fillStyle(COLORS.bg, 0.86).fillRect(0, 0, VIEW.width, RAIL_HEIGHT);
+    hud.fillStyle(COLORS.bg, 0.96).fillRect(0, 0, VIEW.width, RAIL_HEIGHT);
     hud.fillStyle(COLORS.bg, 0.3).fillRect(0, RAIL_HEIGHT, VIEW.width, 12);
   }
 

@@ -84,7 +84,7 @@ export class StartScreen {
     add(scene.add.rectangle(cx, 386, 380, 1, 0x2a3350));
     add(scene.add.rectangle(cx, 556, 380, 1, 0x2a3350));
     this.code = add(scene.add.text(cx, 436, '', {
-      fontFamily: MONO, fontSize: '36px', color: '#9fe8ff', fontStyle: 'bold',
+      fontFamily: MONO, fontSize: '40px', color: '#9fe8ff', fontStyle: 'bold',
     }).setOrigin(0.5));
     this.caption = add(scene.add.text(cx, 474, 'match code', {
       fontFamily: FONT, fontSize: '13px', color: CAPTION,
@@ -117,12 +117,13 @@ export class StartScreen {
       fontFamily: FONT, fontSize: '12px', color: SMALL,
     }).setOrigin(0.5));
 
-    const button = add(scene.add.rectangle(cx, 700, 300, 64, 0x3ecf7a, 0.2)
+    // One scale across the three screens: code 40, button 300x56, label 22.
+    const button = add(scene.add.rectangle(cx, 700, 300, 56, 0x3ecf7a, 0.2)
       .setStrokeStyle(2, 0x3ecf7a, 0.9)
       .setInteractive({ useHandCursor: true }));
     add(scene.add.text(cx, 700, 'START MATCH', {
       fontFamily: FONT, fontSize: '22px', color: '#3ecf7a', fontStyle: 'bold',
-    }).setOrigin(0.5).setLetterSpacing(2));
+    }).setOrigin(0.5).setLetterSpacing(1));
     button.on('pointerdown', (p: Phaser.Input.Pointer) => {
       p.event.stopPropagation();
       onStart();
@@ -132,7 +133,9 @@ export class StartScreen {
       fontFamily: FONT, fontSize: '13px', color: SMALL,
     }).setOrigin(0.5));
 
-    this.version = add(scene.add.text(cx, 904, '', {
+    // Close under the hint rather than at the foot: 140px of nothing between
+    // them read as a missing element.
+    this.version = add(scene.add.text(cx, 820, '', {
       fontFamily: FONT, fontSize: '12px', color: SMALL,
     }).setOrigin(0.5));
 

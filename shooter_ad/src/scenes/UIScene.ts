@@ -106,7 +106,7 @@ export class UIScene extends Phaser.Scene {
    */
   private drawPauseButton(): void {
     const { x, y, width, height } = PAUSE_BUTTON;
-    this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.85)
+    this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.96)
       .setStrokeStyle(1, 0x6f7b99, 0.9).setDepth(40);
     this.add.text(x, y, 'PAUSE', {
       fontFamily: FONT, fontSize: '12px', color: CAPTION, fontStyle: 'bold',

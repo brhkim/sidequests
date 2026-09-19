@@ -48,12 +48,14 @@ export function makeCreatures(scene: Phaser.Scene): void {
     eyes(g, 26, 38, 40, 3);
   });
 
-  // Grunt r=11: beetle. Oval, six stub legs, head lobe forward, seam.
+  // Grunt r=11: beetle. Oval, six legs, head lobe forward, seam. The legs
+  // reach 16px (was 12) so the beetle is a beetle at 50% and not a disc; they
+  // cross the hit circle by 5px of texture, under the quarter-of-r limit.
   texture(scene, 'c-grunt', 56, 56, (g) => {
     g.fillStyle(WHITE, 1);
     for (let i = 0; i < 3; i++) {
-      g.fillRoundedRect(4, 12 + i * 10, 12, 5, 2);
-      g.fillRoundedRect(40, 12 + i * 10, 12, 5, 2);
+      g.fillRoundedRect(1, 11 + i * 10, 16, 6, 2);
+      g.fillRoundedRect(39, 11 + i * 10, 16, 6, 2);
     }
     g.fillEllipse(28, 26, 40, 42);
     g.fillCircle(28, 44, 9);
@@ -118,12 +120,15 @@ export function makeCreatures(scene: Phaser.Scene): void {
     eyes(g, 34, 42, 53, 2.5);
   });
 
-  // Bomber r=12: egg, fat end forward, black cracks, fuse stub trailing up.
-  // The accent is the fuse's ember, pulsing.
+  // Bomber r=12: egg, fat end forward, black cracks, fuse trailing up. The
+  // fuse shows 13px of texture above the egg (was 7): the fuse IS the
+  // silhouette. The egg sits 4px lower to make room and stays inside the
+  // circle; the fuse crosses it by 6px of texture, a quarter of r. The
+  // accent is the fuse's ember, pulsing.
   texture(scene, 'c-bomber', 64, 64, (g) => {
     g.fillStyle(WHITE, 1);
-    g.fillRect(30, 4, 4, 12);
-    g.fillEllipse(32, 34, 42, 46);
+    g.fillRect(30, 2, 4, 16);
+    g.fillEllipse(32, 36, 40, 42);
     g.fillCircle(32, 40, 17);
     g.lineStyle(2, BLACK, 1);
     g.lineBetween(24, 22, 30, 30); g.lineBetween(30, 30, 26, 38);
@@ -131,7 +136,7 @@ export function makeCreatures(scene: Phaser.Scene): void {
     eyes(g, 26, 38, 48, 2.5);
   });
   texture(scene, 'a-bomber', 64, 64, (g) => {
-    g.fillStyle(WHITE, 1).fillCircle(32, 6, 5);
+    g.fillStyle(WHITE, 1).fillCircle(32, 7, 7);
   });
 
   // Spitter r=12: toad. Wide flat oval, mouth slot, eyes on top. Upright; the
@@ -140,12 +145,15 @@ export function makeCreatures(scene: Phaser.Scene): void {
     g.fillStyle(WHITE, 1);
     g.fillEllipse(32, 32, 48, 38);
     g.fillCircle(22, 18, 7); g.fillCircle(42, 18, 7);
-    g.fillStyle(BLACK, 1).fillRoundedRect(18, 40, 28, 4, 2);
+    g.fillStyle(BLACK, 1).fillRoundedRect(14, 40, 36, 5, 2);
     eyes(g, 22, 42, 17, 3);
   });
-  texture(scene, 'a-spitter', 12, 24, (g) => {
-    g.fillStyle(WHITE, 1).fillRoundedRect(2, 0, 8, 22, 3);
-    g.fillStyle(BLACK, 1).fillCircle(6, 20, 2);
+  // The tube is 30px of texture (was 24): a toad with a visible gun, rather
+  // than a disc with a bump. It pivots at its top, so the extra length
+  // points at the squad and crosses the hit circle by ~3px of texture.
+  texture(scene, 'a-spitter', 12, 30, (g) => {
+    g.fillStyle(WHITE, 1).fillRoundedRect(2, 0, 8, 28, 3);
+    g.fillStyle(BLACK, 1).fillCircle(6, 26, 2);
   });
 
   // Lancer r=13: arrowhead with fins swept back. Upright; the accent is the

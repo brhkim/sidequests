@@ -55,7 +55,9 @@ export function splitLabel(label: string): { magnitude: string; axis: string } {
  *
  * On a sensed offer the option that is best RIGHT NOW - priced by the same
  * `scoreOffer` par and the death screen use - wears a pulsing bar and a
- * `SENSE` caption. It is recomputed every frame rather than fixed at spawn,
+ * `SENSE` caption, and its body takes a white stroke - distinct from the
+ * targeted card's brackets, so the answer and the target never look alike.
+ * It is recomputed every frame rather than fixed at spawn,
  * so if taking the previous gate changes which of the three is best, the mark
  * moves with the truth. The pulse reads the simulated clock for its phase.
  *
@@ -84,9 +86,11 @@ export class GateCards {
       const stroke = isTarget ? 1 : isSibling ? 0.5 : 0.8;
       const top = g.y - GATES.height / 2;
       const on = reveal > 0;
+      const isMarked = on && marked.has(`${g.pair}:${g.index}`);
       v.rect.setVisible(on).setPosition(g.x, g.y).setSize(width, GATES.height)
-        .setFillStyle(g.type.color, fill * reveal)
-        .setStrokeStyle(isTarget ? 3 : 2, g.type.color, stroke * reveal);
+        .setFillStyle(g.type.color, fill * reveal);
+      if (isMarked) v.rect.setStrokeStyle(isTarget ? 3 : 2, 0xffffff, reveal);
+      else v.rect.setStrokeStyle(isTarget ? 3 : 2, g.type.color, stroke * reveal);
       v.roof.setVisible(on).setPosition(g.x, top).setSize(width, RENDER.gate.roof)
         .setFillStyle(g.type.color, reveal);
       if (v.label !== g.type.label) {
@@ -103,11 +107,12 @@ export class GateCards {
         .setScale(Math.min(1, inner / Math.max(1, v.magnitude.width)));
       v.axis.setVisible(on).setPosition(g.x, g.y + 18).setAlpha(reveal);
 
-      const isMarked = on && marked.has(`${g.pair}:${g.index}`);
-      const barY = top - 3 - 3;
-      v.bar.setVisible(isMarked).setPosition(g.x, barY).setSize(width, 6)
-        .setFillStyle(AXIS_COLOR.sense, (0.55 + 0.45 * pulse) * reveal);
-      v.tagBack.setVisible(isMarked).setPosition(g.x, barY).setAlpha(0.85 * reveal);
+      // 8px bar with an alpha floor of 0.8: at 6px pulsing to 0.55 it was the
+      // least legible thing on the field.
+      const barY = top - 3 - 4;
+      v.bar.setVisible(isMarked).setPosition(g.x, barY).setSize(width, 8)
+        .setFillStyle(AXIS_COLOR.sense, (0.8 + 0.2 * pulse) * reveal);
+      v.tagBack.setVisible(isMarked).setPosition(g.x, barY).setAlpha(0.96 * reveal);
       v.tag.setVisible(isMarked).setPosition(g.x, barY + 1).setAlpha(reveal);
       used++;
     }
@@ -131,10 +136,10 @@ export class GateCards {
         fontFamily: FONT, fontSize: `${GATES.axisSize}px`, color: COLORS.text, fontStyle: 'bold',
       }).setOrigin(0.5).setLetterSpacing(2).setDepth(15),
       label: '',
-      bar: s.add.rectangle(0, 0, 10, 6, AXIS_COLOR.sense, 1).setDepth(4).setVisible(false),
-      tagBack: s.add.rectangle(0, 0, 52, 18, 0x0b0f1c, 0.85).setDepth(14).setVisible(false),
+      bar: s.add.rectangle(0, 0, 10, 8, AXIS_COLOR.sense, 1).setDepth(4).setVisible(false),
+      tagBack: s.add.rectangle(0, 0, 64, 22, 0x0b0f1c, 0.96).setDepth(14).setVisible(false),
       tag: s.add.text(0, 0, 'SENSE', {
-        fontFamily: FONT, fontSize: '12px', color: hex(AXIS_COLOR.sense), fontStyle: 'bold',
+        fontFamily: FONT, fontSize: '14px', color: hex(AXIS_COLOR.sense), fontStyle: 'bold',
       }).setOrigin(0.5).setLetterSpacing(2).setDepth(15).setVisible(false),
     };
     this.visuals.push(v);

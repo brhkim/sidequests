@@ -51,7 +51,9 @@ export class FieldFx {
       switch (e.kind) {
         case 'pick': this.pick(e.x, e.y, e.width, e.grade); break;
         case 'miss':
-          this.labels.spawn(e.x, e.y - 30, 'MISS', RED, { size: 18, tracking: 3, rise: 24, duration: 800, hold: 200 });
+          // 60px up: the lane line is where the ring's heads are, and the word
+          // used to spawn on them.
+          this.labels.spawn(e.x, e.y - 60, 'MISS', RED, { size: 18, tracking: 3, rise: 24, duration: 800, hold: 200 });
           break;
         case 'rescue':
           this.labels.spawn(e.x, e.y - 20, `+${e.amount} ARMY`, AXIS_COLOR.army, { size: 20, stroke: 4, rise: 40, duration: 800 });

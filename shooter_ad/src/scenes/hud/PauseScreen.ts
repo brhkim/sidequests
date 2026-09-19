@@ -84,7 +84,7 @@ export class PauseScreen {
       .setStrokeStyle(2, 0x3ecf7a, 0.9).setInteractive({ useHandCursor: true }));
     resume.on('pointerdown', (p: Phaser.Input.Pointer) => { p.event.stopPropagation(); onResume(); });
     add(scene.add.text(cx, 740, 'RESUME', {
-      fontFamily: FONT, fontSize: '21px', color: '#3ecf7a', fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '22px', color: '#3ecf7a', fontStyle: 'bold',
     }).setOrigin(0.5).setLetterSpacing(1));
 
     this.sound = add(scene.add.text(cx, 800, 'SOUND ON — tap to mute', {

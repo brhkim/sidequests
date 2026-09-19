@@ -14,7 +14,6 @@ const ROWS = [
 ] as const;
 
 interface Row {
-  accent: Phaser.GameObjects.Rectangle;
   label: Phaser.GameObjects.Text;
   value: Phaser.GameObjects.Text;
   note: Phaser.GameObjects.Text;
@@ -37,9 +36,10 @@ interface Ruler {
  * shown, each with the multiplier it is actually worth to them right now -
  * and then one row per bonus, MOVE, TIME and SENSE included, each saying in a
  * line what it does to the sum (or that it does not enter it, and what it
- * buys instead). Unheld rows fade to 0.55, no further: they still have to
- * read, because the row you do not hold is the one you are about to be
- * offered.
+ * buys instead). On an unheld row the VALUE dims and the label and note
+ * stay at 0.75 or above: the note is the teaching, and the row you do not
+ * hold is the one you are about to be offered. No coloured side stripes -
+ * the label already wears the axis colour.
  */
 export class PauseBonuses {
   readonly root: Phaser.GameObjects.Container;
@@ -62,7 +62,6 @@ export class PauseBonuses {
     for (const [i, axis] of (['damage', 'rate'] as const).entries()) {
       const x = 26 + i * 254;
       const color = AXIS_COLOR[axis];
-      add(scene.add.rectangle(x - 10, 120, 3, 104, color, 0.9).setOrigin(0, 0));
       const head = add(scene.add.text(x, 118, '', {
         fontFamily: FONT, fontSize: '14px', color: hex(color), fontStyle: 'bold',
       }).setOrigin(0, 0));
@@ -94,7 +93,6 @@ export class PauseBonuses {
       const y = 298 + i * 40;
       const color = AXIS_COLOR[axis];
       this.rows.push({
-        accent: add(scene.add.rectangle(16, y + 2, 3, 30, color, 0.9).setOrigin(0, 0)),
         label: add(scene.add.text(28, y - 1, '', {
           fontFamily: FONT, fontSize: '12px', color: hex(color), fontStyle: 'bold',
         }).setOrigin(0, 0).setLetterSpacing(1)),
@@ -102,7 +100,7 @@ export class PauseBonuses {
           fontFamily: FONT, fontSize: '20px', color: '#f2f6ff', fontStyle: 'bold',
         }).setOrigin(1, 0)),
         note: add(scene.add.text(28, y + 15, '', {
-          fontFamily: FONT, fontSize: '12px', color: CAPTION,
+          fontFamily: FONT, fontSize: '13px', color: CAPTION,
         }).setOrigin(0, 0)),
       });
     }
@@ -135,10 +133,9 @@ export class PauseBonuses {
     row.label.setText(label);
     row.value.setText(value);
     row.note.setText(note);
-    row.accent.setAlpha(held ? 0.9 : 0.2);
-    row.label.setAlpha(held ? 1 : 0.55);
-    row.value.setAlpha(held ? 1 : 0.55);
-    row.note.setAlpha(held ? 0.85 : 0.5);
+    row.label.setAlpha(held ? 1 : 0.75);
+    row.value.setAlpha(held ? 1 : 0.45);
+    row.note.setAlpha(held ? 0.85 : 0.75);
   }
 
   update(h: HudPayload): void {
@@ -166,13 +163,14 @@ export class PauseBonuses {
       `bodies one shot goes through · worth ${formatMult(h.pierceMult)} now · grows past 3`,
       h.pierce > 0);
     this.setRow(7, 'MOVE', formatMult(h.moveMult),
-      'squad speed · no DPS — buys reaching the gate you judged best', h.moveMult > 1);
+      'squad speed · no DPS — reach the gate you judged best', h.moveMult > 1);
     const time = Math.round((1 / h.gateSpeedMult - 1) * 100);
     this.setRow(8, 'TIME', `+${time}%`,
       'offers fall slower · no DPS — buys seconds to do the arithmetic', time > 0);
     const chances = Array.from({ length: MAX_SENSE }, (_, i) => Math.round(senseChance(i + 1) * 100));
     this.setRow(9, 'SENSE', sensePips(h.sense),
-      `${Math.round(h.senseChance * 100)}% of offers arrive with their best marked`
+      // Short enough at 13px to clear the pips on the right.
+      `${Math.round(h.senseChance * 100)}% of offers arrive best-marked`
       + ` · ${chances.join(' / ')}% at 1 / 2 / 3`,
       h.sense > 0);
   }

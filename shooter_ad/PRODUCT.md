@@ -88,6 +88,8 @@ Confirmed for the current round of work (author's answers, 2026-09-19):
 - Dark playfield. The rank palette in `src/data/tiers.ts` and the axis
   colours in `src/data/gates.ts` are load-bearing game vocabulary, not
   decoration, and must survive any restyle.
+- The end screen's headline number is waves survived, with the decision
+  score beneath it (notes.md).
 
 ## Evidence on Hand
 

@@ -27,8 +27,10 @@ import { compact, FONT, formatMult, hex, type HudPayload } from './types';
  *
  * - The POOL is the big number and the multiplier is the small one, because
  *   the pool is what the conversion needs and the multiplier cancels out of it.
- * - Values are LEFT-aligned off a coloured accent, so a digit appearing does
- *   not shuffle the whole cell sideways mid-wave.
+ * - Values are LEFT-aligned, so a digit appearing does not shuffle the whole
+ *   cell sideways mid-wave. Cells are parted by 1px hairlines; the axis
+ *   colour is on the label, and a coloured side stripe on top of it said
+ *   the same thing twice.
  * - A cell you hold nothing on fades, so what you actually have pops without
  *   needing to read any of it - to 0.55, not further, so it still reads.
  *
@@ -47,7 +49,6 @@ const CELLS = [
 const MAIN = '#f2f6ff';
 
 interface Cell {
-  accent: Phaser.GameObjects.Rectangle;
   label: Phaser.GameObjects.Text;
   main: Phaser.GameObjects.Text;
   sub: Phaser.GameObjects.Text;
@@ -67,8 +68,8 @@ export class BonusStrip {
     for (const spec of CELLS) {
       const color = AXIS_COLOR[spec.axis];
       const textX = x + 18;
+      if (x > 0) scene.add.rectangle(x, TOP + 12, 1, 70, 0x2a3350, 1).setOrigin(0, 0);
       this.cells.push({
-        accent: scene.add.rectangle(x + 8, TOP + 12, 3, 70, color, 0.9).setOrigin(0, 0),
         label: scene.add.text(textX, TOP + 10, spec.label, {
           fontFamily: FONT, fontSize: '12px', color: hex(color), fontStyle: 'bold',
         }).setOrigin(0, 0).setLetterSpacing(1.2),
@@ -84,7 +85,7 @@ export class BonusStrip {
     }
     // `-N` / `+N` over the ARMY cell, rising out of the strip.
     this.floater = scene.add.text(50, TOP + 4, '', {
-      fontFamily: FONT, fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5, 1).setStroke('#05070f', 3).setDepth(1).setVisible(false);
   }
 
@@ -137,7 +138,6 @@ export class BonusStrip {
     cell.sub.setText(sub).setColor(subColor);
 
     const alpha = held ? 1 : 0.55;
-    cell.accent.setAlpha(held ? 0.9 : 0.22);
     cell.label.setAlpha(alpha);
     cell.main.setAlpha(alpha);
     cell.sub.setAlpha(0.95);

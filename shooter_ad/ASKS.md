@@ -15,7 +15,13 @@ and pushed · `declined` with reason.
 > the UX.
 
 Status: `done` (commit "the field says what is about to hit you"); the
-impeccable finish review is still owed at the end of the session. The
+impeccable finish review ran at the end of the session and its fixes
+landed (rail backing opaque, cause of death as the end screen's heading,
+SENSE mark legible, three creature silhouettes, Lancer off the bullet hue,
+pause notes at contrast, side stripes dropped, boss bar under the rail,
+one type scale across the three screens; `npm run neutral` identical on
+5/5 seeds). One review item was kept as the author intends it: waves
+survived stays the headline number, recorded in `PRODUCT.md`. The
 skill was installed mid-session by the author via the GitHub UI; loaded,
 `PRODUCT.md` written under its init flow.
 

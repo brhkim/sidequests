@@ -38,7 +38,10 @@ const LINK = '#6be8d4';
  * Order is deliberate: score, then how well you actually played, then the
  * evidence, then how to play the same match. A bare wave number means nothing
  * without the curve it was measured against. Nothing here is a kicker: every
- * caption sits UNDER the value it names.
+ * caption sits UNDER the value it names, and the cause of death is the
+ * screen's HEADING - the same 28px step PAUSED uses - not a tracked label
+ * over the number. Waves survived stays the headline number, with the
+ * decision score beneath it (notes.md); PRODUCT.md records the choice.
  */
 export class EndScreen {
   private readonly root: Phaser.GameObjects.Container;
@@ -66,16 +69,18 @@ export class EndScreen {
     // bled through, which is wrong for something built to be screenshotted.
     add(scene.add.rectangle(cx, VIEW.height / 2, VIEW.width, VIEW.height, 0x05070f, 1));
 
-    this.title = text(96, 22, '#ff5566', true, 3);
+    this.title = text(96, 28, '#ff5566');
 
     // The headline. Integer, instantly comparable, and captures both pick
     // quality and positioning - which a pure decision score would not.
     this.wave = text(196, 112, COLORS.text);
     text(274, 13, CAPTION, true, 2).setText('WAVES SURVIVED');
+    // The two secondary captions sit at Small, untracked: one tracked label
+    // marks the lead, three identical ones mark nothing.
 
     // The purest measure of the skill the game actually tests.
     this.optimal = text(346, 44, COLORS.text);
-    text(384, 13, CAPTION, true, 2).setText('OF OPTIMAL PLAY');
+    text(384, 12, SMALL, false).setText('OF OPTIMAL PLAY');
 
     // The scorecard in miniature, each count in its grade's colour: what makes
     // two runs on one seed worth arguing about.
@@ -89,7 +94,7 @@ export class EndScreen {
         fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: SMALL,
       }).setOrigin(0.5));
     }
-    text(474, 13, CAPTION, true, 2).setText('PERFECT  ·  GOOD  ·  BAD PICKS');
+    text(474, 12, SMALL, false).setText('PERFECT  ·  GOOD  ·  BAD PICKS');
 
     this.detail = text(520, 16, CAPTION, false);
 
@@ -124,7 +129,7 @@ export class EndScreen {
     add(scene.add.rectangle(cx, REPLAY_BUTTON.y, REPLAY_BUTTON.width, REPLAY_BUTTON.height, 0x3ecf7a, 0.2)
       .setStrokeStyle(2, 0x3ecf7a, 0.9));
     add(scene.add.text(cx, REPLAY_BUTTON.y, 'REPLAY THIS MATCH', {
-      fontFamily: FONT, fontSize: '21px', color: '#3ecf7a', fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '22px', color: '#3ecf7a', fontStyle: 'bold',
     }).setOrigin(0.5).setLetterSpacing(1));
     text(900, 15, LINK, false).setText('or start a new match');
     const freshHit = add(scene.add.rectangle(cx, 900, 300, 44, 0xffffff, 0.001)

@@ -26,7 +26,7 @@ export class PauseDetails {
     }).setOrigin(0, 0).setLetterSpacing(1.5));
     for (let i = 0; i < 26; i++) {
       const t = scene.add.text(26, 124 + i * 22, '', {
-        fontFamily: MONO, fontSize: '14px', color: '#e8ecf8',
+        fontFamily: MONO, fontSize: '14px', color: WORKING,
       }).setOrigin(0, 0);
       parts.push(t);
       this.lines.push(t);
@@ -95,9 +95,17 @@ export class PauseDetails {
       `   ${compact(withGuns)} /s`,
       `MOVE ×${h.moveMult.toFixed(2)}, TIME, SENSE are not in this sum`,
     ];
-    this.lines.forEach((t, i) => t.setText(lines[i] ?? ''));
+    // The answer is the one bright, bold line; the working stays quieter.
+    this.lines.forEach((t, i) => {
+      const line = lines[i] ?? '';
+      const answer = line.startsWith('=');
+      t.setText(line).setStyle({ color: answer ? '#ffffff' : WORKING, fontStyle: answer ? 'bold' : 'normal' });
+    });
   }
 }
+
+/** The working lines: readable (~9:1), but a step under the answer. */
+const WORKING = '#c9d2ea';
 
 /** Short numbers with a sensible precision: 0.94, 19.6, 641, 12.1k. */
 function num(v: number): string {
