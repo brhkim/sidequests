@@ -128,6 +128,32 @@ Status: `open`. Audit answered in chat (see "Judgment curve audit" in
 on the judgment axis (`judgmentWave`, so hard mode gets it earlier), with
 the MISS grade and cue tied to it.
 
+### 5a. Follow-up on gate frequency and the curve (verbatim)
+
+> Okay great great, the difficulty curve is a really nice breakdown. Before I
+> offer suggestions, how often do bonus gates appear? Is it one per wave? Or
+> how do we set it up?
+
+Answered: fixed 7.5s clock, ~8 offers a minute, not per wave.
+
+> For the dead-space proposal, let's make sure the text remains legible for
+> all upgrade types and larger values for bonuses. We may need to stack gates
+> and make them "taller" perhaps?
+>
+> For the difficulty curve, my thinking is:
+> 1 to 5: 1.1, 1.25, 1.5
+> 6-10: 1.1, 1.2, 1.3, 1.4, 1.5 (remove 1.25 temporarily if possible)
+> 11-15: Every .05 (1.05, 1.1, 1.15, etc.)
+> 16-20: Every hundredth
+>
+> The rest of the difficulty parts look good to me
+
+Status: `open`. Constraint raised in chat: the tiers must share a mean
+(arithmetic and geometric) or the legibility axis is a power axis in
+disguise; "tenths" cannot be mean-neutral inside the fixed [1.05, 1.5]
+range. Awaiting the author's choice between accepting the drift or a
+neutral variant. Taller two-line gate cards agreed in principle.
+
 ## 6. Anonymous analytics
 
 > Is there any way for us to capture anonymous analytics? Time played, rounds
