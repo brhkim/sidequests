@@ -97,7 +97,8 @@ console.log(`standing: median ${med(stands).toFixed(2)}`
 // positioning rather than its judgement.
 const perMin = (xs, r) => (r.survived > 0 ? (xs / r.survived) * 60 : 0);
 console.log(
-  `breach loss/min: median ${med(results.map((r) => perMin(r.breachLoss, r))).toFixed(1)}`
+  `contact loss/min: median ${med(results.map((r) => perMin(r.contactLoss, r))).toFixed(1)}`
+  + `   breach loss/min: median ${med(results.map((r) => perMin(r.breachLoss, r))).toFixed(1)}`
   + `   fire loss/min: median ${med(results.map((r) => perMin(r.fireLoss, r))).toFixed(1)}`,
 );
 console.log(

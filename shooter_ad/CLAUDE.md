@@ -105,7 +105,7 @@ is worse than no sharing: two people compare scores on what they believe is one
 match, and nothing on screen says otherwise.
 
 `npm run behaviour` is the instrument for the enemy roster. `verify` proves the
-game boots and `balance` proves it is survivable; neither can see eight types
+game boots and `balance` proves it is survivable; neither can see nine types
 moving identically, which is a bug this project actually shipped. It spawns a
 cohort of each type directly - the bot does not reliably survive to wave 8 - and
 prints lateral path length, backward travel, direction changes, peak speed and
@@ -115,8 +115,10 @@ squad. It samples wall-clock frames, so figures wobble a few percent per run; it
 measures movement, not whether that movement is any fun.
 
 `npm run balance` plays several fixed seeds and prints the series. Use it before
-and after any balance change. Its footer, and every row of `npm run from`, now
-carries the **pierce instrument**: `hitsPerLanding` (bodies met per shot that
+and after any balance change. Its footer prints the three ways the army loses
+power per minute - `contactLoss`, `breachLoss`, `fireLoss` in the `stats`
+registry, which `verify`, `from`, `titan` and `neutral` also read - and, with
+every row of `npm run from`, the **pierce instrument**: `hitsPerLanding` (bodies met per shot that
 met anything, cumulative over the run) beside the multiplier the build is
 priced at, and `landed`, the share of the stream that met anything at all. A
 claim well above the measurement means par and the player are both being
@@ -225,6 +227,10 @@ than dying - its survival is a FLOOR, and so is any median containing one:
 | 0.7 | 93.8s | 57% | 0.70 | 7 | 5/5 | 26.1 | 3445 |
 | 0.9 | 122.9s | 73% | 0.76 | 9 | 5/5 | 21.3 | 3307 |
 | 1.0 | 123.2s | 85% | 0.78 | 9 | 5/5 | 21.3 | 3307 |
+
+This table predates contact damage (see "Contact damage" below); the bot now
+walks into what it does not kill and every survival here is from a game that
+no longer ships.
 
 **Every run now dies inside the budget, so for once no median here is a floor.**
 That is a change from the table this replaced, which had 3 to 5 truncations per
@@ -354,6 +360,19 @@ src/
 `systems/` holds plain classes with no display objects; `GameScene.render()`
 syncs pooled sprites to that state once per frame. Gameplay is therefore
 readable and testable without touching Phaser.
+
+**Simulation events.** `systems/SimEvents.ts` is the one typed stream of what
+a step DID - `kill`, `contact`, `breach`, `fire`, `pick`, `miss`, `rescue`,
+`streak`, `wave`, `titan` (arrive / volley / down), `sense`, `over` - with
+positions, costs and the cost's share of the army before the charge.
+`GameScene` pushes into it only inside `step`, and the top of `render()`
+drains it and emits the whole array once per frame as the `moment` game
+event, so sprites, HUD feedback and audio all read one account of the same
+steps rather than each inferring its own from state. The rule that keeps it
+off the determinism surface: **nothing in `systems/` reads the queue**, and
+nothing that consumes `moment` may feed the simulation. `npm run repeat` and
+`npm run neutral` would both miss a consumer that did, because a game with a
+feedback loop in it is still deterministic.
 
 **Keep files small and split early.** Agents add features well and restructure
 large files badly. Past ~250 lines, split before adding.
@@ -673,7 +692,8 @@ of the parent commit and after with the guard and the 72px column:
 Three seeds moved under two seconds; two shortened by 16s and 31s. Read the
 direction and not the size, and note that the pair cannot separate the guard
 from the column, which landed in the same commit. The sweep table above
-predates this pair and is stale by that much.
+predates this pair and is stale by that much. This pair in turn predates
+contact damage, and so do the Titan deliveries in the paragraph above it.
 
 With those four gone, `bossKillDistance` is now the only thing the boss's
 difficulty is made of. It came down from 0.75 to 0.3 as the author's value to
@@ -775,10 +795,12 @@ tune balance around them — fix them first.
 Fixed: **enemy behaviour variety**. Movement is now a discriminated `motion`
 union in `data/enemies.ts`, one case each in `systems/EnemyMotion.ts`, and every
 kind is used by at least one type - a plain straight-down walker was deleted
-rather than left as another unused case. Non-movement behaviour (`gun`, `heal`,
+rather than left as another unused case. Non-movement behaviour (`gun`,
 `escort`, `splitInto`, `frontArmor`) is now plain optional fields read by
 `Enemies.applyTraits`, so combining them is data rather than a new case.
-`npm run behaviour` is what keeps this honest.
+`npm run behaviour` is what keeps this honest. The Healer and its `heal` trait
+are gone - the author's call, recorded in `notes.md` under "Enemies have a
+hurt box".
 
 Fixed, and worth knowing why they mattered: the rank ladder used to saturate at
 608 power, which turned every army bonus above it into a measured no-op and left
@@ -913,11 +935,132 @@ matter and are in place:
   and movement is additionally split into substeps of at most
   `ENEMY_FIRE.maxStep`. The squad is a cluster of 8px units, which is the exact
   geometry an endpoint test slips between.
+- Enemy-vs-squad (contact) is an ENDPOINT circle test in `Contact.touching`,
+  deliberately not swept: the fastest body moves 3.2px a step (a Splitter's
+  dash) against a 34px overlap disc (Runner 9 + unit 8, doubled), the squad
+  centre adds at most 4.3px a step at x1 MOVE, and the ring's discs overlap
+  each other (spacing 24 < 34), so no body can cross the formation between
+  two steps. The sweep exists for 16px-per-step bullets. It is a direct loop
+  rather than the `Grid` - under 1,900 distance checks a step at a full ring
+  - with an early-out per body on the first unit touched.
 
-Squad damage now has two sources, and they are deliberately different: a breach
-costs `SQUAD.breachLoss * enemy.damage` and shakes the camera hard, while a
-bullet costs `SQUAD.fireLoss * gun.damage` and barely nudges it. A breach is a
-failure to kill; fire is a tax on standing still.
+Squad damage has three sources: **contact** (`contactLoss`, a body touching
+the ring), **breach** (`breachLoss`, a body past `ARENA.breachY` that missed
+the ring) and **fire** (`fireLoss`, `ENEMY_FIRE.powerShare` per landing
+bullet, 1% floor 1). Contact and breach are one price from one function -
+`Contact.contactCost` - and shake the camera hard; fire barely nudges it. A
+body reaching you is a failure to kill; fire is a tax on standing still.
+
+### Contact damage
+
+An enemy touching the army charges it and is destroyed doing so. The price is
+a SHARE of the army held before the step's charges, floored in whole power,
+by the body's `tier` (`CONTACT` in config; the roster names one per type):
+
+| tier | types | share | floor | at 19 | at 100 | at 640 | at 38,912 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| basic | Grunt, Runner | 2% | 1 | 1 | 2 | 12 | 778 |
+| medium | Shielder, Spitter, Splitter, Lancer | 4% | 2 | 2 | 4 | 25 | 1,556 |
+| large | Brute, Bomber | 6% | 3 | 3 | 6 | 38 | 2,334 |
+| titan | Titan | 100% | - | run ends | run ends | run ends | run ends |
+
+A bullet is 1% floor 1 for comparison, so a Basic contact is never cheaper
+than a bullet and a Large is three. The share overtakes the floor at 100 /
+75 / 67 power. `npm run model` asserts the floors, the shares at the old cap,
+the Titan as the whole army, monotonicity over the three ordinary tiers, and
+that the roster is nine types with no Healer. The flat table it replaces
+(1/1/3/2/2/5/1/2 per type, `EnemyType.damage`, now deleted rather than kept
+beside `tier`) went dead the way a flat bullet did: at 640 power a leak cost a
+sixth of a percent.
+
+Four rules, each with a reason:
+
+- **Breach costs the same, through the same function.** A body past the line
+  beside the ring is the same failure as one that walked into it, and
+  `SQUAD.breachLoss` is deleted rather than set to 1: a multiplier on one
+  contradicts that, on both is a no-op.
+- **Consumed, not killed.** `Enemies.consume` sets `active = false` directly,
+  never through `damage`, so a Splitter does not split (three Grunts inside
+  the ring would each contact next step), `onKill` is not called, so no
+  `kills++` and no streak - standing in the stream would otherwise farm both.
+  `Difficulty.observeSpawn` already credited par with the body at spawn.
+  Contact with a cage does nothing.
+- **Step order is `collide -> applyContacts -> checkGates -> applyBreaches ->
+  applyIncomingFire`.** Bullets first, so a body a shot kills on the same step
+  is a kill and never a contact; contacts before breaches, so a body that
+  satisfies both on one step (a Grunt at y 862 is 17px from the bottom rank at
+  845, inside the 19px it takes to touch) is charged as a contact once.
+- **A Titan reaching the army ends the run**, `cause: 'titan'`, on the
+  `titan` flag `collectContacts` returns - not on the power reaching zero,
+  which at 1 or 2 power the whole-army price would leave numerically below a
+  Large's floor. `titanChecks[].landedAt` records where on its descent it
+  was consumed, and `npm run titan` prints it: a boss that lands does so ON
+  THE SQUAD at roughly 85% of its descent, not at the line.
+
+Contact lands earlier than a breach did. A full ring's front rank sits at
+y ~755 and a lone leader at 800, so a Grunt (r 11) is consumed at y ~736 or
+~781 against 862 for the line - 81 to 126px sooner, which is 2.4-3.7s of a
+Grunt's descent, 1.5s of a Runner's, 4.7s of a Shielder's, 0.8s of a Bomber's
+sprint. Bodies the column used to kill in those seconds are charges now, so
+the floors do not make the early game the old game. The probe bot parks under
+the stream it is killing and does not step aside, so it pays this at the
+highest rate any player would. `npm run verify` passes untouched: wave 1 is
+Grunts only, the first spawns at ~0.9s and needs ~24s to reach y 781, so the
+first possible contact is at the 24s window's end - the verify stats line
+reads `contactLoss: 0, over: false` at 29s simulated, kills 10, wave 2.
+
+**Measured on the day it landed**, before on a snapshot of the parent commit
+(`e834edf`) and after, seeds 1-5, skill 0.7. `npm run repeat` reads 0.00%
+spread on both builds (seed 1: 44.1s, wave 3, 4 decisions, 86%, 14 kills).
+
+| | survival | median | optimal | standing | contact/min | breach/min | fire/min |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| before | 41.6 / 42.9 / 44.1 / 46.6 / 87.2s | 44.1s | 78% | 0.86 | 0.0 | 15.4 | 0.0 |
+| after | 41.6 / 42.9 / 44.1 / 46.6 / 87.2s | 44.1s | 78% | 0.86 | 2.6 | 15.4 | 0.0 |
+
+**Survival did not move on any seed, to the decimal**, and `npm run neutral`
+against the same snapshot says why while failing as a balance change must:
+on every seed `contactLoss + breachLoss` is identical before and after
+(10/10, 10/10, 15/15, 8/8, 35/35; seed 4 identical in every field) and only
+`kills` differs, by one on seeds 1 and 5. In the regime the probe reaches -
+under 75 power, where every price is its floor - a body that walks into the
+ring is a body that was going to cross the line two to four seconds later at
+the same price, and the bot was not going to kill it in between. Contact
+re-labels the failure; it does not yet add to it. That is a statement about
+the floors and the bot, not about the share: the probe has never held 100
+power, so nothing here has measured the 2% / 4% / 6% regime at all.
+
+`npm run from -- --dps=1e5` (wave 18, power 40, seeds 1-3) is the nearest
+instrument to it and still does not reach it - peak power after is 46 to 63,
+under every crossover - so what it measures is the floors at a wave-18 spawn
+rate, where the difference is how often bodies arrive, not what they cost:
+
+| | survival | contact/min | breach/min | fire/min | standing at end | died |
+| --- | --- | --- | --- | --- | --- | --- |
+| before | 100.7 / 36.7 / 52.9s | 0 / 0 / 0 | 37.5 / 34.3 / 22.7 | 98.3 / 75.2 / 82.8 | 0.04 / 0.09 / 0.12 | attrition x3 |
+| after | 62.4 / 55.9 / 52.0s | 14.4 / 5.4 / 21.9 | 16.3 / 15.0 / 19.6 | 60.6 / 83.7 / 75.0 | 0.10 / 0.06 / 0.06 | attrition x3 |
+
+Contact and breach together run 30 to 41 power a minute against 23 to 38 of
+breach alone before; the medians (52.9s to 55.9s) are within one seed's
+noise and no run meets a Titan either way. The bot does not step aside, so
+this is the highest rate a player would pay.
+
+`npm run titan` is unchanged in what it measures - median delivery **1.00**
+over six kills before and after (1.00 / 1.07 / 0.69 / 0.95 / 1.04 / 0.69
+before; 1.00 / 1.08 / 0.71 / 0.94 / 1.00 / 0.64 after), and the dps-30 state
+still dies to the escorts' fire before the boss arrives on all three seeds.
+What the parked squad now pays its escorts is visible: 12-17 power to
+contact at 1e5 and 55-131 at 1e8, where before it was 0 - the Runners the
+Titan spawns walk into the ring at 2% each instead of crossing the line for 1.
+No Titan landed in any instrumented run, so `landedAt` is reported but not
+yet observed.
+
+`npm run behaviour` needed one change to its tracker and none to its
+assertions: the brute cohort now reaches the parked squad inside the 6s window
+(300px of sprint at ~59px/s, where the line was ~7s away), the consumed slot
+is refilled at the top of the screen by the wave spawner, and a tracker that
+checked only `active` read the same object as an 800px retreat. It now keys
+each body on its per-enemy `seed` and stops on the first reused slot.
 
 ## Art
 
@@ -931,10 +1074,10 @@ see `.claude/skills/phaser4-migration/`.
 
 ## Extending content
 
-- **Enemy**: append to `ENEMIES` in `data/enemies.ts`. Only genuinely new
-  movement needs a case in `Enemies.applyBehaviour`. Note five of the eight
-  current types move identically because their cases fall through to `default`,
-  and `charger` is dead code — fixing that is on the roadmap.
+- **Enemy**: append to `ENEMIES` in `data/enemies.ts` with a `tier` (what it
+  costs on contact - see `CONTACT`). Movement is a `motion` union with one
+  case each in `systems/EnemyMotion.ts`; only genuinely new movement needs a
+  case there, and every case is used by at least one of the nine types.
 - **Bonus**: append to `CANDIDATES` in `data/gates.ts` plus one case in the
   progression model. Magnitudes are never hardcoded — every bonus draws from the
   root table in `data/roots.ts` and presents the draw according to its form.

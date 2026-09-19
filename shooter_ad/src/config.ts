@@ -14,7 +14,7 @@ export const ARENA = {
   /** Horizontal travel limits for the squad centre. */
   minX: 70,
   maxX: VIEW.width - 70,
-  /** Enemies crossing this line damage the squad. */
+  /** Enemies crossing this line beside the army charge it as a contact does. */
   breachY: 862,
   /** Enemies spawn above the top edge. */
   spawnY: -40,
@@ -82,8 +82,6 @@ export const SQUAD = {
    * still finite and increasing there.
    */
   maxPower: 1e15,
-  /** Power lost when an enemy breaches the line, multiplied by enemy damage. */
-  breachLoss: 1,
 } as const;
 
 /** Referenced twice inside WEAPON, so they cannot be self-references. */
@@ -211,13 +209,61 @@ export const ENEMY_FIRE = {
    * flat half-power tax went dead once armies reached the hundreds, so enemy
    * fire stopped being a reason to move exactly when there was the most of it.
    * At 1% a bullet is 1 power until 200, 2 until 300, and 100 at 10,000 - the
-   * same proportional bite all run. Well under a breach, still: a breach is a
-   * failure to kill and costs the enemy's whole damage; fire is a tax on
-   * standing still.
+   * same proportional bite all run. Half a Basic contact and a sixth of a
+   * Large one (`CONTACT`): a body reaching you is a failure to kill, fire is
+   * a tax on standing still.
    */
   powerShare: 0.01,
   minCost: 1,
 } as const;
+
+/**
+ * What an enemy costs when it is not killed - by TOUCHING the army or by
+ * crossing `ARENA.breachY` beside it. The two are one event priced by one
+ * function (`systems/Contact.ts`): a body that reaches you is a failure to
+ * kill whichever line it crossed first, and two prices would drift the way
+ * two scorings would.
+ *
+ * The price is a SHARE of the army you hold, rounded down to whole power and
+ * never below `floor`, per tier of body - the rule enemy fire already
+ * follows (`ENEMY_FIRE.powerShare`). The flat table this replaces
+ * (1/1/3/2/2/5/1/2 per type) went dead the way a flat bullet did: at 640
+ * power a Grunt leaking through cost a sixth of a percent, so past the first
+ * few minutes nothing an enemy did to the army was a reason to move.
+ *
+ * At the floors the early game is the old table almost exactly: a Grunt is
+ * still 1, a Shielder still 2, a Brute still 3 - only the Bomber (5 -> 3)
+ * and the Spitter (1 -> 2) move. The share overtakes the floor at 100 power
+ * for a Basic, 75 for a Medium, 67 for a Large; from there a leak costs the
+ * same bite of a run at 640 as at 38,912 (12 / 25 / 38 there, 778 / 1556 /
+ * 2334 at the old cap). Contact is always at least a bullet (2% vs 1%), and
+ * a Large is three bullets.
+ *
+ * Contact lands EARLIER than a breach did. A full ring's front rank sits at
+ * y ~755 and a lone leader at 800, so a Grunt (r 11) is consumed at y ~736
+ * or ~781 against 862 for the line: 81-126 px sooner, which is 2.4-3.7 s of
+ * a Grunt's descent, 1.5 s of a Runner's, 4.7 s of a Shielder's and 0.8 s
+ * of a Bomber's sprint. Bodies that used to die in those seconds are charges
+ * now, so the floors do not make the early game identical - `npm run
+ * balance` before and after is the record (see CLAUDE.md, "Contact damage").
+ *
+ * The Titan is 100%: reaching you ends the run, whichever line it crossed.
+ *
+ * Tiers are by body size, and are the roster's `tier` field:
+ *   basic  = Grunt, Runner
+ *   medium = Shielder, Spitter, Splitter, Lancer
+ *   large  = Brute, Bomber
+ *   titan  = Titan
+ */
+export const CONTACT = {
+  basic:  { share: 0.02, floor: 1 },
+  medium: { share: 0.04, floor: 2 },
+  large:  { share: 0.06, floor: 3 },
+  titan:  { share: 1,    floor: 0 },
+} as const;
+
+/** A tier is a row of `CONTACT`: a type cannot name a tier that has no price. */
+export type EnemyTier = keyof typeof CONTACT;
 
 export const WAVE = {
   /** Seconds of the first wave; each wave is slightly shorter. */

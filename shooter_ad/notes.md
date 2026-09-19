@@ -664,7 +664,8 @@ Carried over from the earlier backlog, reprioritised against the thesis.
     `EnemyMotion.ts`: zigzag, charger, waypoint, harass (bounded retreat), dash
     (diagonal), drift. Two new types shoot back — Spitter leads the squad,
     Lancer hangs back and shells the lane — and bullets cost power through
-    `SQUAD.fireLoss`, which is the second damage source the design wanted.
+    `ENEMY_FIRE.powerShare`, which is the second damage source the design
+    wanted (contact, below, is the third).
 
     The Shielder was kept and made genuinely directional rather than renamed:
     its `frontArmor` only applies inside the cone it is walking into, so its
@@ -717,9 +718,9 @@ late — but it is the number to watch if real play says cages feel like walls.
 A landing bullet costs **1% of the army you hold, rounded down, never less
 than one power** (times the gun's damage). A flat half-power tax went dead
 once armies reached the hundreds, so enemy fire stopped being a reason to move
-exactly when there was the most of it. It is still well under a breach, which
-costs the enemy's whole damage: a breach is a failure to kill, fire is a tax on
-standing still.
+exactly when there was the most of it. It is still well under a contact, which
+is 2% to 6% by body size (below): a body reaching you is a failure to kill,
+fire is a tax on standing still.
 
 The floor doubles the early tax (a bullet was 0.5), and the share quadruples
 it at 270 power. On a bot that never dodges this is now the late game's main
@@ -727,6 +728,27 @@ killer: from injected 1e5 and 1e8 builds the runs end by attrition with
 standing near zero, where before they ended at a Titan near par. That is the
 designed consequence for a player who does not move; whether it is right for
 one who does is a question for the author under fire.
+
+## Enemies have a hurt box
+
+An enemy touching the army damages it and is destroyed doing so. The army
+cannot hide inside the mob any more: reaching you IS the failure, not walking
+a further sixty pixels to a line. Contact and breach cost the same, because
+they are the same failure - a body you did not kill. The cost is a share of
+the army by body size - 2% for a Grunt or Runner, 4% for the middle weights,
+6% for a Brute or Bomber, floored at 1 / 2 / 3 so the first minutes play as
+they did - so a leak never goes dead late the way a flat charge did at a
+thousand power; the Titan is 100%, and reaching you ends the run whichever
+line it crossed. The Healer is gone: a body that undid your work in the mob
+made the Titan feel unfair rather than hard, and the boss check is the thing
+the damage economy is for.
+
+Two things the floors do not hide, both measured in `CLAUDE.md` under
+"Contact damage": contact lands two to five seconds of descent before a
+breach did, so bodies the column used to finish in those seconds are charges
+now; and the Bomber's early price fell from 5 to 3 at the floor, which the
+author accepted. A contact is not a kill - no streak, no kill count, no split
+- because standing in the stream must never be a way to farm.
 
 ## What one session of real play found
 

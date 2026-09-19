@@ -6,7 +6,9 @@ import { bulletTint, tierRow } from '../data/tiers';
 import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
 import { EnemyBullets } from '../systems/EnemyBullets';
-import { Enemies, type Enemy } from '../systems/Enemies';
+import { Enemies, type Consumed, type Enemy } from '../systems/Enemies';
+import { contactCost } from '../systems/Contact';
+import { EventQueue } from '../systems/SimEvents';
 import { FORMATION_HALF_WIDTH } from '../systems/Formation';
 import { Gates } from '../systems/Gates';
 import { Difficulty } from '../systems/Difficulty';
@@ -115,8 +117,16 @@ export class GameScene extends Phaser.Scene {
    * places at once" - the survival curve falls as PROBE_SKILL rises and these
    * are what decide whether that is the bot's positioning or the game's clamp.
    */
+  private contactLoss = 0;
   private breachLoss = 0;
   private fireLoss = 0;
+  /**
+   * What the simulation did this step, for the renderer. Pushed only inside
+   * `step`, drained at the top of `render`; nothing in `systems/` reads it.
+   */
+  private readonly sim = new EventQueue();
+  /** Highest offer pair announced as sensed, so the event fires once per offer. */
+  private lastSensedPair = -1;
   /**
    * Bresenham accumulator deciding which shots are DRAWN. Rendering state; it
    * is read by nothing in the simulation and reset with the run only so a new
@@ -152,12 +162,13 @@ export class GameScene extends Phaser.Scene {
   private shotLandings = 0;
   /**
    * One entry per Titan this run met: the player's single-target standing at
-   * the moment it spawned, and the fraction of its descent it had covered
-   * when it died - `null` while it is alive, and forever if it landed, which
-   * is `cause === 'titan'`. The boss budget is written in exactly these two
-   * numbers, so this is what `npm run titan` reads.
+   * the moment it spawned, the fraction of its descent it had covered when it
+   * died - `null` while it is alive, and forever if it landed, which is
+   * `cause === 'titan'` - and where on that descent it was consumed if it did
+   * land, on the ring or at the line. The boss budget is written in exactly
+   * these numbers, so this is what `npm run titan` reads.
    */
-  private titanChecks: { standing: number; killedAt: number | null }[] = [];
+  private titanChecks: { standing: number; killedAt: number | null; landedAt: number | null }[] = [];
   private lastX = VIEW.width / 2;
   private streak = 0;
   private over = false;
@@ -199,7 +210,10 @@ export class GameScene extends Phaser.Scene {
         );
         this.difficulty.observeGateOffer(offer, this.enemies.wave.index);
       },
-      (pair) => this.log.resolve(pair, -1),
+      (pair) => {
+        this.log.resolve(pair, -1);
+        this.sim.push({ kind: 'miss', x: VIEW.width / 2, y: ARENA.laneY, pair });
+      },
     );
     this.grid = new Grid<Enemy>(48, VIEW.width);
 
@@ -370,8 +384,11 @@ export class GameScene extends Phaser.Scene {
     this.log.reset();
     this.elapsed = 0;
     this.accumulator = 0;
+    this.contactLoss = 0;
     this.breachLoss = 0;
     this.fireLoss = 0;
+    this.sim.drain();
+    this.lastSensedPair = -1;
     this.drawCredit = 0;
     this.simCredit = 0;
     this.pendingShots = 0;
@@ -454,18 +471,39 @@ export class GameScene extends Phaser.Scene {
       this.squad.addPower(WAVE.clearBonus);
       this.difficulty.awardWaveClear();
       this.toast(`WAVE ${this.enemies.wave.index}`);
-      if (this.enemies.wave.index % WAVE.bossEvery === 0) {
+      const boss = this.enemies.wave.index % WAVE.bossEvery === 0;
+      this.sim.push({ kind: 'wave', index: this.enemies.wave.index, bonus: WAVE.clearBonus, titan: boss });
+      if (boss) {
         this.titanChecks.push({
           standing: Number(this.difficulty.singleTargetStanding(this.squad.progress).toFixed(3)),
           killedAt: null,
+          landedAt: null,
         });
+        if (this.enemies.titan) this.sim.push({ kind: 'titan', phase: 'arrive' });
       }
     }
+    if (this.enemies.titan?.volleyed) this.sim.push({ kind: 'titan', phase: 'volley' });
+    this.announceSensed();
 
+    // Bullets first, so a body a shot kills this step is a kill and never a
+    // contact; contacts before breaches, so a body satisfying both (a Grunt
+    // at the line is 17px from the bottom rank, inside the 19px it takes to
+    // touch) is a contact.
     this.collide();
+    this.applyContacts();
     this.checkGates();
     this.applyBreaches();
     this.applyIncomingFire();
+  }
+
+  /** One `sense` event per sensed offer, on the step it first appears. */
+  private announceSensed(): void {
+    for (const g of this.gates.items) {
+      if (!g.active || !g.sensed || g.pair <= this.lastSensedPair) continue;
+      this.lastSensedPair = g.pair;
+      this.sim.push({ kind: 'sense', pair: g.pair });
+      return;
+    }
   }
 
   /**
@@ -671,8 +709,12 @@ export class GameScene extends Phaser.Scene {
         this.shotLandings += topBefore - b.bundle[b.bundle.length - 1];
         const titan = e.type.id === 'titan' ? Enemies.titanProgress(e) : -1;
         if (this.enemies.damage(e, consumed * b.damage, ux, uy)) {
-          this.onKill();
+          this.sim.push({
+            kind: 'kill', x: e.x, y: e.y, radius: e.radius, color: e.type.color, titan: titan >= 0,
+          });
+          this.onKill(e.x, e.y);
           if (titan >= 0) {
+            this.sim.push({ kind: 'titan', phase: 'down' });
             const check = this.titanChecks[this.titanChecks.length - 1];
             if (check) check.killedAt = Number(titan.toFixed(3));
           }
@@ -699,19 +741,21 @@ export class GameScene extends Phaser.Scene {
             : CAGE.reward;
           this.squad.addPower(reward);
           this.toast(`RESCUED +${reward}`);
+          this.sim.push({ kind: 'rescue', x: c.x, y: c.y, amount: reward });
         }
         if (!b.active) break;
       }
     }
   }
 
-  private onKill(): void {
+  private onKill(x: number, y: number): void {
     this.kills++;
     this.streak++;
     if (this.streak >= STREAK.killsPerBonus) {
       this.streak = 0;
       this.squad.addPower(STREAK.bonus);
       this.toast(`STREAK +${STREAK.bonus}`);
+      this.sim.push({ kind: 'streak', x, y, amount: STREAK.bonus });
     }
   }
 
@@ -728,31 +772,73 @@ export class GameScene extends Phaser.Scene {
       // was actually deciding in.
       this.gates.consumePair(g.pair);
       const rank = this.log.resolve(g.pair, g.index);
-      if (rank !== null) this.flashPick(g.x, g.y, rank);
+      if (rank !== null) {
+        this.flashPick(g.x, g.y, rank);
+        this.sim.push({
+          kind: 'pick', x: g.x, y: g.y, width: g.width, axis: g.type.axis, label: g.type.label,
+          grade: rank <= 0.001 ? 'perfect' : rank >= 0.999 ? 'bad' : 'good',
+        });
+      }
       this.toast(this.squad.applyGate(g.type));
     }
   }
 
-  private applyBreaches(): void {
-    const { cost, titan } = this.enemies.collectBreaches();
-    if (cost <= 0) return;
-    this.squad.addPower(-cost * SQUAD.breachLoss);
-    this.breachLoss += cost * SQUAD.breachLoss;
-    // A Titan reaching the line ends the run outright, whatever power is left.
-    // Its HP is budgeted so that killing it is achievable at `bossKillPar` of
-    // par over `bossKillDistance` of its descent; letting it land and merely
-    // taking damage would make that budget meaningless.
+  /** Bodies touching the ring, consumed at the contact price. */
+  private applyContacts(): void {
+    const { consumed, titan } = this.enemies.collectContacts(this.squad.units, SQUAD.unitRadius);
+    if (consumed.length === 0) return;
+    this.contactLoss += this.charge(consumed, 'contact');
     this.cameras.main.shake(titan ? 260 : 120, titan ? 0.014 : 0.006);
-    if (titan || !this.squad.alive) {
-      this.over = true;
-      this.emitGameOver(titan ? 'titan' : 'overrun');
+    this.endIfLost(titan);
+  }
+
+  /** Bodies past the line that missed the ring. Same price, same function. */
+  private applyBreaches(): void {
+    const { consumed, titan } = this.enemies.collectBreaches();
+    if (consumed.length === 0) return;
+    this.breachLoss += this.charge(consumed, 'breach');
+    this.cameras.main.shake(titan ? 260 : 120, titan ? 0.014 : 0.006);
+    this.endIfLost(titan);
+  }
+
+  /** Prices every body against the power held BEFORE any of them landed. */
+  private charge(consumed: readonly Consumed[], kind: 'contact' | 'breach'): number {
+    const power = this.squad.power;
+    let total = 0;
+    for (const c of consumed) {
+      const cost = contactCost(c.type, power);
+      total += cost;
+      const titan = c.type.id === 'titan';
+      this.sim.push({
+        kind, x: c.x, y: c.y, cost, share: power > 0 ? cost / power : 1, tier: c.type.tier, titan,
+      });
+      if (titan) {
+        const check = this.titanChecks[this.titanChecks.length - 1];
+        if (check) check.landedAt = Number(Enemies.titanProgressAt(c.y).toFixed(3));
+      }
     }
+    this.squad.addPower(-total);
+    return total;
   }
 
   /**
-   * Squad power destroyed by enemy fire. Separate from `applyBreaches` on
-   * purpose: a breach is a failure to kill, while fire is a tax on standing
-   * still, and the two need to read differently.
+   * A Titan reaching the army ends the run outright, whatever power is left.
+   * Its HP is budgeted so that killing it is achievable at `bossKillPar` of
+   * par over `bossKillDistance` of its descent; letting it land and merely
+   * taking damage would make that budget meaningless.
+   */
+  private endIfLost(titan: boolean): void {
+    // Once, whichever check ended it: a Titan contact zeroes the army, and
+    // fire landing on the same step must not re-announce the end as attrition.
+    if (this.over || (!titan && this.squad.alive)) return;
+    this.over = true;
+    this.emitGameOver(titan ? 'titan' : 'overrun');
+  }
+
+  /**
+   * Squad power destroyed by enemy fire. Separate from the contact price on
+   * purpose: a body reaching you is a failure to kill, while fire is a tax on
+   * standing still, and the two need to read differently.
    */
   private applyIncomingFire(): void {
     const hits = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius);
@@ -760,17 +846,14 @@ export class GameScene extends Phaser.Scene {
     // A bullet costs a share of the army you hold, floored to whole power and
     // never less than one - read once, from the power before this step's
     // hits, so several bullets landing together each cost the same.
-    const perHit = Math.max(
-      ENEMY_FIRE.minCost, Math.floor(this.squad.power * ENEMY_FIRE.powerShare),
-    );
+    const power = this.squad.power;
+    const perHit = Math.max(ENEMY_FIRE.minCost, Math.floor(power * ENEMY_FIRE.powerShare));
     const cost = hits * perHit;
     this.squad.addPower(-cost);
     this.fireLoss += cost;
+    this.sim.push({ kind: 'fire', cost, share: power > 0 ? cost / power : 1, hits });
     this.cameras.main.shake(70, 0.003);
-    if (!this.squad.alive) {
-      this.over = true;
-      this.emitGameOver();
-    }
+    this.endIfLost(false);
   }
 
   /**
@@ -798,8 +881,9 @@ export class GameScene extends Phaser.Scene {
    * The end screen's whole payload, including the match code, because that
    * screen is a shareable artefact rather than a summary - see hud/EndScreen.
    */
-  private emitGameOver(cause: 'overrun' | 'titan' = 'overrun'): void {
+  private emitGameOver(cause: 'overrun' | 'titan'): void {
     this.cause = cause;
+    this.sim.push({ kind: 'over', cause });
     const match = { seed: this.seed, mode: this.mode };
     this.game.events.emit('gameover', {
       cause,
@@ -807,6 +891,7 @@ export class GameScene extends Phaser.Scene {
       kills: this.kills,
       optimal: this.log.fractionOfOptimal,
       tally: this.log.tally,
+      contactLoss: Math.round(this.contactLoss),
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
       traveled: Math.round(this.traveled),
@@ -893,6 +978,7 @@ export class GameScene extends Phaser.Scene {
       })(),
       seed: this.seed,
       gates,
+      contactLoss: Math.round(this.contactLoss),
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
       traveled: Math.round(this.traveled),
@@ -948,6 +1034,10 @@ export class GameScene extends Phaser.Scene {
   // --- rendering ------------------------------------------------------------
 
   private render(): void {
+    // Everything the steps since the last frame did, in order, as one emit:
+    // the renderer's, the HUD's and the audio's single account of the step.
+    const events = this.sim.drain();
+    if (events.length) this.game.events.emit('moment', events);
     this.renderEnemies();
     this.renderBullets();
     this.renderEnemyFire();

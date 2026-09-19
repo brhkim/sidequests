@@ -881,4 +881,46 @@ console.log('\n=== rescue cages and enemy fire scale with the run ===');
   expect('a bullet costs a whole 1% of a large army', cost(10000) === 100 && cost(10099) === 100);
 }
 
+console.log('\n=== contact: what a body costs when it reaches the army ===');
+{
+  // One function prices contact and breach, against the power held before
+  // the step's charges - see systems/Contact.ts and the CONTACT block.
+  const { CONTACT, ENEMY_FIRE } = await import('../src/config.ts');
+  const { ENEMIES, ENEMY_BY_ID } = await import('../src/data/enemies.ts');
+  const { contactCost } = await import('../src/systems/Contact.ts');
+  const byTier = { basic: ['grunt', 'runner'], medium: ['shielder', 'spitter', 'splitter', 'lancer'], large: ['brute', 'bomber'], titan: ['titan'] };
+  for (const e of ENEMIES) {
+    expect(`${e.id} names a priced tier (${e.tier})`, Object.hasOwn(CONTACT, e.tier));
+    expect(`${e.id} is in the tier the author decided (${e.tier})`, byTier[e.tier].includes(e.id));
+  }
+  expect('the Healer is gone', !ENEMY_BY_ID.has('healer'));
+  expect('the roster is nine types', ENEMIES.length === 9);
+  const t = (tier) => ENEMY_BY_ID.get(byTier[tier][0]);
+  const cost = (tier, power) => contactCost(t(tier), power);
+  expect('basic: floor 1 up to 99 power, share from 100', cost('basic', 1) === 1 && cost('basic', 99) === 1 && cost('basic', 100) === 2);
+  expect('medium: floor 2 up to 74 power, share from 75', cost('medium', 5) === 2 && cost('medium', 74) === 2 && cost('medium', 75) === 3);
+  expect('large: floor 3 up to 66 power, share from 67', cost('large', 19) === 3 && cost('large', 66) === 3 && cost('large', 67) === 4);
+  expect('shares at the old cap: 778 / 1556 / 2334', cost('basic', 38912) === 778 && cost('medium', 38912) === 1556 && cost('large', 38912) === 2334);
+  expect('the Titan is the whole army', [1, 19, 640, 38912].every((p) => cost('titan', p) === p));
+  const bullet = (p) => Math.max(ENEMY_FIRE.minCost, Math.floor(p * ENEMY_FIRE.powerShare));
+  // Monotone over the three ORDINARY tiers. The Titan is priced at exactly the
+  // army, which at 1 or 2 power is numerically below a Large's floor of 3 -
+  // irrelevant in play, because a Titan reaching the army ends the run on its
+  // own flag rather than by the power reaching zero, and asserted above.
+  let monotone = true, atLeastBullet = true;
+  for (let p = 1; p <= 1e6; p = Math.ceil(p * 1.37)) {
+    if (!(cost('basic', p) <= cost('medium', p) && cost('medium', p) <= cost('large', p))) monotone = false;
+    if (cost('basic', p) < bullet(p)) atLeastBullet = false;
+  }
+  expect('cost is monotone basic <= medium <= large at every power', monotone);
+  expect('a Basic contact is never cheaper than a bullet', atLeastBullet);
+  console.log('  army      bullet   basic   medium   large     titan');
+  for (const p of [1, 5, 19, 100, 640, 38912]) {
+    console.log(
+      String(p).padStart(6), String(bullet(p)).padStart(10), String(cost('basic', p)).padStart(8),
+      String(cost('medium', p)).padStart(8), String(cost('large', p)).padStart(8), String(cost('titan', p)).padStart(9),
+    );
+  }
+}
+
 console.log('PASS');

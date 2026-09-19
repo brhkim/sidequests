@@ -13,7 +13,8 @@
  * that expectation next to the measurement, and their ratio is the DELIVERY:
  * how much of the damage the budget assumed actually arrived. Below 1 is shots
  * the boss's escorts ate, time the squad spent catching up with its drift, and
- * power lost to breaches while parked. It is a ceiling on what a player can do
+ * power lost to escorts walking into the parked squad (a contact, 2% each) or
+ * to their fire. It is a ceiling on what a player can do
  * against the boss and a floor on how honest the budget is; whether the
  * remaining descent is enough slack for a human who also has to dodge and take
  * gates is the author's question, and `npm run from` is the nearer instrument.
@@ -116,7 +117,7 @@ for (const start of starts) {
   const p = { power: start.power, upgrades: start.upgrades };
   console.log(`${start.label}: power ${Math.round(p.power)}, guns ${p.upgrades.guns}, pierce ${p.upgrades.pierce},`
     + ` single-target ${singleTargetDps(p).toExponential(2)}/s`);
-  console.log('  seed   standing at spawn   expected kill at   measured kill at   delivery   outcome');
+  console.log('  seed   standing at spawn   expected kill at   measured kill at   delivery   lost to contact / fire   outcome');
   for (const seed of SEEDS) {
     const r = await playSeedParked(browser, port, { seed, seconds: SECONDS, mode: MODE, start });
     errors += r.errors.length;
@@ -131,10 +132,14 @@ for (const start of starts) {
     const measured = check.killedAt;
     const delivery = measured === null ? null : expected / measured;
     if (delivery !== null) deliveries.push(delivery);
+    // A Titan that lands does so ON THE SQUAD, about 85% down, not at the
+    // line: contact ends the run the way a breach does, and where it happened
+    // says how much descent the squad had left.
+    const landed = check.landedAt === null ? '' : ` at ${(check.landedAt * 100).toFixed(0)}%`;
     const outcome = measured !== null
       ? 'killed'
       : r.cause === 'titan'
-        ? `LANDED with ${((r.titan?.hpFrac ?? r.lastTitanHp ?? 0) * 100).toFixed(0)}% HP left`
+        ? `LANDED on the squad${landed} with ${((r.titan?.hpFrac ?? r.lastTitanHp ?? 0) * 100).toFixed(0)}% HP left`
         : r.died ? 'squad died first' : `budget hit, Titan at ${((r.titan?.progress ?? 0) * 100).toFixed(0)}% with ${((r.titan?.hpFrac ?? 0) * 100).toFixed(0)}% HP`;
     console.log(
       String(seed).padStart(6),
@@ -142,6 +147,7 @@ for (const start of starts) {
       `${(expected * 100).toFixed(0)}%`.padStart(18),
       (measured === null ? '-' : `${(measured * 100).toFixed(0)}%`).padStart(18),
       (delivery === null ? '-' : delivery.toFixed(2)).padStart(10),
+      `${r.contactLoss} / ${r.fireLoss}`.padStart(24),
       '  ' + outcome,
     );
   }
@@ -153,7 +159,7 @@ close();
 const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 if (deliveries.length) {
   console.log(`median delivery ${med(deliveries).toFixed(2)} over ${deliveries.length} kills`
-    + ` (1.0 = the budget's assumption exactly; below it is escorts, drift and breaches)`);
+    + ` (1.0 = the budget's assumption exactly; below it is escorts, drift and contacts)`);
 }
 console.log(`errors: ${errors}`);
 process.exit(errors > 0 || failures > 0 ? 1 : 0);
@@ -192,5 +198,7 @@ async function playSeedParked(browser, port, opts) {
     titanChecks: last?.titanChecks ?? [],
     titan: last?.titan ?? null,
     lastTitanHp,
+    contactLoss: last?.contactLoss ?? 0,
+    fireLoss: last?.fireLoss ?? 0,
   };
 }

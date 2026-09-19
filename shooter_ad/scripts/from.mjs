@@ -121,7 +121,7 @@ close();
 
 console.log(`\nmode ${MODE}, skill ${SKILL}, budget ${SECONDS}s simulated\n`);
 console.log('  seed   survived   waves reached   standing at end   optimal   decisions'
-  + '   breach/min   fire/min   peak power   end DPS      par DPS      died   pierce claim/measured');
+  + '   contact/min   breach/min   fire/min   peak power   end DPS      par DPS      died   pierce claim/measured');
 const perMin = (v, r) => (r.survived > 0 ? (v / r.survived) * 60 : 0);
 for (const r of results) {
   const endStanding = r.rows.length ? r.rows[r.rows.length - 1].standing : 1;
@@ -132,6 +132,7 @@ for (const r of results) {
     endStanding.toFixed(2).padStart(17),
     `${(r.optimal * 100).toFixed(0)}%`.padStart(10),
     String(r.decisions).padStart(11),
+    perMin(r.contactLoss, r).toFixed(1).padStart(14),
     perMin(r.breachLoss, r).toFixed(1).padStart(13),
     perMin(r.fireLoss, r).toFixed(1).padStart(11),
     String(r.peakPower).padStart(13),
