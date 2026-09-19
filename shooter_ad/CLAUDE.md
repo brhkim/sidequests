@@ -27,6 +27,7 @@ npm run pressure   # sweeps the two knobs that set how hard ordinary enemies are
 npm run neutral    # proves a change was RENDERING-ONLY, against a reference build
 npm run from       # plays real runs from an INJECTED late-game state, par equal to it
 npm run titan      # parks a squad under the boss and reports where on its descent it died
+npm run roster     # photographs every enemy type, the cage, every gun's volley, hits and kills
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -1064,13 +1065,78 @@ each body on its per-enemy `seed` and stops on the first reused slot.
 
 ## Art
 
-Entirely procedural, generated in `BootScene` with `Graphics#generateTexture`.
-Everything is drawn white and tinted at runtime, so one texture serves every
-colour. No asset files, nothing to load at runtime — which is what keeps the
-build a static folder.
+Entirely procedural, generated in `BootScene` with `Graphics#generateTexture`
+from the modules in `scenes/art/` (`creatures`, `squad`, `projectiles`,
+`cage`, and `draw` for the helper). No asset files, nothing to load at
+runtime — which is what keeps the build a static folder.
+`TextureManager.generate` and the Create palettes were **removed in Phaser
+v4**; see `.claude/skills/phaser4-migration/`.
 
-`TextureManager.generate` and the Create palettes were **removed in Phaser v4**;
-see `.claude/skills/phaser4-migration/`.
+**White with black detail.** Every texture is drawn white with its details -
+eyes, seams, mouth slots, outlines - in pure black, at 2x, and shown at
+`setScale(0.5)`. Under the default multiply tint white takes the runtime
+colour and black stays black, so one texture serves every hue and a 3px seam
+stays crisp. Anything needing a SECOND hue (the Shielder's pale plate, the
+Bomber's ember, the Spitter's gun tube, the Lancer's trident, the Titan's
+eyes) is a separate overlay texture tinted `EnemyType.accent`, one depth
+above its body. `accent` is a rendering field and nothing in `systems/`
+reads it.
+
+**Radius is simulation; the sprite is fitted to it.** `EnemyType.radius` is
+the hit circle and never changes for a drawing. Each creature's box is
+`2 * (2r + margin)` with the circle centred; solid mass stays inside it and
+only thin appendages cross, by a quarter of r at most (the Runner's nose is
+the worst, ~4px). `CREATURE_ART` in `art/creatures.ts` is the table the
+renderer reads - body key, accent key, whether it rotates to its travel
+(walkers) or stays upright (gun types), whether it is drawn in the Titan
+pools, and its one authored motion (the Splitter swells, the Bomber's ember
+pulses; nothing else animates). `SpriteRender.renderEnemies` has no per-type
+branch; a new creature is a texture and a row.
+
+**Hit feedback is a flash and a bleach, never an alpha fade.** A wounded
+body used to fade toward the background and vanish. Now `Enemies.damage`
+stamps `hitFlash = e.timer` (its own clock) and `GameScene.collide` stamps
+`c.hitFlash = elapsed` on a cage; the renderer draws the body pure white for
+`RENDER.hitFlash` (0.07s) after the stamp and otherwise tints it
+`RENDER.bleach` (35%) of the way to white at zero HP. The stamp is written
+by the simulation and read only by rendering - `grep hitFlash src/systems`
+must show the field, the two `-1` initialisers and the one set, nothing
+else. Health bars stay for `radius >= 14`.
+
+**Death pops are a fixed budget.** `render/Shards.ts` keeps `RENDER.shardRing`
+(96) shard records and one sprite pool; a `kill` event throws
+`shardsPerKill` (3; 12 for a Titan) for `shardLife` (0.28s), a `contact`
+event throws two dull ones for 0.18s. Past the budget the oldest shard is
+overwritten, so a burst never allocates. Spoke angles are phased off the
+simulated clock, never the RNG.
+
+**Enemy bullets are darts, not small enemies.** `ebullet` is a black-outlined
+teardrop rotated along its velocity, in `COLORS.enemyBullet` (hot magenta -
+no body wears it), with a faint copy behind it (`RENDER.bulletTrail`). Squad
+bullets stay the cream pill on the tier ladder. `ENEMY_FIRE.radius` is
+unchanged; the dart is 8x16 on screen around a 5px hit circle.
+
+**Depth map** (UX and HUD layers omitted; see their sections):
+
+| depth | what |
+| --- | --- |
+| 8 / 9 | Titan body / accent (`bigPool`) |
+| 10 / 11 | enemy bodies / accents |
+| 12 / 13 | cage inmates / cage bars |
+| 12 | squad bullets |
+| 14 | shards |
+| 18 | enemy overlay (health bars) - above the bodies it annotates |
+| 20 / 21 | squad body / head (`head-lead` for slot 0, with a visor) |
+| 22 / 23 | enemy bullet trail / enemy bullets - above the squad they hit |
+
+**`npm run roster`** photographs the set: `roster.png` (one of each type in
+a row, the Titan, a cage, every gun's volley, the squad at `hud-mid`),
+`roster-hit.png` (bodies flashing, bodies bleached, two kills popping, a
+contact mark, a flashing cage) and `roster-late.png` (`hud-late`).
+`ROSTER_SCALE=3` adds `*-zoom.png` crops at 3x. It asserts only that nothing
+errored; the two questions to put to the stills are whether every type can
+be named from silhouette with colour ignored, and whether any enemy bullet
+could be taken for a Runner.
 
 ## Extending content
 

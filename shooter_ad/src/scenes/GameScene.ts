@@ -690,6 +690,7 @@ export class GameScene extends Phaser.Scene {
         // one that opens it carry on.
         const consumed = strike(b, c.hp, b.damage, false);
         c.hp -= consumed * b.damage;
+        c.hitFlash = this.elapsed;
         if (c.hp <= 0) {
           c.active = false;
           // Flat until the army passes `shareFrom`, a whole share of it after;

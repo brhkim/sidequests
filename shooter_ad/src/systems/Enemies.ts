@@ -34,6 +34,9 @@ export interface Enemy {
   /** Fired a volley THIS step. Cleared every step before traits run; the
    * renderer reads it off the Titan for its volley event. */
   volleyed: boolean;
+  /** `timer` at the last hit that landed, -1 if none. Written here, read only
+   * by rendering (the hit flash); nothing in `systems/` branches on it. */
+  hitFlash: number;
   active: boolean;
 }
 
@@ -48,6 +51,8 @@ export interface Consumed { readonly type: EnemyType; readonly x: number; readon
 export interface Cage {
   x: number; y: number;
   hp: number; maxHp: number;
+  /** Simulated seconds at the last hit, -1 if none. Rendering only. */
+  hitFlash: number;
   active: boolean;
 }
 
@@ -183,6 +188,7 @@ export class Enemies {
       gunCooldown: ENEMY_FIRE.armDelay + phase * 0.12,
       traitCooldown: 0,
       volleyed: false,
+      hitFlash: -1,
       active: true,
     };
     if (free) Object.assign(free, enemy);
@@ -258,7 +264,7 @@ export class Enemies {
       const hp = Math.max(1, this.titanBudget() * CAGE.hpTitanFraction);
       const cage = this.cages.find((c) => !c.active);
       const fresh: Cage = {
-        x: this.spawnX(CAGE.radius), y: ARENA.spawnY, hp, maxHp: hp, active: true,
+        x: this.spawnX(CAGE.radius), y: ARENA.spawnY, hp, maxHp: hp, hitFlash: -1, active: true,
       };
       if (cage) Object.assign(cage, fresh);
       else this.cages.push(fresh);
@@ -277,6 +283,7 @@ export class Enemies {
    */
   damage(e: Enemy, amount: number, dx = 0, dy = -1): boolean {
     e.hp -= amount * (1 - armorAgainst(e, dx, dy));
+    e.hitFlash = e.timer;
     if (e.hp > 0) return false;
     e.active = false;
     const t = e.type;

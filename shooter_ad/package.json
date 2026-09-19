@@ -22,7 +22,8 @@
     "matchcode": "node --experimental-strip-types scripts/matchcode.mjs",
     "endscreen": "node scripts/endscreen.mjs",
     "from": "node --experimental-strip-types scripts/from.mjs",
-    "titan": "node --experimental-strip-types scripts/titan.mjs"
+    "titan": "node --experimental-strip-types scripts/titan.mjs",
+    "roster": "node scripts/roster.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0",

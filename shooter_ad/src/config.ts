@@ -601,6 +601,28 @@ export const RENDER = {
    * draws every shot should keep drawing every shot.
    */
   maxVisibleShotsPerSecond: 60,
+  // --- sprites
+  /**
+   * Seconds a body is drawn pure white after a hit. The simulation stamps its
+   * own clock on the body (`hitFlash` in systems/Enemies.ts); the renderer
+   * compares, so nothing here is ever read back by a system.
+   */
+  hitFlash: 0.07,
+  /** How far a body bleaches toward white at zero HP. Never an alpha fade: a
+   * half-dead Grunt used to vanish into the background. */
+  bleach: 0.35,
+  /** Death pop: shards per kill, per Titan kill, and their lifetime. */
+  shardsPerKill: 3,
+  shardsPerTitan: 12,
+  shardLife: 0.28,
+  /** Contact pop: a body reaching the army leaves a smaller, duller mark. */
+  shardsPerContact: 2,
+  contactLife: 0.18,
+  /** Fixed shard budget. 50 kills/s x 0.28s x 3 = 42 live; the ring overwrites
+   * the oldest past this, so a burst never allocates. */
+  shardRing: 96,
+  /** Enemy bullets draw a faint copy a few pixels behind them. */
+  bulletTrail: true,
 } as const;
 
 export const COLORS = {
@@ -610,6 +632,6 @@ export const COLORS = {
   bullet: BULLET_BASE,
   text: '#e8ecf8',
   cage: 0xb9a06a,
-  enemyBullet: 0xff8a5c,
+  enemyBullet: 0xff2fa6,
   shield: 0xbcd8ff,
 } as const;

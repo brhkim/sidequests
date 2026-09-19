@@ -79,7 +79,10 @@ export interface EnemyType {
   readonly id: string;
   readonly name: string;
   readonly motion: Motion;
+  /** Body tint. Textures are white with black detail, so this is the hue. */
   readonly color: number;
+  /** Tint of the type's overlay sprite (plate, fuse, gun, eyes), where the
+   * art table in `scenes/art/creatures.ts` gives it one. Rendering only. */
   readonly accent: number;
   readonly radius: number;
   readonly hp: number;
@@ -112,19 +115,19 @@ export const ENEMIES: readonly EnemyType[] = [
   {
     id: 'grunt', name: 'Grunt',
     motion: { kind: 'waypoint', lateral: 26, span: 90 },
-    color: 0x7f8a63, accent: 0x4d5540,
+    color: 0x7f8a63, accent: 0xdde6c8,
     radius: 11, hp: 6, speed: 34, tier: 'basic', armor: 0, weight: 100, minWave: 1,
   },
   {
     id: 'runner', name: 'Runner',
     motion: { kind: 'zigzag', amplitude: 78, frequency: 3.4 },
-    color: 0xe8d44d, accent: 0xa08f1d,
+    color: 0xe8d44d, accent: 0xfff6c0,
     radius: 9, hp: 4, speed: 82, tier: 'basic', armor: 0, weight: 55, minWave: 2,
   },
   {
     id: 'brute', name: 'Brute',
     motion: { kind: 'charger', trigger: 300, sprint: 2.8 },
-    color: 0x8e3b3b, accent: 0x5c2222,
+    color: 0xb5473f, accent: 0xffd9c2,
     radius: 19, hp: 46, speed: 21, tier: 'large', armor: 0.15, weight: 40, minWave: 3,
   },
   {
@@ -132,27 +135,27 @@ export const ENEMIES: readonly EnemyType[] = [
     // Fast lateral legs on purpose: the shield points where it is walking, so
     // a hard sideways leg is the window where its front is not facing you.
     motion: { kind: 'waypoint', lateral: 74, span: 190 },
-    color: 0x5b7fa8, accent: 0x2f4a66,
+    color: 0x5b7fa8, accent: 0xbcd8ff,
     radius: 14, hp: 26, speed: 27, tier: 'medium',
     armor: 0.1, frontArmor: 0.65, weight: 35, minWave: 4,
   },
   {
     id: 'splitter', name: 'Splitter',
     motion: { kind: 'dash', interval: 2.4, duration: 0.5, speed: 4.2, idle: 0.45, lateral: 1.1 },
-    color: 0x63c76a, accent: 0x2f7a38,
+    color: 0x63c76a, accent: 0xd8ffd0,
     radius: 15, hp: 20, speed: 31, tier: 'medium', armor: 0, weight: 32, minWave: 5,
     splitInto: 'grunt', splitCount: 3,
   },
   {
     id: 'bomber', name: 'Bomber',
     motion: { kind: 'charger', trigger: 190, sprint: 2.2 },
-    color: 0xff7a2f, accent: 0xb04c12,
+    color: 0xff7a2f, accent: 0xffe066,
     radius: 12, hp: 11, speed: 68, tier: 'large', armor: 0, weight: 28, minWave: 6,
   },
   {
     id: 'spitter', name: 'Spitter',
     motion: { kind: 'waypoint', lateral: 58, span: 150 },
-    color: 0x8ad6c2, accent: 0x2f6f60,
+    color: 0x3fc9c9, accent: 0xf4fbff,
     radius: 12, hp: 16, speed: 30, tier: 'medium', armor: 0, weight: 30, minWave: 4,
     gun: { interval: 2.1, count: 1, spread: 0, speed: 210, damage: 1, aimed: true },
   },
@@ -160,14 +163,14 @@ export const ENEMIES: readonly EnemyType[] = [
     id: 'lancer', name: 'Lancer',
     // Hangs back and shells the lane rather than committing to the breach.
     motion: { kind: 'harass', advance: 2.6, retreat: 1.3, retreatSpeed: 0.8, maxRetreat: 110 },
-    color: 0xc2557f, accent: 0x76294a,
+    color: 0xc2557f, accent: 0xfff0f4,
     radius: 13, hp: 22, speed: 38, tier: 'medium', armor: 0.1, weight: 24, minWave: 7,
     gun: { interval: 2.6, count: 3, spread: 0.42, speed: 185, damage: 1, aimed: false },
   },
   {
     id: 'titan', name: 'Titan',
     motion: { kind: 'drift', amplitude: 42, frequency: 0.8 },
-    color: 0x6b2b8c, accent: 0x3a1550,
+    color: 0x8a3fb8, accent: 0xffd7ff,
     radius: 38, hp: 420, speed: 15, tier: 'titan', armor: 0.35, weight: 0, minWave: 5,
     escort: { interval: 2.2, spawn: 'runner', count: 1 },
     gun: { interval: 3.4, count: 5, spread: 0.9, speed: 165, damage: 1, aimed: false },
