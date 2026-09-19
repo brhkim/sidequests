@@ -1164,6 +1164,82 @@ errored; the two questions to put to the stills are whether every type can
 be named from silhouette with colour ignored, and whether any enemy bullet
 could be taken for a Runner.
 
+### Audio
+
+Sound follows the art's rule: no files, everything synthesised. It is raw
+WebAudio in `src/audio/`, and Phaser's sound manager is switched off
+(`audio: { noAudio: true }` in `main.ts`, accepted by the 4.2.1 types and
+honoured at runtime) so there is exactly one context.
+
+```
+src/audio/
+  cues.ts         the palette: CueName -> recipe (parts, level, priority, cap, bundle rule)
+  synth.ts        recipe -> nodes on ANY BaseAudioContext; ADSR; fixed-seed noise; master chain
+  collapse.ts     the Bundler: N events in a window become ONE voice encoding N
+  Audio.ts        context lifecycle, unlock, buses -> duck -> master -> compressor, voice budget, mute
+  AudioEvents.ts  the game.events subscription, event -> cue mapping, Titan heartbeat, window.__audio
+```
+
+**It reads `game.events` and nothing else.** `installAudio(game.events,
+location.search)` is called once from `main.ts`; no scene file knows audio
+exists. It subscribes to `moment` (the `SimEvent[]` GameScene drains each
+frame), `hud` (its per-frame tick), `paused`, `restart`, `gameover`,
+`startmatch` and `mutetoggle`, and emits `muted, boolean` in answer to the
+last. Nothing in `systems/` imports `audio/`; `npm run audio` greps for that,
+for `Math.random` and for `Rng` in `src/audio/`. Variation (the kill's +-3%
+pitch jitter) comes from a hashed counter, so a replay sounds the same.
+The bundler's clock is `performance.now()`, which audio may read because
+nothing it does can reach the simulation - `npm run repeat` and `npm run
+neutral` are what keep that true.
+
+**Mapping.** `kill` -> `kill` (bundled; a Titan kill is `titan down` ->
+`titanKill`); `contact` / `breach` -> the same-named cues, level rising with
+`share`; `fire` with hits -> `fireHit`; `pick` -> `pickPerfect` / `pickGood`
+/ `pickBad` by grade; `miss`, `rescue`, `streak`, `wave`, `sense` -> the
+same names; `titan arrive` -> `titanArrive` and a heartbeat (`titanPulse`)
+that quickens over 20 s, since audio cannot see the descent; `titan volley`
+-> `titanVolley`, at most every 250 ms; `over` -> `playerDeath` or
+`titanLand` by cause; `startmatch` -> `start`; `paused` -> `pause` /
+`resume`. `mutetoggle` itself plays nothing.
+
+**The collapse.** Kills, contacts, breaches and fire hits go through the
+`Bundler`: a lone event plays at once; inside a 100 ms window (80 / 120 / 60
+for the others) further events are tallied and play as ONE voice when it
+closes, so the kill voice rate is at most 10/s. A bundle of `n` is one
+semitone lower per doubling, 1.5 dB quieter per doubling, and from four
+carries a partial an octave down - heavier, never louder. Under 600 kills
+2 ms apart the instrument measures 13 voices and 599 bundled.
+
+**Budget.** Twelve voices, per-cue caps (kill/contact/breach/fireHit 2, the
+rest 1), priorities `titanLand 100 > playerDeath 95 > titanKill 90 >
+titanArrive 85 > breach 70 > pick 65 > rescue 60 > wave 55 > streak 50 >
+contact 45 > sense 40 > titanVolley 35 > titanPulse 30 > miss 25 > fireHit
+20 > kill 10 > ui 5`. A full mix evicts the lowest priority below the
+newcomer or refuses it (`stats.refused`). Breach and the Titan cues duck the
+kill and hit buses 6 dB for 300 ms; the kill bus eases to -6 dB past 30
+kills/s. Voices are released by wall clock, not `onended`, so a context that
+never runs cannot leak them.
+
+**Unlock and safety.** The context is created inside the first pointerdown,
+touchend or keydown (capture listeners on `window`; the START MATCH tap is
+the usual one) and never before. `?seed=` pages - every instrument - create
+NO context unless they add `audio=1`; `?mute=1` starts muted; the mute
+choice persists in `localStorage['shooter_ad.audio.muted']`. Every WebAudio
+and storage call is in try/catch and counts into `stats.failures`; nothing
+in `src/audio/` logs. `npm run verify` prints
+`audio: state=running cues=N ... failures=0` and fails on any failure; the
+headless context does reach `running` after the real click.
+
+**`npm run audio`** is the instrument: it plays every cue live and asserts
+nodes were created, stresses the bundler, drains on `gameover`, then renders
+every cue offline through a clone of the master chain to
+`.verify/audio/<cue>.wav`, `palette.wav` and `kill-bundle-N.wav`, printing
+duration, peak, RMS, dominant frequency and the share of energy above 200 Hz
+(a power share: a 55 Hz cue reads ~0% even with its partials present). Every
+cue must peak between -40 and -1 dBFS. `window.__audio` on every page has
+`play` (the event path, with a synthetic clock `t`), `voice` (direct),
+`tick`, `render`, `cues`, `stats`, `setMuted`, `stopAll`, `voicesOf`.
+
 ## Extending content
 
 - **Enemy**: append to `ENEMIES` in `data/enemies.ts` with a `tier` (what it

@@ -14,8 +14,10 @@ and pushed · `declined` with reason.
 > Load the /impeccable skill and let's do some cleaning up and improvement to
 > the UX.
 
-Status: `building` (UX strand). The skill was installed mid-session by the
-author via the GitHub UI; loaded, `PRODUCT.md` written under its init flow.
+Status: `done` (commit "the field says what is about to hit you"); the
+impeccable finish review is still owed at the end of the session. The
+skill was installed mid-session by the author via the GitHub UI; loaded,
+`PRODUCT.md` written under its init flow.
 
 > I think it'd be nice to also start adjusting the visuals for greater visual
 > clarity: can we start to have some actual unit graphics? Even simple ones,
@@ -46,8 +48,11 @@ velocity, on a hue no enemy body wears.
 > stacking), bonus sounds for grabbing gate bonuses, clearing rescued army,
 > etc. etc.
 
-Status: `planned` (audio strand): procedural WebAudio, no assets, kill
-sounds bundled and pitched down by count, never louder.
+Status: `landed` (merging): procedural WebAudio, no assets, 21 cues, kill
+sounds bundled at most 10 voices/s and pitched down a semitone per
+doubling, never louder; mute on the pause screen and the M key; `npm run
+audio` writes every cue to `.verify/audio/*.wav` for listening. Nobody has
+listened yet.
 
 > Enemies should also have a hit/hurt box -- that is, the army actually
 > hitting the enemy should cause damage to the army. That includes the Titan
@@ -107,9 +112,12 @@ lost its execute bit in the upload and is run through `sh`.
 > if they literally don't pick one due to the gaps, "MISS" so it's almost
 > like DDR
 
-Status: `planned` (UX strand). Consequences: the end-screen tally
-vocabulary follows (PERFECT · GOOD · BAD, and MISS counted if the log
-separates it); the audio `miss` cue ships ON, quiet.
+Status: `done` (same commit). The end-screen tally reads PERFECT · GOOD ·
+BAD; a MISS count was NOT added because `DecisionLog.tally` has no miss
+field and adding one would move the `neutral` comparison (misses sit in
+BAD and in the decisions count). MISS is drawn at the lane line, but with
+lanes tiling the width it cannot yet happen in play: it becomes reachable
+with the dead-space strand. The audio `miss` cue ships ON at -20 dB.
 
 ## 5. Dead space between gates, and the difficulty-curve audit
 

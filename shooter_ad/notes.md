@@ -386,6 +386,40 @@ The death screen teaches after the fact; this teaches *during*, which is what
 actually makes players improve. Both read the same `DecisionLog` scoring, so they
 can never disagree.
 
+## Sound
+
+Minimal, procedural, and on the same collapse rule as the rings and the
+bullets: more of a thing past the point it carries information is folded
+into one sound that says how much, not played more times. No music, no
+files, no asset loading; the palette is a table of recipes.
+
+What sounds, and why:
+
+- **Every pick has a grade you can hear.** PERFECT is a rising major triad,
+  GOOD is one flat note twice, BAD is a falling minor second. The halo says
+  it in colour; the sound says it before your eyes have left the gate.
+  A passed offer is a MISS: a quiet whiff, on, at -20 dB.
+- **Kills are a texture, not a count.** One kill is a grain at 1.4 kHz. A
+  burst of them inside 100 ms is ONE grain, a semitone lower per doubling
+  and a little quieter, with a sub-partial from four - so a shredded wave
+  reads as heavier, never as louder, and ten voices a second is the cap.
+- **Damage to the army is felt, not announced.** Contact is a dull thud,
+  breach a heavier one with a sweep that ducks everything else, enemy fire
+  a tick. Each scales with the share of the army it cost.
+- **The Titan has a heartbeat.** A swell and three warning pulses when it
+  arrives, then a low pulse that quickens over its descent; a crunch and a
+  released chord when it dies; a drop and a door closing when it lands on
+  you. Its volleys pop, quietly.
+- **Rescue, streak, wave, sense** are each a short distinct figure, and the
+  SENSE chime fires when a sensed offer SPAWNS, which is when it matters.
+- **Start is one soft tone**: it is also the proof the browser unlocked.
+
+Sound is on by default, toggled from the pause screen (SOUND ON / OFF) and
+remembered. Muting plays nothing. Ducking, the twelve-voice budget and the
+priority order in `CLAUDE.md` exist so a Titan landing is never lost under
+a stack of kills. Nothing here touches the simulation: audio reads the
+event stream and a match code sounds the same on every replay.
+
 ## Seeds are shareable
 
 Show the seed on the death screen, and let a player enter one when starting a
