@@ -5,11 +5,12 @@ Paste everything below the line into a fresh session.
 ---
 
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo.
-The redesign roadmap is complete, both playtest findings have landed, and the
-looping-palette plan from the previous handoff has been **built and measured**,
-all pushed to `claude/laughing-feynman-ghh9r3`. `main` is untouched and no PR is
-open. Nothing here is blocked; section 3 is what to do next and it is a set of
-questions for the author, not a build.
+The redesign roadmap is complete, both playtest findings have landed, the
+looping-palette plan has been **built and measured**, and the Titan has been
+re-sized against the four multipliers that were hiding in it (Part D, the
+newest work), all pushed to `claude/laughing-feynman-ghh9r3`. `main` is
+untouched and no PR is open. Nothing here is blocked; section 4 is what to do
+next and it is a set of questions for the author, not a build.
 
 ## 1. Orient before touching anything
 
@@ -173,6 +174,79 @@ Four things those rows establish, and one they do not:
   of fat bullets reads badly against small bodies, or what a human's standing
   does past wave 30. Three seeds of a bot that cannot dodge is a floor.
 
+### Part D — the Titan sized honestly (commit `4175017`)
+
+**The finding, from real play:** a player at ~1.1 of par, dodging and taking
+gates, got the first Titan to 75% of its HP before it landed. The budget said
+0.9 of par kills it over 75% of its descent. Four things sat between the
+constants and the game, and `shooter_ad/CLAUDE.md` ("The Titan budget, and
+the two multipliers hiding in it") carries the reasoning for each: the wave's
+`hpMult` was applied to the boss; armor was not in the budget; the firing
+column was ~170px against a 72px boss; and a piercing bullet had no re-hit
+guard, so one pierce-1 shot struck the boss twice. `bossKillDistance` came
+down from 0.75 to **0.3** as the author's next value to feel out.
+
+`npm run titan` is the instrument built for this: a squad parked UNDER the
+boss, taking no gates, and where on its descent the boss died next to where
+the budget says it should. Their ratio is the **delivery**. Before the re-hit
+guard it read 1.3 at pierce 1 on every seed. After, on the committed build:
+
+```
+dps 3e+1   power 8,   guns 1, pierce 0   delivery 0.94 / 1.09 / 1.23   killed 3/3
+dps 1e+5   power 58,  guns 4, pierce 1   delivery 0.98 / 0.90 / 1.01   killed 3/3
+dps 1e+8   power 386, guns 4, pierce 1   delivery 1.01 / 0.80 / 0.94   killed 3/3
+median delivery 0.98 over 9 kills; errors 0
+```
+
+1.0 is the budget's assumption exactly; the spread either side is escorts,
+drift and breaches on a bot that does not move. **The sentence in the config
+is now true of the shipped game**, which it was not by a factor of 1.3 x 1.54
+x ~2 x `hpMult` before this commit.
+
+**This is the first change on the branch the probe bot CAN see**, because the
+re-hit guard and the narrower column both touch ordinary bodies. The
+before/after `npm run balance` pair, seeds 1–5, skill 0.7, before on a
+snapshot of the parent commit `5cf040a` and after on `4175017`:
+
+```
+                survival (s)                       optimal                 standing   breach/min   travel/min
+before   54.8, 57.9, 93.8, 103.2, 124   med 93.8   34/33/57/64/67% med 57%   0.70        26.1         3445
+after    54.4, 59.4, 78.1,  93.0, 101.5 med 78.1   63/33/49/73/67% med 63%   0.55        25.2         3261
+```
+
+Read it as a direction, not a size: three seeds moved under two seconds,
+seeds 1 and 4 shortened by 16s and 31s. The direction is the expected one -
+a two-hit shot was landing twice on every body wider than a step of travel
+and the analytic budget never credited it, so the player was quietly
+outperforming the curve before. Standing's median fell 0.70 to 0.55, still
+well above the 0.28 clamp threshold, so every run stays par-driven. **The
+pair cannot separate the guard from the column** - both are in the one commit
+- and a third build with only one of them is what would.
+
+`npm run from -- --dps=1e5` on the committed build, three seeds, skill 0.7:
+
+```
+  seed   survived   waves       standing at end   optimal   breach/min   peak power   died
+     1      136.4s   17 -> 31         0.22          54%         64.7          416     TITAN
+     2      136.4s   17 -> 31         0.33          76%         73.9          687     TITAN
+     3         56s   17 -> 23         0.07          81%         77.1           72     attrition
+```
+
+Against the same batch in Part C, where all three died to the wave-25 Titan at
+91.4s with standing 0.45 to 0.55: the bot now survives the wave-20 and wave-25
+Titans and dies to the wave-30 one, at standing 0.22 to 0.33. That is what a
+damage check pinned to 0.9 of par should do to a bot chasing gates - pass it
+while its standing is anywhere near par, fail it once it has fallen to a
+third. Seed 3 is the first late run to end by attrition rather than a Titan:
+its army collapsed to 72 at standing 0.07 before the wave-25 boss arrived.
+
+`npm run repeat` on the committed build: **PASS, 0.00% simulated spread**
+(78.1s, wave 6, 9 decisions, 63%, 31 kills on all three). `npm run hud`:
+delivery 100% at every forced state, refused 0, drawn bullets flat, and the
+three images were looked at - `hud-late` is a diamond ring under gold bullets,
+`hud-cap` a prismatic ring, `hud-loop` a grey ring at 78k power, the palette's
+second cycle, exactly as unmarked as the author asked.
+
 ### The before/after the probe can see
 
 `npm run balance`, seeds 1–5, skill 0.7, on the snapshot and on the final build:
@@ -194,12 +268,19 @@ why `from` had to exist.
 
 None of this is blocked, but the next moves are the author's to choose:
 
-- **The Titan is the late game's whole difficulty.** Twelve of twelve late
-  runs ended by a Titan landing, none by attrition, and the bot dies to the
-  second Titan it meets at standing 0.4 to 0.7. Whether a check that steep
-  every five waves is the intent is the author's question; the levers are
-  `DIFFICULTY.bossKillPar` and `bossKillDistance`, and `npm run from` at a
-  wave just below a multiple of five is the instrument.
+- **Feel out `bossKillDistance` at 0.3.** With the four multipliers gone the
+  Titan is the budget and nothing else, and the bot now passes it near par
+  and fails it at a third of par (Part D). Whether 0.3 of the descent is the
+  right deadline is a question for a human under the boss; the levers are
+  `DIFFICULTY.bossKillPar` and `bossKillDistance`, `npm run titan` is the
+  instrument for the arithmetic and `npm run from` at a wave just below a
+  multiple of five for the feel of it.
+- **Decide whether the balance pair in Part D is a regression to tune out.**
+  Median survival at skill 0.7 fell 93.8s to 78.1s and standing 0.70 to 0.55
+  when bullets stopped landing twice. The curve did not change; the player's
+  real output fell to what the curve always assumed. If the early game now
+  feels too hard, `DIFFICULTY.targetFraction` is the honest lever, not the
+  guard.
 - **Read the `from` table above and decide whether 300 is right.** It was
   named as a first value. `npm run from -- --dps=1e7` and `npm run hud` are the
   two instruments; `WEAPON.maxSimShotsPerSecond` is the knob and `maxBullets`
@@ -255,11 +336,13 @@ None of this is blocked, but the next moves are the author's to choose:
   PNGs, not a real panel under `Scale.FIT`. The bundle's tint ladder has been
   seen only in stills.
 - **The halo flash has never been observed in motion.** Stills only.
-- **The Titan-as-loss path is now the ONLY way a late run ends, and it has
-  still not been photographed.** Twelve `from` runs, twelve Titan landings.
-  `npm run endscreen` has never shown `THE TITAN LANDED`; `npm run from --
-  --dps=1e5` reaches it in 91 simulated seconds, so wiring a screenshot on
-  `cause === 'titan'` into `endscreen` is cheap and overdue.
+- **The Titan-as-loss path has still not been photographed.** `npm run
+  endscreen` has never shown `THE TITAN LANDED`; `npm run from -- --dps=1e5`
+  reaches it at 136 simulated seconds on seeds 1 and 2, so wiring a screenshot
+  on `cause === 'titan'` into `endscreen` is cheap and overdue.
+- **The Part D balance pair cannot say whether the re-hit guard or the 72px
+  column moved the probe.** Both are in one commit. A build with only one of
+  them, measured with `PROBE_DIST`, would separate them.
 - **`DIFFICULTY.pressure` was not changed**, and should not be on the strength
   of what is recorded. Two seeds is not a reading.
 - **`SQUAD.moveSpeed` 620 → 260 was never A/B'd** against the new gate speeds.
@@ -290,5 +373,6 @@ None of this is blocked, but the next moves are the author's to choose:
 
 What landed, what the instruments say (with seeds), what you could not verify,
 and what you would do next. **Name unverified claims as unverified.** This
-project has now been fooled by its own instruments six times and found a
-ceiling it did not know existed on the seventh.
+project has now been fooled by its own instruments six times, found a
+ceiling it did not know existed on the seventh, and found a fourth Titan
+multiplier with the instrument built to check the other three.

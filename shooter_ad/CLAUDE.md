@@ -599,7 +599,10 @@ with the ring in its second palette cycle, and **every late run ends by a
 Titan landing**. Those runs were first read as "the bot survives the first
 Titan it meets and dies to the second"; the clock says otherwise - each death
 sits at exactly the second the FIRST Titan crossed the line - and the section
-below says why no bot could have killed it.
+below says why no bot could have killed it. Re-run at 1e5 after that section's
+fixes, the same bot passes the wave-20 and wave-25 Titans and dies to the
+wave-30 one at standing 0.22 to 0.33; one seed collapsed to attrition first.
+The figures are in `RESTART.md`, Part D.
 
 ### The Titan budget, and the two multipliers hiding in it
 
@@ -640,9 +643,25 @@ in about five steps, so one pierce-1 shot struck the boss twice - 2 hits
 against the 1.5x the fixed-q model prices pierce at, which is exactly 1.33.
 `Bullet.struck` now records the bodies a bullet has met and `collide` skips
 them: one encounter per body, which is what `strike` already resolves at one
-instant. It moves the probe regime too (a two-hit shot was hitting ordinary
-bodies as well, wherever a body was wider than a step of travel), so the
-before/after `npm run balance` pair is in `RESTART.md`.
+instant. With the guard, `npm run titan` reads a median delivery of **0.98**
+over nine kills (0.94 to 1.23 at pierce 0, 0.80 to 1.01 at pierce 1), so the
+budget's sentence is now true of the shipped game.
+
+It moves the probe regime too - a two-hit shot was hitting ordinary bodies as
+well, wherever a body was wider than a step of travel, and the analytic budget
+never credited the second hit. This is the first change on the branch the
+probe can see. `npm run balance`, seeds 1-5, skill 0.7, before on a snapshot
+of the parent commit and after with the guard and the 72px column:
+
+| | survival | median | optimal | standing | breach/min |
+| --- | --- | --- | --- | --- | --- |
+| before | 54.8 / 57.9 / 93.8 / 103.2 / 124s | 93.8s | 57% | 0.70 | 26.1 |
+| after | 54.4 / 59.4 / 78.1 / 93.0 / 101.5s | 78.1s | 63% | 0.55 | 25.2 |
+
+Three seeds moved under two seconds; two shortened by 16s and 31s. Read the
+direction and not the size, and note that the pair cannot separate the guard
+from the column, which landed in the same commit. The sweep table above
+predates this pair and is stale by that much.
 
 With those four gone, `bossKillDistance` is now the only thing the boss's
 difficulty is made of, and it came down from 0.75 to **0.3** as the author's
