@@ -45,7 +45,7 @@ export class EndScreen {
   private readonly copyLabel: Phaser.GameObjects.Text;
   private readonly title: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, onNewMatch: () => void) {
     const cx = VIEW.width / 2;
     const font = 'system-ui, sans-serif';
 
@@ -105,10 +105,15 @@ export class EndScreen {
       fontSize: '38px', color: '#9fe8ff', fontStyle: 'bold',
     }).setOrigin(0.5);
 
+    // Tappable lines get a fixed hit BAR behind them rather than the text's own
+    // bounds: the label changes length when it changes state, and a text
+    // sized target moves out from under the finger that just tapped it.
     this.copyLabel = scene.add.text(cx, 730, 'tap here to copy link', {
       fontFamily: font, fontSize: '16px', color: '#6be8d4',
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    this.copyLabel.on('pointerdown', (p: Phaser.Input.Pointer) => {
+    }).setOrigin(0.5);
+    const copyHit = scene.add.rectangle(cx, 730, 300, 40, 0xffffff, 0.001)
+      .setInteractive({ useHandCursor: true });
+    copyHit.on('pointerdown', (p: Phaser.Input.Pointer) => {
       // Stop the tap also restarting the run underneath.
       p.event.stopPropagation();
       this.copyLink();
@@ -120,14 +125,26 @@ export class EndScreen {
       fontFamily: font, fontSize: '12px', color: '#4d5670',
     }).setOrigin(0.5);
 
-    const hint = scene.add.text(cx, 860, 'tap anywhere to play again', {
+    // Honest now: a tap replays THIS match from its first draw. It used to
+    // continue the seeded stream under the same code, so the "same match" on
+    // screen was one nobody could reproduce. A fresh code is its own control.
+    const hint = scene.add.text(cx, 846, 'tap anywhere to replay this match', {
       fontFamily: font, fontSize: '17px', color: '#8f9ab5',
     }).setOrigin(0.5);
+    const fresh = scene.add.text(cx, 884, 'or start a new match', {
+      fontFamily: font, fontSize: '15px', color: '#6be8d4',
+    }).setOrigin(0.5);
+    const freshHit = scene.add.rectangle(cx, 884, 300, 40, 0xffffff, 0.001)
+      .setInteractive({ useHandCursor: true });
+    freshHit.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      p.event.stopPropagation();
+      onNewMatch();
+    });
 
     this.root = scene.add.container(0, 0, [
       panel, this.title, this.wave, waveLabel, this.optimal, optimalLabel,
       this.tally, tallyLabel, this.detail, rule, this.codeLabel, this.code,
-      this.copyLabel, this.version, hint,
+      this.copyLabel, copyHit, this.version, hint, fresh, freshHit,
     ]).setDepth(50).setVisible(false);
   }
 

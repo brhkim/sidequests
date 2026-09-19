@@ -64,7 +64,7 @@ function fastForward(targetDps) {
   let offer = 0;
   while (squadDps(par) < targetDps && offer < 400) {
     const wave = 1 + Math.floor(offer / 2);
-    const ctx = { power: par.power, damageBonus: par.upgrades.damageBonus, rateBonus: par.upgrades.rateBonus };
+    const ctx = { power: par.power, damageBonus: par.upgrades.damageBonus, rateBonus: par.upgrades.rateBonus, guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense };
     const gates = rollOffer(GATES.perOffer, wave, ctx, rng);
     if (gates.length > 0) applyGate(par, gates[scoreOffer(par, gates, wave).best]);
     offer++;

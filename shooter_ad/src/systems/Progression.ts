@@ -1,4 +1,4 @@
-import { ARENA, GATES, SCORING, SQUAD, WEAPON } from '../config';
+import { ARENA, GATES, SCORING, SENSE, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { judgmentWave } from './Mode';
@@ -26,6 +26,12 @@ export interface Upgrades {
   moveMult: number;
   /** Multiplier ON gate approach speed, so `+TIME` drives it DOWN. */
   gateSpeedMult: number;
+  /**
+   * `+SENSE` held, 0 to `SENSE.chance.length - 1`. Touches no damage number:
+   * it is the chance an offer arrives with its best option marked, and it is
+   * priced as judgment the way MOVE and TIME are priced as access.
+   */
+  sense: number;
 }
 
 /** Everything a gate can change. The squad owns one; the difficulty model
@@ -38,8 +44,16 @@ export interface Progress {
 export function freshUpgrades(): Upgrades {
   return {
     damageBonus: 0, damageMult: 1, rateBonus: 0, rateMult: 1, guns: 1, pierce: 0,
-    moveMult: 1, gateSpeedMult: 1,
+    moveMult: 1, gateSpeedMult: 1, sense: 0,
   };
+}
+
+/** Highest sense a squad can hold; the chance table's last row. */
+export const MAX_SENSE = SENSE.chance.length - 1;
+
+/** Chance an offer arrives sensed, for this much sense held. */
+export function senseChance(sense: number): number {
+  return SENSE.chance[Math.max(0, Math.min(MAX_SENSE, Math.floor(sense)))];
 }
 
 /**
@@ -58,18 +72,56 @@ export function unitShares(power: number): number[] {
 }
 
 /**
- * What a piercing bullet is actually worth: `1 + q + q^2 + ... + q^P`, where
- * `q` is the chance of meeting another body after a hit.
+ * What a piercing bullet is actually worth: `1 + q * P`, where `q` is the share
+ * of an extra body each pierce level is expected to find.
  *
  * `q` is a tuned constant, NOT live enemy density. Density swings wildly across
  * a wave, so a value measured at the instant of a decision scores the pick
  * against a truth that lasted one second. A stable approximation the death
  * screen can still stand behind a minute later is worth more than a precise one
  * it cannot - and par and the player must price it identically either way.
+ *
+ * It used to be the geometric series `1 + q + q^2 + ... + q^P`, which is the
+ * sparse-field model: to meet a third body you must first have met a second.
+ * At q = 0.5 that saturates at 2x, so pierce 3 was worth 1.875x and no amount
+ * of pierce could ever be worth more than one extra hit - the axis was dead by
+ * the third pick and `+N PIERCE` could not be made to scale like the other
+ * axes however N was drawn. The author's read of the late game is the
+ * opposite regime: seven bodies a second across a 400px lane is a dense
+ * column, where nearly every pierce level finds a body and the series is
+ * close to linear anyway. So each level now adds a fixed `q` of a hit, which
+ * keeps pierce 1 at exactly the 1.5x it always was and lets the axis scale
+ * with what you hold the way GUNS does. Whether a real bullet meets that many
+ * bodies is what `hitsPerShot` in the stats exists to measure.
  */
 export function pierceMultiplier(pierce: number): number {
-  const q = WEAPON.pierceQ;
-  return (1 - Math.pow(q, pierce + 1)) / (1 - q);
+  return 1 + WEAPON.pierceQ * pierce;
+}
+
+/**
+ * Whole-number offer sizes for the discrete axes, effect-matched to a root the
+ * way raw ARMY is: `+N GUNS` from `guns` held is worth `1 + N / guns`, and
+ * `+N PIERCE` from `pierce` held is worth `pierceMultiplier(P + N) /
+ * pierceMultiplier(P)`, so the N whose effect is nearest `root` is offered,
+ * floor 1. Below `GATES.scaleDiscreteFrom` held the offer is always `+1`.
+ */
+export function discreteAmount(axis: 'guns' | 'pierce', held: number, root: number): number {
+  if (held < GATES.scaleDiscreteFrom) return 1;
+  const exact = axis === 'guns'
+    ? (root - 1) * held
+    : (root - 1) * pierceMultiplier(held) / WEAPON.pierceQ;
+  return Math.max(1, Math.round(exact));
+}
+
+/**
+ * What sense is worth to a decision: `1 + senseWeight x chance`. Judgment,
+ * priced beside access rather than beside damage - it kills nothing, so the
+ * difficulty budget never sees it, but a player who takes it will pick better
+ * for the rest of the run, and a scoring that called that a wasted pick would
+ * flash it red and teach players never to take it.
+ */
+export function senseFactor(sense: number): number {
+  return 1 + SCORING.senseWeight * senseChance(sense);
 }
 
 /**
@@ -150,7 +202,7 @@ export function accessFactor(r: number): number {
  * the budget, or par will recommend bonuses that do nothing.
  */
 export function progressValue(p: Progress, wave: number): number {
-  return squadDps(p) * accessFactor(reach(wave, p.upgrades));
+  return squadDps(p) * accessFactor(reach(wave, p.upgrades)) * senseFactor(p.upgrades.sense);
 }
 
 export function damageFactor(u: Upgrades): number { return (1 + u.damageBonus) * u.damageMult; }
@@ -264,6 +316,9 @@ export function applyGate(p: Progress, gate: GateType): string {
       // The gate promises slower approach; the stat it moves is the SPEED, so
       // the draw divides. `+20% TIME` is exactly 1.2x the seconds to decide.
       u.gateSpeedMult /= gate.value;
+      break;
+    case 'sense':
+      u.sense = Math.min(MAX_SENSE, u.sense + gate.value);
       break;
   }
   return gate.label;

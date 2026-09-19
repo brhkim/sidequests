@@ -160,8 +160,9 @@ form signal:
 | Army | `+120 ARMY` | `×1.2 ARMY` |
 | Damage | `+20% DMG` | `×1.2 DMG` |
 | Fire rate | `+20% RATE` | `×1.2 RATE` |
-| Guns | `+1 GUN` | — |
-| Pierce | `+1 PIERCE` | — |
+| Guns | `+1 GUN`, `+N GUNS` | — |
+| Pierce | `+N PIERCE` | — |
+| Sense | `+SENSE` | — |
 
 #### Rounding is part of the legibility axis
 
@@ -181,9 +182,40 @@ dial for free.
 | Army size | `+N`, `×N` | Drives both unit count (to the ring cap) and rank. |
 | Fire rate | `+N% `, `×N` | |
 | Damage | `+N%`, `×N` | |
-| Guns | `+1 GUN` | Large, discrete, obvious — include sparingly as a baseline to judge others against. |
-| Pierce | `+1 PIERCE` | Value depends on enemy density. See below. |
+| Guns | `+N GUN` | Large, discrete, obvious — include sparingly as a baseline to judge others against. **Scales past 3 held**: see below. |
+| Pierce | `+N PIERCE` | Each level is worth a fixed share of a hit. **Scales past 3 held.** See below. |
 | Move speed | `×1.2 MOVE` | **No direct DPS.** Buys access to future bonuses. |
+| Sense | `+SENSE` | **No direct DPS.** A chance that future offers arrive with their best option marked. Capped at 3. See below. |
+
+### The discrete axes scale, from three held
+
+A flat `+1 GUN` is +100% at one gun, +33% at three and +5% at twenty — the
+axis dies by attrition while RATE and DMG keep drawing from `[1.05, 1.50]`.
+So from `GATES.scaleDiscreteFrom` (3) held, a GUN or PIERCE offer draws a root
+like everything else and presents the **whole number whose effect is nearest
+it**: `+2 GUNS` at three guns for a draw of 1.5, `+5 GUNS` at ten, `+13 GUNS`
+at fifty. It is the rule raw ARMY already follows — a share of what you hold —
+applied to an integer. Below three held the rule would round to `+1` anyway,
+and the threshold makes that explicit rather than incidental.
+
+### `+SENSE`: a bonus about the player
+
+The one bonus that changes neither damage nor reach. Each level raises the
+chance that an offer arrives **sensed** — with its best option marked on
+screen — to 25%, 40% and 50%, and it stops being offered once three are held.
+The roll is made when the offer is rolled, from the seeded generator, so a
+match code reproduces which offers were sensed; *which* option is marked is
+recomputed live against the state the player is in now, by the same
+`scoreOffer` par and the death screen use, so if taking the previous gate
+changes the answer the mark moves with it.
+
+It has to be priced or the scoring calls every one a mistake, exactly the
+trap MOVE and TIME fell into. It is priced as **judgment**: value carries a
+factor `1 + 0.4 × chance`, so the first is worth about a tenth of a state's
+value, the second half that, the third less — a weak-to-middling damage draw.
+Difficulty ignores it entirely, as it ignores access: a hint kills nothing.
+`npm run model` asserts it beats a `×1.05 DMG`, loses to a `×1.25 DMG`, and
+leaves the pool at the cap.
 
 ### Move speed is the deliberate oddity
 
@@ -209,25 +241,36 @@ sounds like a downside and is not. Candidate label: **`+TIME`**.
 
 ## Pierce: what is it actually worth?
 
-Not 2×, and the reason matters.
-
-A piercing bullet only hits a second enemy if one happens to be behind the
-first, in the bullet's path, before it leaves the screen. So:
+Each level is worth a fixed share of an extra hit:
 
 ```
-expected hits = 1 + q + q² + ... + q^P        (P = pierce level)
+expected hits = 1 + q × P        (P = pierce level, q = 0.5)
 ```
 
-where `q` is the chance of encountering another enemy after a hit. Three things
-push `q` below 1:
+so pierce 1 → 1.5×, 2 → 2×, 3 → 2.5×, 10 → 6×. Three things keep `q` below 1:
 
 1. **Path occupancy** — the bullet must actually meet another body.
 2. **Overkill** — damage past a kill is wasted, so a weak straggler behind a
    brute absorbs a hit worth far more.
 3. **Screen exit** — bullets die at the top.
 
-This gives natural diminishing returns: at `q = 0.5`, pierce 1 → 1.5×, pierce 2
-→ 1.75×, pierce 3 → 1.875×.
+**This used to compound**, `1 + q + q² + … + q^P`, which is the sparse-field
+model (to meet a third body you must have met a second) and at `q = 0.5` it
+saturates at 2×: pierce 3 was 1.875× and no fourth level could ever be worth
+more than a few percent, so the axis was dead by the third pick and no way of
+drawing `+N PIERCE` could revive it. The author's read of the late game is the
+other regime — seven bodies a second into a 400px lane is a dense column,
+where nearly every level finds a body and the series is close to linear
+anyway. So the compounding was dropped, pierce 1 stayed at exactly 1.5×, and
+the axis scales with what you hold the way GUNS does.
+
+**Measured, not assumed.** The stats now carry `hitsPerLanding` — bodies met
+per shot that met anything — beside the multiplier the build is priced at.
+Early, with the board sparse, a pierce-1 bot measured 1.03 to 1.27 against a
+claim of 1.5, so the price is generous there; from wave 18 on it measured 2.3
+to 2.75 against claims of 2.0 to 2.5, so late the price is *under* the truth.
+The linear rule is honest where it matters most and kind where the board is
+empty. `npm run balance` and `npm run from` print both numbers.
 
 ### Use a fixed `q`, not live density
 
@@ -237,9 +280,10 @@ at the instant of a decision is not representative of the run the bonus actually
 lives through. Scoring a pick against a number that was true for one second is
 worse than scoring it against a stable approximation.
 
-So `q` is a tuned constant (start at **0.5**, giving 1.5× / 1.75× / 1.875× for
-pierce 1/2/3). Pierce becomes a clean diminishing-returns axis: strong as a
-first pick, weak as a fourth.
+So `q` is a tuned constant (**0.5**, giving 1.5× / 2× / 2.5× for pierce 1/2/3).
+Pierce is worth the same share of a hit per level all run; the *relative*
+gain of `+1` still falls as levels stack, which is what the scaled `+N PIERCE`
+offers exist to compensate.
 
 This is an admitted approximation — real pierce value does vary with the board.
 The properties that matter more:
@@ -498,21 +542,28 @@ Consider surfacing a single headline number: **"you played at 82% of optimal."**
 
 ## HUD and layout — decided
 
-**Top rail** carries the numbers, par always visible:
+**Top rail** is *the run*, par always visible:
 
-- **soldiers** — visible count, capped at the ring
-- **your DPS**
+- **wave**, with kills beneath
+- **your DPS**, with standing against par beneath
 - **par DPS**
+- **SENSE** — three pips that fill, and the chance they buy
 
 Par is permanently on screen, not saved for the death readout. Seeing yourself
 fall behind in real time is the feedback that makes the next decision mean
 something.
 
-**Directly beneath the red line** sits the active-bonus readout. The player's
-eye is already there — it is where the threat resolves — so it costs no extra
-attention. Chosen over a right rail because the game is 540×960 portrait and
-widening the canvas shrinks the playfield badly under `Scale.FIT` on a phone,
-which is the device this genre is played on.
+**Directly beneath the red line** is *the squad*: every input to the DPS
+product and nothing else — **ARMY** (power and rank), DMG pool and mult, RATE
+pool and mult, GUNS, PIERCE — in the order the pause screen's DETAILS page
+multiplies them. ARMY moved down from the rail because it is a conversion
+input exactly as the pools are, and it was the one term of the product living
+at the other end of the screen; SENSE took its place because it is the one
+bonus that is not a DPS input. The player's eye is already at the red line —
+it is where the threat resolves — so the strip costs no extra attention.
+Chosen over a right rail because the game is 540×960 portrait and widening the
+canvas shrinks the playfield badly under `Scale.FIT` on a phone, which is the
+device this genre is played on.
 
 That placement buys space at a cost: the strip is **wide and short**, so the
 readout has to be genuinely parsimonious. This is real design work, not a
@@ -598,9 +649,14 @@ Carried over from the earlier backlog, reprioritised against the thesis.
    GUNS go dead late. Modelled honestly for now; the alternative is to collapse
    the stream in the simulation the way the renderer already does. **This is the
    only thing on this list that is blocked on a design decision.**
-15. **Help / pause screen** — resume, restart, options, and a full explanation of
-   every bonus type. Must teach the additive-vs-multiplicative distinction, or
-   the core mechanic is hidden.
+15. **Help / pause screen** — *done*, two pages. BONUSES teaches the
+   conversion on the player's own pools and lists every held bonus with a
+   one-line account of what it does to the sum, MOVE, TIME and SENSE
+   included. DETAILS derives the rail's DPS step by step — bodies and rank,
+   damage per shot, shots per second, the ring, guns, pierce, total, and the
+   same total against one body — from the functions the squad fires with, so
+   the last line is the rail's number by construction. `npm run endscreen`
+   asserts that equality.
 16. **Prestige ranks past red** — metallic / prismatic / glowing, with texture
     and particle treatment, so long runs keep a visible chase.
 17. **Enemy behaviour variety** — *done*, with one thing deliberately left
@@ -620,6 +676,57 @@ Carried over from the earlier backlog, reprioritised against the thesis.
     it; `npm run behaviour` can only confirm the taper exists.
 
 ---
+
+## The start screen says what the game is
+
+The pitch is the author's: *Pick the best bonuses, avoid damage, and kill the
+Titan before it reaches the end — or you lose. Oh, and sub-optimal play is
+SEVERELY punished. The math only gets harder. The bonuses only scroll at you
+faster. Have fun!* It sits above the match code, because a player who does not
+know they are being tested on arithmetic reads every offer as noise.
+
+Beneath the code: **enter a code** (a native prompt — the medium is a
+screenshot, and a code you can read off a photo but cannot type in anywhere is
+decoration) and **new match**. Both re-seed every consumer of the generator at
+once. A restart now replays the *same* match from its first draw; it used to
+carry the stream on under the old code, so the "same match" on the end screen
+was one nobody could reproduce. The end screen offers both: tap to replay, or
+start a new match.
+
+## Rescue cages are the catch-up, and they cost something
+
+A cage is worth **+5 army until you hold 100, then +5%**, whole — the same
+bite of a run at 20 power and at 20,000. **Par does not collect it.** It is
+the one source of army meant for a player behind the curve, and crediting the
+shadow player too would move the curve by exactly what the cage gave back.
+
+Its HP is **a fifth of the Titan that would spawn now** (the boss's own
+budget, so it scales with par the way the boss does): about 2.65 seconds of
+par's single-target fire, at every stage of a run. That is the cost — a cage
+stops every shot that hits it, so opening one is fire the wave is not taking.
+Measured on the probe bot, which never aims at a cage and so pays the block
+without collecting: median survival at skill 0.7 fell from 78s to 44s, and
+recovered to 83s on the same seeds with cages at a fiftieth of a Titan. Read
+that as the bot's floor, not the design's verdict — a human who targets the
+cage is buying +60% army for three seconds early, and +5% for three seconds
+late — but it is the number to watch if real play says cages feel like walls.
+`CAGE.hpTitanFraction` is the lever.
+
+## Enemy fire scales with the army
+
+A landing bullet costs **1% of the army you hold, rounded down, never less
+than one power** (times the gun's damage). A flat half-power tax went dead
+once armies reached the hundreds, so enemy fire stopped being a reason to move
+exactly when there was the most of it. It is still well under a breach, which
+costs the enemy's whole damage: a breach is a failure to kill, fire is a tax on
+standing still.
+
+The floor doubles the early tax (a bullet was 0.5), and the share quadruples
+it at 270 power. On a bot that never dodges this is now the late game's main
+killer: from injected 1e5 and 1e8 builds the runs end by attrition with
+standing near zero, where before they ended at a Titan near par. That is the
+designed consequence for a player who does not move; whether it is right for
+one who does is a question for the author under fire.
 
 ## What one session of real play found
 
@@ -736,7 +843,12 @@ is a tuning value:
   shots, and the budget assumed all of them. **Design: the player's damage is
   focused in a column the Titan's own width.** `WEAPON.columnWidth` is that
   number, the ring is scaled into it, and `npm run model` fails if the column
-  ever grows wider than the boss. It is a real change to how the game feels
+  ever grows wider than the boss's hit radius. It is 83px now — 72 read as too
+  narrow in play, and the Titan grew two pixels in radius to keep the
+  invariant — and it is centred on the *drawn* leader rather than the squad's
+  logical centre, because under a moving finger the ring trails that centre by
+  ~18px and the beam visibly left the air beside the character. It is a real
+  change to how the game feels
   against ordinary enemies too - the stream is a beam now, not a curtain - and
   that is accepted: the boss check is the thing the damage economy is FOR.
 - **Two multipliers were hiding inside the HP.** The boss took the wave's
@@ -748,8 +860,9 @@ is a tuning value:
   `bossKillPar` and `bossKillDistance` mean what they say.
 - **75% of the descent at full single-target DPS is too much to ask** of a
   player who also has to dodge, grab bonuses and miss a little. Difficulty is
-  the point, but the slack has to be real. **It is 30% now, to feel out.** The
-  rest of the descent is what real play spends.
+  the point, but the slack has to be real. It was 30% to feel out; after
+  playing it the author asked for 20% more HP, so it is **36%** now (HP is
+  linear in the distance). The rest of the descent is what real play spends.
 
 The instrument built to check those three found a fourth on its first run: a
 piercing bullet was charged against the boss on every step it spent inside it,
@@ -772,9 +885,10 @@ thing to a played run.
   too?** The full argument is under "What one session of real play found". This
   is the one open question that changes what the game IS rather than how it
   reads.
-- How is pierce shown to the player? Its value swings with the board, so a
-  static label undersells it. A live "≈1.6×" readout might be better — or might
-  give away too much of the judgment.
+- How is pierce shown to the player? The strip shows the priced multiplier
+  (`×2.50` at pierce 3). Its real value swings with the board — `hitsPerLanding`
+  in the stats is the measurement — and a live readout might be better, or
+  might give away too much of the judgment.
 - **Settled: the root table's range does not widen with difficulty.** It stays
   fixed at `[1.05, 1.50]` at every legibility tier; only granularity and
   significant-figure rounding escalate. Widening it would make picks swingier,

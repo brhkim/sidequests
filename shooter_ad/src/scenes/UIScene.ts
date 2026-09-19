@@ -38,7 +38,10 @@ export class UIScene extends Phaser.Scene {
       color: '#ffe9a8', fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0);
 
-    this.end = new EndScreen(this);
+    this.end = new EndScreen(this, () => {
+      this.end.hide();
+      this.game.events.emit('newmatchrequest');
+    });
     this.start = new StartScreen(
       this,
       () => {
@@ -49,6 +52,9 @@ export class UIScene extends Phaser.Scene {
       // wave-keyed difficulty number reads - so this asks rather than decides,
       // and the screen redraws from the `showstart` that comes back.
       (mode) => this.game.events.emit('modechange', mode),
+      // Same ownership for the seed: a typed code or a request for a fresh
+      // one is a request, and the code that comes back is the truth.
+      (match) => this.game.events.emit('matchrequest', match),
     );
 
     this.pause = new PauseScreen(

@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { ARENA, VIEW } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
-import { formatMult, hex, type HudPayload } from './types';
+import { compact, formatMult, hex, type HudPayload } from './types';
 
 /**
- * The active-bonus readout, directly beneath the breach line.
+ * The active-bonus readout, directly beneath the breach line: every input to
+ * the DPS product, and nothing else.
  *
  * Why it has to exist: a raw bonus draws `a = (root - 1) * (1 + pool)`, so
  * `+31% DMG` against `×1.25 DMG` is only decidable if you know your damage pool
@@ -15,6 +16,12 @@ import { formatMult, hex, type HudPayload } from './types';
  * the canvas shrinks the playfield badly under Scale.FIT on a phone. The eye is
  * already at the red line because that is where the threat resolves, so this
  * costs no extra attention.
+ *
+ * ARMY moved down here from the top rail. It is a conversion input exactly as
+ * the pools are - `+120 ARMY` means nothing until you know you hold 504 - and
+ * it was the one term of `squadDps` that lived at the other end of the screen
+ * from the rest. Five cells now, in the order the pause screen's DETAILS page
+ * multiplies them: bodies, damage, rate, guns, pierce.
  *
  * Three things do the legibility work in a 540x94 strip:
  *
@@ -27,10 +34,11 @@ import { formatMult, hex, type HudPayload } from './types';
  */
 const TOP = ARENA.breachY + 2;
 const CELLS = [
-  { axis: 'damage' as const, label: 'DMG', width: 168 },
-  { axis: 'rate' as const, label: 'RATE', width: 168 },
-  { axis: 'guns' as const, label: 'GUNS', width: 102 },
-  { axis: 'pierce' as const, label: 'PIERCE', width: 102 },
+  { axis: 'army' as const, label: 'ARMY', width: 100 },
+  { axis: 'damage' as const, label: 'DMG', width: 128 },
+  { axis: 'rate' as const, label: 'RATE', width: 128 },
+  { axis: 'guns' as const, label: 'GUNS', width: 92 },
+  { axis: 'pierce' as const, label: 'PIERCE', width: 92 },
 ];
 
 interface Cell {
@@ -51,9 +59,9 @@ export class BonusStrip {
     let x = 0;
     for (const spec of CELLS) {
       const color = AXIS_COLOR[spec.axis];
-      const textX = x + 20;
+      const textX = x + 18;
       this.cells.push({
-        accent: scene.add.rectangle(x + 10, TOP + 12, 3, 70, color, 0.9).setOrigin(0, 0),
+        accent: scene.add.rectangle(x + 8, TOP + 12, 3, 70, color, 0.9).setOrigin(0, 0),
         label: scene.add.text(textX, TOP + 10, spec.label, {
           fontFamily: 'system-ui, sans-serif', fontSize: '12px',
           color: hex(color), fontStyle: 'bold',
@@ -62,8 +70,8 @@ export class BonusStrip {
           fontFamily: 'system-ui, sans-serif', fontSize: '26px',
           color: '#f2f6ff', fontStyle: 'bold',
         }).setOrigin(0, 0),
-        sub: scene.add.text(textX, TOP + 60, '', {
-          fontFamily: 'system-ui, sans-serif', fontSize: '18px',
+        sub: scene.add.text(textX, TOP + 61, '', {
+          fontFamily: 'system-ui, sans-serif', fontSize: '15px',
           color: '#8b99bb', fontStyle: 'bold',
         }).setOrigin(0, 0),
         last: '',
@@ -73,26 +81,30 @@ export class BonusStrip {
   }
 
   update(h: HudPayload): void {
+    // Army: power, with the rank it buys underneath in the rank's own colour.
+    // Always "held" - there is no identity for an army.
+    this.set(0, compact(h.power), h.tierName.toUpperCase(), true, hex(h.tierColor));
     // Sub-lines are blank at identity. Four columns of `x1.00` is four pieces
     // of furniture the eye has to step over to find the one that changed.
-    this.set(0, `+${Math.round(h.damageBonus * 100)}%`, h.damageMult, h.damageBonus > 0);
-    this.set(1, `+${Math.round(h.rateBonus * 100)}%`, h.rateMult, h.rateBonus > 0);
-    this.set(2, String(h.guns), h.guns, h.guns > 1);
+    this.set(1, `+${Math.round(h.damageBonus * 100)}%`, multOrBlank(h.damageMult),
+      h.damageBonus > 0 || h.damageMult > 1);
+    this.set(2, `+${Math.round(h.rateBonus * 100)}%`, multOrBlank(h.rateMult),
+      h.rateBonus > 0 || h.rateMult > 1);
+    this.set(3, String(h.guns), multOrBlank(h.guns), h.guns > 1);
     // Pierce shows what it is actually worth, from the same valuation par
-    // prices it with - a bare `2` says nothing about diminishing returns.
-    this.set(3, String(h.pierce), h.pierceMult, h.pierce > 0);
+    // prices it with - a bare `2` says nothing about what a level buys.
+    this.set(4, String(h.pierce), multOrBlank(h.pierceMult), h.pierce > 0);
   }
 
   reset(): void {
     for (const cell of this.cells) cell.last = '';
   }
 
-  private set(index: number, main: string, mult: number, poolHeld: boolean): void {
+  private set(index: number, main: string, sub: string, held: boolean, subColor = '#8b99bb'): void {
     const cell = this.cells[index];
     cell.main.setText(main);
-    cell.sub.setText(mult > 1 ? formatMult(mult) : '');
+    cell.sub.setText(sub).setColor(subColor);
 
-    const held = poolHeld || mult > 1;
     const alpha = held ? 1 : 0.32;
     cell.accent.setAlpha(held ? 0.9 : 0.22);
     cell.label.setAlpha(alpha);
@@ -101,7 +113,7 @@ export class BonusStrip {
 
     // A gate you drove through has to register somewhere other than the toast,
     // which is already gone by the time the next offer appears.
-    const signature = `${main}|${mult}`;
+    const signature = `${main}|${sub}`;
     if (cell.last !== '' && cell.last !== signature) this.flash(cell);
     cell.last = signature;
   }
@@ -114,4 +126,8 @@ export class BonusStrip {
       onComplete: () => cell.main.setColor('#f2f6ff'),
     });
   }
+}
+
+function multOrBlank(mult: number): string {
+  return mult > 1 ? formatMult(mult) : '';
 }

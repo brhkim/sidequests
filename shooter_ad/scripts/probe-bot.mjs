@@ -211,5 +211,13 @@ export async function playSeed(
     // to carry their own copies of the difficulty constants and both printed a
     // threshold from a version that no longer existed.
     clampThreshold: last?.clampThreshold ?? 0,
+    // The pierce instrument: bodies hit per shot that lands, cumulative over
+    // the run, next to the multiplier the build was priced at when it ended;
+    // and the share of the stream that landed at all.
+    pierce: last?.pierce ?? 0,
+    pierceClaim: last?.pierceClaim ?? 1,
+    hitsPerLanding: last?.hitsPerLanding ?? 0,
+    landed: last?.landed ?? 0,
+    sense: last?.sense ?? 0,
   };
 }

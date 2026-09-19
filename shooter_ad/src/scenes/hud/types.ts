@@ -26,6 +26,12 @@ export interface HudPayload {
   pierce: number;
   /** Pierce priced by the shared valuation, not by live density. */
   pierceMult: number;
+  moveMult: number;
+  /** Multiplier ON gate speed; `+TIME` drives it below 1. */
+  gateSpeedMult: number;
+  sense: number;
+  /** Chance an offer arrives with its best option marked, at this sense. */
+  senseChance: number;
 }
 
 /** Thousands get a suffix: a six-digit DPS would blow the rail's column. */

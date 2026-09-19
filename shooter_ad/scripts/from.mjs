@@ -74,6 +74,7 @@ function fastForward(targetDps) {
       power: par.power,
       damageBonus: par.upgrades.damageBonus,
       rateBonus: par.upgrades.rateBonus,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense,
     };
     const gates = rollOffer(GATES.perOffer, wave, ctx, rng);
     if (gates.length > 0) applyGate(par, gates[scoreOffer(par, gates, wave).best]);
@@ -120,7 +121,7 @@ close();
 
 console.log(`\nmode ${MODE}, skill ${SKILL}, budget ${SECONDS}s simulated\n`);
 console.log('  seed   survived   waves reached   standing at end   optimal   decisions'
-  + '   breach/min   peak power   end DPS      par DPS      died');
+  + '   breach/min   fire/min   peak power   end DPS      par DPS      died   pierce claim/measured');
 const perMin = (v, r) => (r.survived > 0 ? (v / r.survived) * 60 : 0);
 for (const r of results) {
   const endStanding = r.rows.length ? r.rows[r.rows.length - 1].standing : 1;
@@ -132,10 +133,12 @@ for (const r of results) {
     `${(r.optimal * 100).toFixed(0)}%`.padStart(10),
     String(r.decisions).padStart(11),
     perMin(r.breachLoss, r).toFixed(1).padStart(13),
+    perMin(r.fireLoss, r).toFixed(1).padStart(11),
     String(r.peakPower).padStart(13),
     r.dps.toExponential(2).padStart(9),
     r.parDps.toExponential(2).padStart(12),
     (r.died ? (r.cause === 'titan' ? 'TITAN' : 'yes') : 'no').padStart(8),
+    `p${r.pierce} x${r.pierceClaim.toFixed(2)} / x${r.hitsPerLanding.toFixed(2)}`.padStart(24),
   );
   for (const e of r.errors) console.log('  ERROR ' + e);
 }

@@ -115,7 +115,13 @@ squad. It samples wall-clock frames, so figures wobble a few percent per run; it
 measures movement, not whether that movement is any fun.
 
 `npm run balance` plays several fixed seeds and prints the series. Use it before
-and after any balance change. `PROBE_SECONDS=240 PROBE_SEEDS=1,2,3
+and after any balance change. Its footer, and every row of `npm run from`, now
+carries the **pierce instrument**: `hitsPerLanding` (bodies met per shot that
+met anything, cumulative over the run) beside the multiplier the build is
+priced at, and `landed`, the share of the stream that met anything at all. A
+claim well above the measurement means par and the player are both being
+credited for damage that does not arrive; the linear price was checked against
+it the day it landed (see "Pierce is linear" below). `PROBE_SECONDS=240 PROBE_SEEDS=1,2,3
 PROBE_VERBOSE=1` for a longer, fuller run. `PROBE_DIST=/some/dist` points it,
 and every other probe, at a build other than the working one - the before half
 of a before/after pair is measured against a snapshot rather than rebuilt.
@@ -629,9 +635,15 @@ not the problem; three things sat between them and the game:
   spawns inside `WEAPON.columnWidth`, the Titan's diameter: the unit's offset
   from the squad centre is scaled down from `FORMATION_HALF_WIDTH`, and the
   guns spread `WEAPON.gunSpread` inside that. `npm run model` fails if the
-  column is ever wider than the boss. This is a balance change everywhere,
-  not only against the boss - the stream is a beam rather than a curtain -
-  and `notes.md` records it as the intent.
+  column is ever wider than the boss's hit radius (`radius + bulletRadius`).
+  This is a balance change everywhere, not only against the boss - the stream
+  is a beam rather than a curtain - and `notes.md` records it as the intent.
+  It is **83px** now, 72 widened by 15% after play, and the Titan's radius went
+  36 to 38 so the invariant holds; and it is centred on the DRAWN leader
+  (`units[0].x`) rather than `squad.x`, because units ease toward their slots
+  and under a moving finger the ring trails the centre by ~18px, so the beam
+  left the air beside the character. Parked, the two are one point, and
+  `npm run titan` reads a median delivery of 1.00 either way.
 
 **A fourth was found by the instrument built to check the other three.** With
 the column, the armor and the `hpMult` fixed, `npm run titan` still reported a
@@ -664,9 +676,71 @@ from the column, which landed in the same commit. The sweep table above
 predates this pair and is stale by that much.
 
 With those four gone, `bossKillDistance` is now the only thing the boss's
-difficulty is made of, and it came down from 0.75 to **0.3** as the author's
-next value to feel out. The distance is measured to `ARENA.breachY`, the line
+difficulty is made of. It came down from 0.75 to 0.3 as the author's value to
+feel out, and after play went to **0.36** - 20% more HP, linear in the
+distance. Rescue cages read the same budget (`CAGE.hpTitanFraction`). The distance is measured to `ARENA.breachY`, the line
 that actually ends the run, not to the lane line.
+
+### Pierce is linear, and the price is measured against the board
+
+`pierceMultiplier` is `1 + q x P`, q = 0.5. It was the geometric series
+`1 + q + ... + q^P`, which saturates at 2x and made pierce a dead axis by the
+third pick - no way of drawing `+N PIERCE` could revive it - so at the
+author's request the compounding was dropped: pierce 1 is still exactly 1.5x,
+and each level adds the same half a hit. `notes.md` carries the argument (a
+dense late column is the linear regime anyway). What made it safe to ship was
+building the instrument first: `GameScene.collide` counts shots charged
+against bodies and shots meeting their FIRST body (the top level of a
+bullet's bundle only ever loses shots), and publishes `hitsPerLanding` and
+`landed`. Read on the day: pierce-1 bots early measured 1.03 to 1.27 against
+1.5 (the board is sparse; the price is generous); from wave 18 on, 2.3 to 2.75
+against 2.0 to 2.5 (the price is under the truth). A price above the
+measurement late would have meant par budgeting enemies against damage nobody
+delivers, which is the failure `deliverableDps` once existed for.
+
+### `+SENSE` is a roll at spawn and a mark computed live
+
+`Gates.spawnOffer` draws ONE extra number from the seeded generator per offer,
+always, whatever sense is held, and compares it with `senseChance(sense)` -
+so the stream advances identically on every run of a seed and a player's
+sense level cannot shift the enemies and offers that follow. That decides
+whether the offer is *sensed*. Which of its three options wears the mark is
+NOT stored: `renderGates` asks `scoreLiveGates` every frame, and the option
+that is best against the player's state right now is the one ringed and
+captioned. If taking the previous gate changes the answer, the mark moves,
+and at arrival it is the option the `DecisionLog` will grade best - the two
+cannot disagree because they are one call. The pulse reads the simulated
+clock for its phase and touches nothing.
+
+Sense is priced in `progressValue` as `senseFactor` beside `accessFactor` -
+judgment beside access - and nowhere in the difficulty budget. It is capped
+by the length of `SENSE.chance`, filtered out of the candidate pool at the cap
+(`rollOffer`), and the rail draws it as pips. `Upgrades.sense` exists on par
+too; par sometimes takes it, exactly as it sometimes takes MOVE, and that
+softens the curve by the same small amount `npm run model` reports for
+access picks.
+
+### A match is re-seedable, and a restart replays it
+
+`GameScene.rng` is now one level of indirection over `rngImpl`. Every system
+holds `rng`; `reseed()` swaps `rngImpl` for `mulberry32(seed)` and rebuilds
+the squad (whose constructor draws the first unit's jitter, which must be the
+new stream's first draw). `restart()` calls it, so "tap to replay this match"
+replays the match - it used to let the stream carry on under the old code,
+and no code on screen could reproduce the run it produced. The start screen's
+"enter a code" and "new match" and the end screen's "start a new match" all
+go through `matchrequest` / `newmatchrequest` events into the same path. Those
+listeners are registered on EVERY page, `?seed=` instrument pages included;
+they were once behind the instrument early-return, so the end screen's new
+match did nothing on any page a script had opened, and `npm run endscreen`
+now presses all of them.
+
+Two Phaser facts this cost an hour: a tappable Text inside a Container was
+not reliably hit, so every tappable line now has a fixed Rectangle hit bar
+behind it (which also keeps the target still when the label changes length);
+and the same tap reaches both scenes' pointer handlers, so nothing may depend
+on which runs first - `newmatchrequest` is not gated on `over` for that
+reason.
 
 ### Legibility must stay difficulty-neutral, and once did not
 
@@ -864,6 +938,12 @@ see `.claude/skills/phaser4-migration/`.
 - **Bonus**: append to `CANDIDATES` in `data/gates.ts` plus one case in the
   progression model. Magnitudes are never hardcoded — every bonus draws from the
   root table in `data/roots.ts` and presents the draw according to its form.
+  The discrete axes do too: from `GATES.scaleDiscreteFrom` held, `+N GUNS` and
+  `+N PIERCE` are the whole number whose effect is nearest the draw
+  (`Progression.discreteAmount`), so `OfferContext` carries `guns`, `pierce`
+  and `sense` beside the pools. A bonus that changes no damage number - MOVE,
+  TIME, SENSE - must be priced in `progressValue` or the scoring calls every
+  one a mistake; `npm run model` asserts each beats a weak damage draw.
   Colour names the axis and both forms of an axis share it, so the player cannot
   read the raw-versus-multiplicative choice off the tint instead of doing the
   conversion.

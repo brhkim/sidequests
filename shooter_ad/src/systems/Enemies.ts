@@ -126,6 +126,18 @@ export class Enemies {
   /** Where a Titan appears; `titanProgress` measures its descent from here. */
   static readonly titanSpawnY = ARENA.spawnY - 40;
 
+  /**
+   * The HP a Titan spawning NOW would have: the boss's own descent and armor
+   * through `Difficulty.titanHp`. The boss reads it on a boss wave; a rescue
+   * cage reads a fraction of it whenever it spawns, so the two scale together.
+   */
+  private titanBudget(): number {
+    const boss = ENEMY_BY_ID.get('titan');
+    if (!boss) return 1;
+    const travelSeconds = (ARENA.breachY - Enemies.titanSpawnY) / boss.speed;
+    return this.difficulty.titanHp(travelSeconds, boss.armor);
+  }
+
   /** The live Titan, if one is on the board. Instruments read it; nothing in
    * the shipped game does. */
   get titan(): Enemy | null {
@@ -183,10 +195,7 @@ export class Enemies {
         // scaled by - thousands of times, late - so no Titan past the first was
         // ever killable, and the constants that were supposed to size it did
         // not matter at all.
-        const spawnY = Enemies.titanSpawnY;
-        const travelSeconds = (ARENA.breachY - spawnY) / boss.speed;
-        const hp = this.difficulty.titanHp(travelSeconds, boss.armor);
-        this.spawn(boss, VIEW.width / 2, spawnY, 1, hp);
+        this.spawn(boss, VIEW.width / 2, Enemies.titanSpawnY, 1, this.titanBudget());
       }
     }
     return true;
@@ -224,7 +233,11 @@ export class Enemies {
     this.cageAccum += dt;
     if (this.cageAccum > this.wave.duration && this.rng() < CAGE.chancePerWave) {
       this.cageAccum = 0;
-      const hp = CAGE.hp * this.hpMult;
+      // A fifth of a Titan, not a wave-scaled constant: the cage is priced off
+      // the same par budget the boss is, so opening one costs the same share
+      // of a run's fire at every stage. Par gets nothing for it (see
+      // Difficulty), which is what makes it a way back for a player behind.
+      const hp = Math.max(1, this.titanBudget() * CAGE.hpTitanFraction);
       const cage = this.cages.find((c) => !c.active);
       const fresh: Cage = {
         x: this.spawnX(CAGE.radius), y: ARENA.spawnY, hp, maxHp: hp, active: true,

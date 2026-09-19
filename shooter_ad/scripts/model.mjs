@@ -48,8 +48,8 @@ function delta(p, gate) {
 
 const gate = (axis, form, value) => ({ axis, form, value, label: '', color: 0 });
 
-console.log('=== pierce, at a fixed q ===');
-for (let i = 0; i <= 4; i++) {
+console.log('=== pierce, at a fixed q per level (linear, not compounding) ===');
+for (let i = 0; i <= 12; i += (i < 4 ? 1 : 4)) {
   console.log(`  pierce ${i}: x${pierceMultiplier(i).toFixed(3)}`);
 }
 
@@ -288,6 +288,7 @@ for (let run = 0; run < 200; run++) {
       power: par.power,
       damageBonus: par.upgrades.damageBonus,
       rateBonus: par.upgrades.rateBonus,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense,
     };
     const gates = rollOffer(G.perOffer, wave, ctx, rng);
     if (gates.length === 0) continue;
@@ -383,7 +384,7 @@ function axesOfferedAtWaveOne(mode) {
   setMode(mode);
   let h = 99;
   const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  const ctx = { power: SQUAD.startPower, damageBonus: 0, rateBonus: 0 };
+  const ctx = { power: SQUAD.startPower, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: 0 };
   const seen = new Set();
   for (let i = 0; i < 600; i++) {
     for (const g of rollOffer(G.perOffer, 1, ctx, r)) seen.add(`${g.axis}/${g.form}`);
@@ -441,6 +442,7 @@ for (const m of ['normal', 'hard']) {
         power: par.power,
         damageBonus: par.upgrades.damageBonus,
         rateBonus: par.upgrades.rateBonus,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense,
       };
       const gates = rollOffer(G.perOffer, wave, ctx, r);
       if (gates.length === 0) continue;
@@ -575,6 +577,7 @@ for (let run = 0; run < 60; run++) {
       power: par.power,
       damageBonus: par.upgrades.damageBonus,
       rateBonus: par.upgrades.rateBonus,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense,
     };
     const gates = rollOffer(G.perOffer, wave, ctx, rng);
     if (gates.length > 0) applyGate(par, gates[scoreOffer(par, gates, wave).best]);
@@ -717,9 +720,12 @@ console.log('\n=== the Titan budget ===');
   // Geometry: a squad parked under the boss lands EVERY shot. A shot is a hit
   // when its centre is within (titan.radius + bulletRadius) of the boss, so
   // the column's half width may not exceed the boss's radius.
-  console.log(`  column ${WEAPON.columnWidth}px (guns ${WEAPON.gunSpread}px of it), formation ${2 * FORMATION_HALF_WIDTH}px, Titan ${2 * titan.radius}px`);
+  // A shot lands when its centre is within radius + bulletRadius of the boss,
+  // so that sum is the hit radius the column's half width is held under.
+  const hitRadius = titan.radius + WEAPON.bulletRadius;
+  console.log(`  column ${WEAPON.columnWidth}px (guns ${WEAPON.gunSpread}px of it), formation ${2 * FORMATION_HALF_WIDTH}px, Titan ${2 * titan.radius}px (hit radius ${hitRadius})`);
   expect('every shot from a centred squad lands on a centred Titan',
-    WEAPON.columnWidth / 2 <= titan.radius && WEAPON.gunSpread <= WEAPON.columnWidth);
+    WEAPON.columnWidth / 2 <= hitRadius && WEAPON.gunSpread <= WEAPON.columnWidth);
   expect('units are spread across the column, not stacked on its centre',
     FORMATION_HALF_WIDTH > 0 && WEAPON.columnWidth > WEAPON.gunSpread);
   // Arithmetic: at standing 1.0 with every shot landing, the boss dies at
@@ -742,6 +748,137 @@ console.log('\n=== the Titan budget ===');
     const e = new Difficulty(); e.seedPar(q);
     return Math.abs(e.titanHp(travel, titan.armor) / hp - 1) < 1e-9;
   })());
+}
+
+
+// ---------------------------------------------------------------------------
+// The discrete axes scale with what is held, and SENSE is priced.
+//
+// GUNS and PIERCE are whole numbers. A flat +1 shrinks as they stack, so past
+// `GATES.scaleDiscreteFrom` an offer draws a root and presents the whole number
+// whose effect is nearest it - the rule raw ARMY already follows. Asserted here
+// on the shipped `discreteAmount` and `scoreOffer`: below the threshold the
+// offer is +1; above it the top draw is worth at least what a mid draw of DMG
+// is, so the axis never goes dead; and the label's number is the number applied.
+// ---------------------------------------------------------------------------
+const { discreteAmount, senseFactor, senseChance, MAX_SENSE } =
+  await import('../src/systems/Progression.ts');
+const { SENSE } = await import('../src/config.ts');
+console.log('\n=== GUNS and PIERCE offers scale with what you hold ===');
+console.log('  held    +N GUNS at root 1.05 / 1.25 / 1.5   effect   |   +N PIERCE at 1.05 / 1.25 / 1.5   effect');
+let deadAxis = null;
+for (const held of [1, 2, 3, 4, 6, 10, 20, 50]) {
+  const g = [1.05, 1.25, 1.5].map((r) => discreteAmount('guns', held, r));
+  const pr = [1.05, 1.25, 1.5].map((r) => discreteAmount('pierce', held, r));
+  const gEff = delta(state(200, { guns: held }), gate('guns', 'raw', g[2]));
+  const pEff = delta(state(200, { pierce: held }), gate('pierce', 'raw', pr[2]));
+  console.log(
+    String(held).padStart(6),
+    `+${g.join(' / +')}`.padStart(22), `${(gEff * 100).toFixed(0)}%`.padStart(9),
+    '   |',
+    `+${pr.join(' / +')}`.padStart(20), `${(pEff * 100).toFixed(0)}%`.padStart(9),
+  );
+  if (held < GATES.scaleDiscreteFrom && (g.some((n) => n !== 1) || pr.some((n) => n !== 1))) {
+    deadAxis = `below ${GATES.scaleDiscreteFrom} held the offer must be +1`;
+  }
+  // The top draw must stay worth at least a mid damage draw (x1.25) - the
+  // axis is live - and must not overshoot the top of the root range by more
+  // than rounding allows at small counts.
+  if (held >= GATES.scaleDiscreteFrom && (gEff < 0.25 || pEff < 0.25)) deadAxis = `axis dead at ${held} held`;
+}
+if (deadAxis) { console.error(`FAIL: ${deadAxis}`); process.exit(1); }
+// Rounding is toward the nearest whole number, never below 1.
+if (discreteAmount('guns', 3, 1.05) !== 1 || discreteAmount('guns', 10, 1.5) !== 5
+  || discreteAmount('pierce', 3, 1.5) !== 3 || discreteAmount('pierce', 10, 1.2) !== 2) {
+  console.error('FAIL: discreteAmount rounds differently from its documentation'); process.exit(1);
+}
+// Labels carry the applied number: build real offers and check.
+{
+  let h = 5;
+  const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const ctx = { power: 500, damageBonus: 1, rateBonus: 1, guns: 6, pierce: 6, sense: 0 };
+  let seen = 0;
+  for (let i = 0; i < 400; i++) {
+    for (const g of rollOffer(G.perOffer, 12, ctx, r)) {
+      if (g.axis !== 'guns' && g.axis !== 'pierce') continue;
+      seen++;
+      const n = Number(g.label.match(/^\+(\d+) /)[1]);
+      if (n !== g.value) { console.error(`FAIL: label ${g.label} applies ${g.value}`); process.exit(1); }
+    }
+  }
+  console.log(`  ${seen} discrete offers rolled at 6 guns / 6 pierce; every label matches its effect`);
+}
+
+console.log('\n=== SENSE: priced as judgment, never a no-op while it can be taken ===');
+console.log('  held   chance   value factor   marginal value   still offered');
+for (let s = 0; s <= MAX_SENSE; s++) {
+  const marginal = s < MAX_SENSE ? senseFactor(s + 1) / senseFactor(s) - 1 : 0;
+  console.log(
+    String(s).padStart(6), `${(senseChance(s) * 100).toFixed(0)}%`.padStart(8),
+    senseFactor(s).toFixed(3).padStart(14), `${(marginal * 100).toFixed(1)}%`.padStart(16),
+    (s < MAX_SENSE ? 'yes' : 'no').padStart(15),
+  );
+}
+if (SENSE.chance[0] !== 0) { console.error('FAIL: sense 0 must mark nothing'); process.exit(1); }
+for (let s = 1; s <= MAX_SENSE; s++) {
+  if (!(SENSE.chance[s] > SENSE.chance[s - 1])) { console.error('FAIL: sense chance must rise'); process.exit(1); }
+}
+// Priced through the shipped scoring: positive at every level below the cap,
+// able to win against a weak damage draw, and never the whole decision.
+{
+  const p = state(200);
+  const senseDelta = priced(p, gate('sense', 'raw', 1), 5);
+  const weak = priced(p, gate('damage', 'mult', 1.05), 5);
+  const mid = priced(p, gate('damage', 'mult', 1.25), 5);
+  console.log(`  first +SENSE is worth ${(senseDelta * 100).toFixed(1)}% of value; x1.05 DMG ${(weak * 100).toFixed(1)}%, x1.25 DMG ${(mid * 100).toFixed(1)}%`);
+  if (!(senseDelta > weak)) { console.error('FAIL: +SENSE can never beat a weak damage draw, so it is priced as a mistake'); process.exit(1); }
+  if (!(senseDelta < mid)) { console.error('FAIL: +SENSE beats a mid damage draw - it has become the obvious pick'); process.exit(1); }
+  // At the cap it is not offered, and if applied anyway changes nothing.
+  const capped = state(200, { sense: MAX_SENSE });
+  if (priced(capped, gate('sense', 'raw', 1), 5) !== 0) { console.error('FAIL: sense past the cap changed value'); process.exit(1); }
+  let h = 9;
+  const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const ctx = { power: 200, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: MAX_SENSE };
+  for (let i = 0; i < 400; i++) {
+    if (rollOffer(G.perOffer, 8, ctx, r).some((g) => g.axis === 'sense')) {
+      console.error('FAIL: +SENSE offered at the cap'); process.exit(1);
+    }
+  }
+  console.log(`  +SENSE leaves the pool at ${MAX_SENSE} held; squadDps ignores it entirely`);
+  if (squadDps(state(200, { sense: 2 })) !== squadDps(state(200))) { console.error('FAIL: sense reached DPS'); process.exit(1); }
+}
+
+console.log('\n=== rescue cages and enemy fire scale with the run ===');
+{
+  const { CAGE, ENEMY_FIRE } = await import('../src/config.ts');
+  const { ENEMY_BY_ID } = await import('../src/data/enemies.ts');
+  const { Difficulty } = await import('../src/systems/Difficulty.ts');
+  const titan = ENEMY_BY_ID.get('titan');
+  const travel = (ARENA.breachY - (ARENA.spawnY - 40)) / titan.speed;
+  console.log('  par DPS   Titan HP    cage HP   cage at par (s)   reward at 20 / 100 / 101 / 5000 power');
+  for (const dps of [3, 1e3, 1e6, 1e9]) {
+    const d = new Difficulty();
+    const p = state(50, { damageMult: dps / squadDps(state(50)) });
+    d.seedPar(p);
+    const hp = d.titanHp(travel, titan.armor);
+    const cage = hp * CAGE.hpTitanFraction;
+    const reward = (power) => (power > CAGE.shareFrom ? Math.round(power * CAGE.share) : CAGE.reward);
+    console.log(
+      dps.toExponential(0).padStart(9), hp.toExponential(2).padStart(10), cage.toExponential(2).padStart(10),
+      (cage / squadDps(p)).toFixed(2).padStart(17),
+      `+${[20, 100, 101, 5000].map(reward).join(' / +')}`.padStart(32),
+    );
+  }
+  // The cage's cost in seconds of par fire is a constant of the design, not of
+  // the wave: a fifth of bossKillPar x bossKillDistance x descent x (1 - armor).
+  const d = new Difficulty(); d.seedPar(state(50));
+  const cageSeconds = d.titanHp(travel, titan.armor) * CAGE.hpTitanFraction / squadDps(state(50));
+  const want = DIFFICULTY.bossKillPar * DIFFICULTY.bossKillDistance * travel * (1 - titan.armor) * CAGE.hpTitanFraction;
+  expect(`a cage costs ${cageSeconds.toFixed(2)}s of par fire at every par`, Math.abs(cageSeconds - want) < 1e-9);
+  const cost = (power) => Math.max(ENEMY_FIRE.minCost, Math.floor(power * ENEMY_FIRE.powerShare));
+  console.log(`  enemy bullet costs ${[1, 50, 199, 200, 999, 10000].map((p) => `${cost(p)} @${p}`).join(', ')} power`);
+  expect('a bullet never costs less than one power', cost(1) === 1 && cost(99) === 1);
+  expect('a bullet costs a whole 1% of a large army', cost(10000) === 100 && cost(10099) === 100);
 }
 
 console.log('PASS');

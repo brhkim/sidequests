@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { DIFFICULTY, VIEW } from '../../config';
+import { AXIS_COLOR } from '../../data/gates';
+import { MAX_SENSE } from '../../systems/Progression';
 import { compact, hex, type HudPayload } from './types';
 
 /** Height of the whole rail, including the standing bar along its lower edge. */
@@ -9,17 +11,17 @@ const LABEL = '#6f7b99';
 const VALUE = '#e8ecf8';
 
 /**
- * Five columns, ordered by how load-bearing they are rather than by tradition.
+ * Four columns, ordered by how load-bearing they are rather than by tradition.
  *
- * ARMY carries power, not kills, because a `+4 ARMY` gate is drawn as a share
- * of the power you are holding - so power is a conversion input exactly like
- * the damage pool is, and kills are flavour. Kills survive as WAVE's sub-line.
+ * ARMY used to sit here and now lives in the strip beneath the red line with
+ * the other DPS inputs: it is a conversion input exactly as the damage pool
+ * is, and it was the one term of the DPS product that lived at the top of the
+ * screen while the rest lived at the bottom. SENSE takes its place because it
+ * is the one bonus that is NOT a DPS input - it is about the player, not the
+ * squad - so the rail is now "the run" (wave, you against par, your read on
+ * the offers) and the strip is "the squad".
  */
-// SQUAD (bodies on screen) was dropped: it sat beside ARMY (power) and the two
-// read as competing answers to one question. Power is what every bonus converts
-// against, so it is the number that belongs here; the bodies are visible in the
-// formation itself.
-const COLUMNS = ['WAVE', 'ARMY', 'DPS', 'PAR'] as const;
+const COLUMNS = ['WAVE', 'DPS', 'PAR', 'SENSE'] as const;
 
 /**
  * Par DPS is on screen permanently rather than saved for the death readout.
@@ -39,7 +41,7 @@ export class TopRail {
       const cx = lane * i + lane / 2;
       scene.add.text(cx, 9, name, {
         fontFamily: 'system-ui, sans-serif', fontSize: '11px',
-        color: LABEL, fontStyle: 'bold',
+        color: name === 'SENSE' ? hex(AXIS_COLOR.sense) : LABEL, fontStyle: 'bold',
       }).setOrigin(0.5, 0).setLetterSpacing(1.4);
 
       this.values.push(scene.add.text(cx, 22, '-', {
@@ -70,20 +72,32 @@ export class TopRail {
     const color = standingColor(ratio);
 
     this.values[0].setText(String(h.wave));
-    this.values[1].setText(compact(h.power));
-    this.values[2].setText(compact(h.dps)).setColor(color);
-    this.values[3].setText(compact(h.parDps));
+    this.values[1].setText(compact(h.dps)).setColor(color);
+    this.values[2].setText(compact(h.parDps));
+    // Three pips that fill: the author's picture of it, and it reads at a
+    // glance where "2/3" has to be parsed. The chance is the sub-line, so the
+    // number the pause screen explains is on screen the whole time.
+    this.values[3].setText(sensePips(h.sense))
+      .setColor(h.sense > 0 ? hex(AXIS_COLOR.sense) : '#3a4358');
 
     this.subs[0].setText(`${compact(h.kills)} KILLS`);
-    this.subs[1].setText(h.tierName.toUpperCase()).setColor(hex(h.tierColor));
     // Past 999% the exact number has stopped being information, and the column
-    // is 108px wide.
+    // is 135px wide.
     const percent = Math.round(ratio * 100);
-    this.subs[2].setText(percent > 999 ? '>999% PAR' : `${percent}% PAR`).setColor(color);
+    this.subs[1].setText(percent > 999 ? '>999% PAR' : `${percent}% PAR`).setColor(color);
+    this.subs[3].setText(h.sense > 0 ? `${Math.round(h.senseChance * 100)}% MARKED` : '')
+      .setColor(hex(AXIS_COLOR.sense));
 
     this.barFill.width = Math.max(1, Math.min(1, ratio) * VIEW.width);
     this.barFill.fillColor = Phaser.Display.Color.HexStringToColor(color).color;
   }
+}
+
+/** `●●○` at two of three. Exported so the pause screen draws the same glyphs. */
+export function sensePips(sense: number): string {
+  let s = '';
+  for (let i = 0; i < MAX_SENSE; i++) s += i < sense ? '●' : '○';
+  return s;
 }
 
 function standingColor(ratio: number): string {

@@ -52,6 +52,38 @@ await mkdir(OUT_DIR, { recursive: true });
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 let errors = 0;
 
+/** Every text on a visible UI container, so screens are checked by what they say. */
+const visibleTexts = (page) => page.evaluate(() => {
+  const ui = window.game.scene.getScene('UI');
+  const walk = (c) => c.list.flatMap((o) =>
+    (o.type === 'Text' ? [o.text] : o.type === 'Container' && o.visible ? walk(o) : []));
+  return ui.children.list
+    .filter((o) => o.type === 'Container' && o.visible)
+    .flatMap(walk);
+});
+
+/** Game-space position of a visible text, so controls are found by label. */
+const findText = async (page, label) => {
+  const at = await page.evaluate((want) => {
+    const ui = window.game.scene.getScene('UI');
+    const walk = (c) => {
+      for (const o of c.list) {
+        if (o.type === 'Text' && o.text === want) return { x: o.x, y: o.y };
+        if (o.type === 'Container' && o.visible) { const r = walk(o); if (r) return r; }
+      }
+      return null;
+    };
+    for (const c of ui.children.list) {
+      if (c.type !== 'Container' || !c.visible) continue;
+      const r = walk(c);
+      if (r) return r;
+    }
+    return null;
+  }, label);
+  if (!at) throw new Error(`no visible text "${label}"`);
+  return at;
+};
+
 for (const run of RUNS) {
   const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
   page.on('pageerror', (e) => { console.log(`  ERROR ${e.message}`); errors++; });
@@ -104,6 +136,38 @@ for (const run of RUNS) {
   });
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(OUT_DIR, `${run.name}.png`) });
+  // "Replay this match" must be the same match: same seed, run restarted.
+  // It used to continue the stream under the old code, which no code could
+  // reproduce. Checked once, on the first run.
+  if (run.name === 'end-good') {
+    const seedBefore = await page.evaluate(() => window.game.scene.getScene('Game').seed);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.3);
+    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => {
+      const g = window.game.scene.getScene('Game');
+      return { seed: g.seed, waiting: g.waiting, over: g.over, stats: g.registry.get('stats') };
+    });
+    console.log(`end-replay: seed ${seedBefore} -> ${after.seed}, wave ${after.stats.wave}, over ${after.over}`);
+    if (after.seed !== seedBefore || after.over || after.waiting || after.stats.wave !== 1 || after.stats.kills !== 0) {
+      console.log('  ERROR replay did not restart the same match'); errors++;
+    }
+    // And "new match" from the end screen returns to the start screen on a
+    // fresh code.
+    await page.evaluate(() => { const g = window.game.scene.getScene('Game'); g.over = true; g.emitGameOver(); });
+    await page.waitForTimeout(200);
+    const fresh = await findText(page, 'or start a new match');
+    await page.mouse.click(box.x + (fresh.x / 540) * box.width, box.y + (fresh.y / 960) * box.height);
+    await page.waitForTimeout(300);
+    const start = await page.evaluate(() => {
+      const g = window.game.scene.getScene('Game');
+      return { seed: g.seed, waiting: g.waiting };
+    });
+    const codes = (await visibleTexts(page)).filter((t) => /^[0-9A-Z]{4}-[0-9A-Z]{3}-[NH]$/.test(t));
+    console.log(`end-new-match: seed ${start.seed}, waiting ${start.waiting}, start screen code ${codes[0] ?? 'MISSING'}`);
+    if (start.seed === seedBefore || !start.waiting || codes.length === 0) {
+      console.log('  ERROR new match did not return to the start screen on a fresh code'); errors++;
+    }
+  }
   console.log(
     `${run.name}: wave ${summary.wave}, ${summary.decisions} decisions,`,
     `${Math.round(summary.optimal * 100)}% of optimal,`,
@@ -181,12 +245,31 @@ for (const shot of PAUSE_SHOTS) {
     errors++;
   }
 
+  // The DETAILS page: the rail's DPS derived line by line. Photographed on
+  // the mid-run shot, where the numbers are worth deriving, and left by the
+  // same button the BONUSES page is, so the tab does not trap the player.
+  if (shot.name === 'pause-mid') {
+    // The rail's own figure, read off the BONUSES page before leaving it.
+    const rail = (await visibleTexts(page)).find((t) => /DPS  ·  PAR/.test(t));
+    const tab = await findText(page, 'DETAILS');
+    await page.mouse.click(box.x + tab.x * scale, box.y + tab.y * scale);
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: join(OUT_DIR, 'pause-details.png') });
+    const texts = await visibleTexts(page);
+    const derived = texts.find((t) => /^=\s+\S+ DPS/.test(t));
+    console.log(`pause-details: ${derived ?? 'NO TOTAL LINE'}  |  rail ${rail ?? '?'}`);
+    if (!derived) { console.log('  ERROR details page has no derived total'); errors++; }
+    // The derived total must be the rail's number, or the page is a lie.
+    const a = derived?.match(/^=\s+(\S+) DPS/)?.[1];
+    const b = rail?.match(/^(\S+) DPS/)?.[1];
+    if (a !== b) { console.log(`  ERROR details total ${a} differs from the rail's ${b}`); errors++; }
+  }
+
   // Leave by the button, and check the simulation did what the button says. A
   // frozen simulation that never restarts looks identical to a working one in
-  // a screenshot.
-  await page.mouse.click(
-    box.x + 270 * scale, box.y + (shot.exit === 'resume' ? 714 : 794) * scale,
-  );
+  // a screenshot. Located by label: the buttons moved once already.
+  const exitAt = await findText(page, shot.exit === 'resume' ? 'RESUME' : 'RESTART');
+  await page.mouse.click(box.x + exitAt.x * scale, box.y + exitAt.y * scale);
   await page.waitForTimeout(900);
   const after = await page.evaluate(() => {
     const g = window.game.scene.getScene('Game');
@@ -336,6 +419,99 @@ for (const shot of [
   // A toggle that starts the run under the finger would be worse than no
   // toggle: the tap that picks a difficulty must not also begin playing it.
   if (afterTwo.waiting !== true) { console.log('  ERROR toggling started the match'); errors++; }
+  await page.close();
+}
+
+// Entering a match code. The medium is a screenshot, and a screenshot loses
+// the link, so a code you cannot type back in is decoration. The prompt is a
+// native dialog; Playwright answers it the way a person would.
+{
+  const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
+  page.on('pageerror', (e) => { console.log(`  ERROR ${e.message}`); errors++; });
+  page.on('console', (m) => { if (m.type() === 'error') { console.log(`  ERROR ${m.text()}`); errors++; } });
+  await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+  await page.waitForTimeout(900);
+  const box = await page.locator('canvas').boundingBox();
+  const tap = async (label) => {
+    const at = await findText(page, label);
+    await page.mouse.click(box.x + (at.x / 540) * box.width, box.y + (at.y / 960) * box.height);
+    await page.waitForTimeout(300);
+  };
+  const read = async () => {
+    const g = await page.evaluate(() => {
+      const g = window.game.scene.getScene('Game');
+      return { seed: g.seed, mode: g.mode, waiting: g.waiting };
+    });
+    const code = (await visibleTexts(page)).find((t) => /^[0-9A-Z]{4}-[0-9A-Z]{3}-[NH]$/.test(t));
+    return { ...g, code };
+  };
+  const before = await read();
+  // A hard code, typed the sloppy way: lower case, no dashes, an O for the 0.
+  page.once('dialog', (d) => d.accept('2tnbbgsh'));
+  await tap('enter a code');
+  const typed = await read();
+  // Genuinely not a code: the decoder folds and forgives, so eight letters of
+  // anything would decode. Too short cannot.
+  page.once('dialog', (d) => d.accept('nope'));
+  await tap('enter a code');
+  const rejected = await read();
+  // The rejection message stands in for the label for a moment; let it clear.
+  await page.waitForTimeout(1800);
+  page.once('dialog', (d) => d.dismiss());
+  await tap('enter a code');
+  const dismissed = await read();
+  await tap('new match');
+  const fresh = await read();
+  await page.screenshot({ path: join(OUT_DIR, 'start-entered.png') });
+  console.log(`start-enter: ${before.code} -> typed ${typed.code} (${typed.mode}) -> bad ${rejected.code} -> dismissed ${dismissed.code} -> new ${fresh.code}`);
+  if (typed.code !== '2TNB-BGS-H' || typed.mode !== 'hard') { console.log('  ERROR typed code was not adopted'); errors++; }
+  if (rejected.code !== typed.code || dismissed.code !== typed.code) { console.log('  ERROR a bad or dismissed prompt changed the match'); errors++; }
+  if (fresh.code === typed.code || fresh.mode !== 'hard') { console.log('  ERROR new match did not roll a fresh seed on the same mode'); errors++; }
+  if (!fresh.waiting) { console.log('  ERROR a start-screen control began the match'); errors++; }
+  await tap('START MATCH');
+  const started = await read();
+  if (started.waiting) { console.log('  ERROR START MATCH did not begin the entered match'); errors++; }
+  await page.close();
+}
+
+// The SENSE mark. Sense is forced to its cap so half the offers arrive
+// sensed, and the shot is taken the moment one is on screen with its best
+// option marked. Asserts a mark appears at all, and that it sits on the
+// option the scoring calls best - the whole promise of the bonus.
+{
+  const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
+  page.on('pageerror', (e) => { console.log(`  ERROR ${e.message}`); errors++; });
+  page.on('console', (m) => { if (m.type() === 'error') { console.log(`  ERROR ${m.text()}`); errors++; } });
+  await page.goto(`http://127.0.0.1:${port}/?seed=21`, { waitUntil: 'load' });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    g.squad.progress.upgrades.sense = 3;
+    g.squad.progress.power = 40;
+    g.squad.rebuild();
+  });
+  let marked = null;
+  for (let tick = 0; tick < 600 && !marked; tick++) {
+    const s = await page.evaluate(() => window.game.scene.getScene('Game').registry.get('stats'));
+    if (s.over) break;
+    const m = s.gates.find((g) => g.sensed && g.y > 150 && g.y < 700);
+    if (m) marked = { gate: m, all: s.gates.filter((g) => g.pair === m.pair), sense: s.sense };
+    else await page.waitForTimeout(100);
+  }
+  if (!marked) {
+    console.log('  ERROR no sensed offer appeared in 60s at sense 3'); errors++;
+  } else {
+    await page.screenshot({ path: join(OUT_DIR, 'sense-mark.png') });
+    const best = marked.all.reduce((a, b) => (b.delta > a.delta ? b : a));
+    console.log(`sense-mark: marked ${marked.gate.label} (${(marked.gate.delta * 100).toFixed(0)}%) of`
+      + ` ${marked.all.map((g) => `${g.label} ${(g.delta * 100).toFixed(0)}%`).join(' | ')}; sense ${marked.sense}`);
+    if (!marked.gate.best || marked.gate.delta < best.delta - 1e-9) {
+      console.log('  ERROR the mark is not on the best option'); errors++;
+    }
+    if (marked.all.filter((g) => g.sensed).length !== 1) {
+      console.log('  ERROR more than one option of the offer is marked'); errors++;
+    }
+  }
   await page.close();
 }
 

@@ -84,12 +84,6 @@ export const SQUAD = {
   maxPower: 1e15,
   /** Power lost when an enemy breaches the line, multiplied by enemy damage. */
   breachLoss: 1,
-  /**
-   * Power lost per enemy bullet that lands, multiplied by the gun's damage.
-   * Deliberately well under `breachLoss`: fire is a steady tax that asks you to
-   * keep moving, while a breach is the punishment for failing to kill.
-   */
-  fireLoss: 0.5,
 } as const;
 
 /** Referenced twice inside WEAPON, so they cannot be self-references. */
@@ -135,7 +129,7 @@ export const WEAPON = {
   /**
    * The FIRING COLUMN: every shot the squad fires spawns inside a column this
    * wide, centred on the squad, whatever the formation's footprint. It is the
-   * Titan's diameter (`radius: 36` in data/enemies.ts; `npm run model` asserts
+   * Titan's hit width (`radius: 38` in data/enemies.ts; `npm run model` asserts
    * the two agree), so a squad parked under the boss lands every shot on it -
    * which is the assumption the Titan's HP budget is built on, and the only
    * thing that makes that budget a statement about the player rather than
@@ -148,8 +142,21 @@ export const WEAPON = {
    * of par took the first Titan down to 75% in real play. Extra guns still
    * fire PARALLEL, not fanned - a cone scatters damage at range, so more guns
    * would make a squad worse against a single target, which is backwards.
+   *
+   * 83 is 72 widened by 15% at the author's request (72 read as too narrow in
+   * play). A shot lands when its centre is within `radius + bulletRadius` of
+   * the boss, so the Titan grew from 36 to 38 in radius to keep the invariant
+   * above: half the column (41.5) still sits inside its hit radius (42).
+   *
+   * The column is centred on the LEADER'S DRAWN POSITION, not on the squad's
+   * logical centre. Units ease toward their slots, so under a moving finger
+   * the whole ring trails the centre by ~18px; a column centred on the centre
+   * therefore came out of the air ahead of the character, which is the
+   * "off-centre" the author saw. Centring on the leader makes the beam leave
+   * the body that is visibly firing it; the two coincide the moment the squad
+   * stops, so a parked squad under the boss is unchanged.
    */
-  columnWidth: 72,
+  columnWidth: 83,
   /**
    * Width a unit's extra guns spread across, inside the column. Units are laid
    * across the rest of it (`columnWidth - gunSpread`), scaled down from their
@@ -157,9 +164,11 @@ export const WEAPON = {
    */
   gunSpread: 24,
   /**
-   * Chance a piercing bullet meets another body after a hit. Tuned constant,
-   * deliberately not live enemy density - see Progression.pierceMultiplier.
-   * At 0.5, pierce 1/2/3 are worth 1.5x / 1.75x / 1.875x.
+   * What one level of pierce is worth, in bodies: each level adds this much of
+   * an extra hit, so pierce P is worth `1 + q * P`. Tuned constant, deliberately
+   * not live enemy density - see Progression.pierceMultiplier, which also says
+   * why the series stopped compounding. At 0.5, pierce 1/2/3/10 are worth
+   * 1.5x / 2x / 2.5x / 6x.
    */
   pierceQ: 0.5,
 } as const;
@@ -196,6 +205,18 @@ export const ENEMY_FIRE = {
   maxStep: 16,
   /** Grace after a spawn before its gun can fire, so volleys are staggered. */
   armDelay: 0.7,
+  /**
+   * What a landing bullet costs: this share of the army you hold, rounded DOWN
+   * to whole power, never less than `minCost`, times the gun's `damage`. A
+   * flat half-power tax went dead once armies reached the hundreds, so enemy
+   * fire stopped being a reason to move exactly when there was the most of it.
+   * At 1% a bullet is 1 power until 200, 2 until 300, and 100 at 10,000 - the
+   * same proportional bite all run. Well under a breach, still: a breach is a
+   * failure to kill and costs the enemy's whole damage; fire is a tax on
+   * standing still.
+   */
+  powerShare: 0.01,
+  minCost: 1,
 } as const;
 
 export const WAVE = {
@@ -320,9 +341,13 @@ export const DIFFICULTY = {
    * top of its budget, and its 35% armor was budgeted as if it were 0. Both
    * are accounted for now (`Difficulty.titanHp`, `Enemies.advanceWave`), so
    * the constant means what it says.
+   *
+   * 0.36 is 0.3 with 20% more HP, the author's second value after playing the
+   * first. HP is linear in this number, so "20% tougher" is exactly x1.2 here.
+   * Rescue cages are sized from the same budget - see `CAGE.hpTitanFraction`.
    */
   bossKillPar: 0.9,
-  bossKillDistance: 0.3,
+  bossKillDistance: 0.36,
   /**
    * Seconds for the budget to catch up to a change in par. Multiplier gates
    * double par in a single instant, which used to halve your standing with no
@@ -392,6 +417,16 @@ export const GATES = {
   perOffer: 3,
   gap: 8,
   /**
+   * GUN and PIERCE are whole numbers, so they cannot draw a root the way the
+   * pools do - and a flat `+1` shrinks as you stack them: the fourth gun is
+   * +33%, the tenth +11%, and past that the axis is dead. From this many held,
+   * a discrete offer draws a root like everything else and presents it as the
+   * whole number whose effect matches it, `+N GUNS` or `+N PIERCE`, floor 1 -
+   * the same share-of-what-you-hold rule raw ARMY uses. Below it the offer is
+   * `+1`, which the rule would round to anyway at one or two held.
+   */
+  scaleDiscreteFrom: 3,
+  /**
    * Label size. Three lanes across 540px leaves ~175px each, so this is sized
    * to fit the longest label the generator can produce (`+180% DMG` at a high
    * pool, `×1.05 ARMY`) without truncation.
@@ -431,15 +466,53 @@ export const SCORING = {
    * compounding and one that stops.
    */
   accessWeight: 0.8,
+  /**
+   * How much of a state's value is JUDGMENT bought by `+SENSE`. Sense carries
+   * no damage and no reach; what it buys is a chance (`SENSE.chance`) that an
+   * offer arrives with its best option marked, which is a share of every
+   * future pick made well. Priced as `1 + senseWeight x chance`, so the first
+   * sense is worth +10% of value, the second +6%, the third +4% - a weak-to-
+   * middling damage draw, which is the call the design wants: take the hint
+   * or take the damage. Difficulty ignores it entirely; see `progressValue`.
+   */
+  senseWeight: 0.4,
+} as const;
+
+/**
+ * `+SENSE`: the one bonus about the player rather than the squad. Each level
+ * raises the chance that an offer arrives with its BEST option highlighted.
+ * The roll is made once per offer, from the seeded generator, when the offer
+ * is rolled - so a match code reproduces which offers were sensed too.
+ */
+export const SENSE = {
+  /** Chance an offer is sensed, indexed by sense held. Length sets the cap. */
+  chance: [0, 0.25, 0.4, 0.5],
 } as const;
 
 export const CAGE = {
   /** Rescue cages: shoot one open to free allies. A way to grow mid-wave. */
   chancePerWave: 0.75,
-  hp: 22,
   speed: 52,
   radius: 18,
-  reward: 6,
+  /**
+   * The reward is flat until the army passes `shareFrom`, then a share of it,
+   * whole: +5 up to 100 power, +5% after, so a cage is worth the same bite of
+   * a run at 20 power and at 20,000. It is the one source of army par does
+   * NOT collect - a rescue is how a player who has fallen behind catches up,
+   * and crediting par with it would move the curve out of reach by exactly
+   * what it was meant to give back.
+   */
+  reward: 5,
+  share: 0.05,
+  shareFrom: 100,
+  /**
+   * HP as a fraction of the Titan that would spawn right now (its full budget:
+   * `Difficulty.titanHp` at the boss's own descent and armor). A fifth of a
+   * Titan is about two seconds of par's single-target fire, so opening one is
+   * a real cost against the wave rather than a free pickup, and it scales
+   * with par the way the boss does instead of with the wave's `hpMult`.
+   */
+  hpTitanFraction: 0.2,
 } as const;
 
 export const STREAK = {

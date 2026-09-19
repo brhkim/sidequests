@@ -177,7 +177,7 @@ export const ENEMIES: readonly EnemyType[] = [
     id: 'titan', name: 'Titan',
     motion: { kind: 'drift', amplitude: 42, frequency: 0.8 },
     color: 0x6b2b8c, accent: 0x3a1550,
-    radius: 36, hp: 420, speed: 15, damage: 12, armor: 0.35, weight: 0, minWave: 5,
+    radius: 38, hp: 420, speed: 15, damage: 12, armor: 0.35, weight: 0, minWave: 5,
     escort: { interval: 2.2, spawn: 'runner', count: 1 },
     gun: { interval: 3.4, count: 5, spread: 0.9, speed: 165, damage: 1, aimed: false },
   },
