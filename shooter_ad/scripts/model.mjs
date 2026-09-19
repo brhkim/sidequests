@@ -519,6 +519,79 @@ if (Math.abs(worstArith / amean(LEGIBILITY[0].roots) - 1) > ARITH_TOLERANCE) {
 
 
 // ---------------------------------------------------------------------------
+// The judgment curve, wave by wave: everything that keys off `judgmentWave`
+// in one table, so the shape of the late game can be read rather than
+// re-derived. Four levers - descent time, gate speed, the root table a bonus
+// draws from, and dead space between gates - and the Titan waves marked,
+// because a Titan wave is where all four are felt at once.
+//
+// Asserted: dead space is zero through wave 3 (normal), never decreases,
+// caps at `GATES.deadSpace.max`, never pushes a gate under `GATES.minWidth`,
+// and hard mode's wave 1 is exactly normal's wave 1 + offset - the same
+// "started later" property the speed and legibility checks above enforce.
+// ---------------------------------------------------------------------------
+const { gateDeadSpace } = await import('../src/systems/Progression.ts');
+const { WAVE: WAVE_CFG, VIEW } = await import('../src/config.ts');
+console.log('\n=== the judgment curve, per wave ===');
+const LANE = VIEW.width / G.perOffer;
+const curveRow = (wave) => {
+  const u = freshUpgrades();
+  const tier = legibilityFor(judgmentWave(wave));
+  const dead = gateDeadSpace(wave);
+  return {
+    wave, descent: gateDescentSeconds(wave, u), speed: waveGateSpeedMult(wave),
+    roots: tier.roots.length, sigFigs: tier.sigFigs, dead,
+    width: Math.max(G.minWidth, LANE - dead), titan: wave % WAVE_CFG.bossEvery === 0,
+  };
+};
+const printCurve = (mode, waves) => {
+  setMode(mode);
+  console.log(`  ${mode}`);
+  console.log('    wave  descent s  speed x  roots  sig figs  dead px  gate px');
+  const rows = waves.map(curveRow);
+  for (const r of rows) {
+    console.log(
+      String(r.wave).padStart(8),
+      r.descent.toFixed(2).padStart(10),
+      r.speed.toFixed(3).padStart(8),
+      String(r.roots).padStart(6),
+      String(r.sigFigs).padStart(9),
+      String(r.dead).padStart(8),
+      String(r.width).padStart(8),
+      r.titan ? '  TITAN' : '',
+    );
+  }
+  setMode('normal');
+  return rows;
+};
+const curveNormal = printCurve('normal', Array.from({ length: 25 }, (_, i) => i + 1));
+const curveHard = printCurve('hard', Array.from({ length: 20 }, (_, i) => i + 1));
+for (const r of curveNormal.slice(0, 3)) {
+  if (r.dead !== 0) throw new Error(`dead space is ${r.dead}px at normal wave ${r.wave}; must be 0 through wave 3`);
+}
+for (const rows of [curveNormal, curveHard]) {
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].dead < rows[i - 1].dead) throw new Error(`dead space fell at wave ${rows[i].wave}`);
+  }
+  for (const r of rows) {
+    if (r.dead > G.deadSpace.max) throw new Error(`dead space ${r.dead}px exceeds the cap at wave ${r.wave}`);
+    if (r.width < G.minWidth) throw new Error(`gate width ${r.width}px under minWidth at wave ${r.wave}`);
+  }
+}
+if (curveNormal[curveNormal.length - 1].dead !== G.deadSpace.max) {
+  throw new Error('dead space never reaches its cap by normal wave 25');
+}
+if (curveHard[0].dead !== curveNormal[OFFSET].dead) {
+  throw new Error(`hard wave 1 dead space (${curveHard[0].dead}) is not normal wave ${1 + OFFSET} (${curveNormal[OFFSET].dead})`);
+}
+if (LANE - G.deadSpace.max < G.minWidth) {
+  throw new Error('GATES.deadSpace.max leaves a card narrower than GATES.minWidth');
+}
+console.log(`  dead space: 0 through normal wave ${G.deadSpace.fromWave}, +${G.deadSpace.perWave}px a wave after it,`
+  + ` capped at ${G.deadSpace.max}px (gate ${LANE - G.deadSpace.max}px of a ${LANE}px lane); hard wave 1 = normal wave ${1 + OFFSET}`);
+
+
+// ---------------------------------------------------------------------------
 // Ordinary enemies must not stop scaling with the player.
 //
 // The finding, from a real play session: non-boss enemies should scale at least

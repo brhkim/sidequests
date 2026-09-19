@@ -237,6 +237,22 @@ A `−10% GATE SPEED` bonus buys thinking time for the rest of the run. Same
 family as move speed: no DPS, real value. Wording needs care — "slower gates"
 sounds like a downside and is not. Candidate label: **`+TIME`**.
 
+### Dead space between gates
+
+**Built.** As the waves go on, the bonus gates stop tiling the width: a band
+of dead space opens between them and grows, so players not only need to make
+the decision, but need increasing precision in movement to do so despite the
+noise of everything going on - and so they can fully miss a bonus. This was a
+bug fixed a while ago (a gap at wave 1 let a player slide between two blocks
+by accident) and is now part of the design instead: zero until wave 4, 6px a
+wave from wave 5, capped at 72px from wave 16, where a 180px lane holds a
+108px gate. Hard mode starts it five waves in like the other judgment levers.
+A missed offer shows `MISS` at the lane line and is graded as the worst pick.
+
+To keep every label legible at the narrowest width the cards became taller
+and the label two-line - magnitude over axis - rather than the numbers
+smaller. A late `+1840% DMG` still reads.
+
 ---
 
 ## Pierce: what is it actually worth?
@@ -362,6 +378,20 @@ mechanic changes — only how hard the arithmetic is.
 
 This is the axis that scales furthest, because it never stops being interesting.
 
+**When the decimals appear today.** Three tiers: waves 1-5 draw six round
+values (`1.05, 1.15, 1.25, 1.3, 1.4, 1.5`, two significant figures on raw
+numbers); wave 6 every `.05`; wave 11 every `.01` with three significant
+figures, which is when `×1.07` and `+1840%` start showing up. Hard mode is
+five waves ahead: every `.05` from wave 1, every `.01` from wave 6. The
+author's proposed schedule - three values for 1-5, tenths for 6-10 (1.1 to
+1.5, dropping 1.25), every `.05` for 11-15, every hundredth from 16 - is
+**pending**: the tiers must share a mean, arithmetic and geometric, or the
+legibility axis is a power axis in disguise (see below), and "tenths" cannot
+be mean-neutral inside the fixed [1.05, 1.5] range. Waiting on the author's
+choice between accepting that drift and a neutral variant; the tables are
+unchanged until then. `npm run model` prints the whole curve per wave under
+"the judgment curve".
+
 **"No mechanic changes" is a constraint on the tables' MEAN, not only on their
 range, and the first draft broke it.** The original coarse table bunched low -
 1.32% less per draw than the ladders, about 48% less power over thirty offers -
@@ -378,7 +408,9 @@ A wash over the gate the moment you take it, with the word on it:
 - **red BAD** — worst of the three
 
 and a red **MISS** at the lane line if an offer passes untaken (DDR-style; a
-missed offer is graded as a BAD pick in the tally). The halo it replaced was a
+missed offer is graded as a BAD pick in the tally). With dead space between
+gates from wave 5, MISS is now reachable in play, and lands over the option
+the squad was nearest. The halo it replaced was a
 circle the size of a unit on a card three times wider, and read as a hit
 rather than a verdict.
 

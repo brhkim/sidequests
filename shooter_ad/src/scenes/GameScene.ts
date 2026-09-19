@@ -191,7 +191,19 @@ export class GameScene extends Phaser.Scene {
       },
       (pair) => {
         this.log.resolve(pair, -1);
-        this.sim.push({ kind: 'miss', x: VIEW.width / 2, y: ARENA.laneY, pair });
+        // MISS lands on the option the squad was nearest, so the word sits in
+        // the lane the player was standing in - beside the dead space they
+        // stopped in, not in the middle of the screen. The offer's slots are
+        // still intact here: expiry is reported in the same update that
+        // dropped them, before any spawn can reuse one.
+        let x = VIEW.width / 2;
+        let best = Infinity;
+        for (const g of this.gates.items) {
+          if (g.pair !== pair) continue;
+          const d = Math.abs(g.x - this.squad.x);
+          if (d < best) { best = d; x = g.x; }
+        }
+        this.sim.push({ kind: 'miss', x, y: ARENA.laneY, pair });
       },
     );
     this.grid = new Grid<Enemy>(48, VIEW.width);

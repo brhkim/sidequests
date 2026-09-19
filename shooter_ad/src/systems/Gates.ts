@@ -1,6 +1,6 @@
 import { ARENA, GATES, VIEW } from '../config';
 import { rollOffer, type GateType, type OfferContext } from '../data/gates';
-import { gateSpeed, senseChance, type Upgrades } from './Progression';
+import { gateDeadSpace, gateSpeed, senseChance, type Upgrades } from './Progression';
 
 export interface Gate {
   x: number; y: number;
@@ -129,15 +129,20 @@ export class Gates {
     // cannot shift the enemies and offers that follow.
     const sensed = this.rng() < senseChance(ctx.sense);
     this.pending.push({ pair, types: offer, sensed });
-    // Lanes tile the full width with NO gap between them, so every x position
-    // is inside exactly one option. The gap used to be real: a player could
-    // slide between two blocks and take nothing, which turns a missed offer
-    // from a decision into a geometry accident. The separation is drawn as an
-    // inset on the rectangle instead - visual, never in the hit test.
+    // Lanes tile the full width; each gate sits centred in its lane and is
+    // `gateDeadSpace` narrower than it, so from wave 4 (judgment wave) a band
+    // between neighbours belongs to NO option and an offer can be MISSED.
+    // Early on that band is zero and every x is inside exactly one option -
+    // a gap at wave 1 turned a missed offer into a geometry accident, which is
+    // why it was once removed; it returns as a difficulty lever, growing with
+    // the wave, because precision of movement under fire is part of the
+    // judgment the late game is meant to test. `width` IS the hit test
+    // (`checkGates`, `findTarget`), and the card is drawn to it.
     const lane = VIEW.width / offer.length;
+    const width = Math.max(GATES.minWidth, lane - gateDeadSpace(wave));
     for (let i = 0; i < offer.length; i++) {
       const x = i * lane + lane / 2;
-      this.push({ x, width: lane, type: offer[i], pair, index: i, sensed });
+      this.push({ x, width, type: offer[i], pair, index: i, sensed });
     }
   }
 

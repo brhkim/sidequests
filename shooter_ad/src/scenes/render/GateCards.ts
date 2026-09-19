@@ -8,7 +8,11 @@ import { RAIL_HEIGHT } from '../hud/TopRail';
 interface GateVisual {
   rect: Phaser.GameObjects.Rectangle;
   roof: Phaser.GameObjects.Rectangle;
-  label: Phaser.GameObjects.Text;
+  /** The label, split: MAGNITUDE (`×1.05`, `+2`) over AXIS (`DMG`, `GUNS`). */
+  magnitude: Phaser.GameObjects.Text;
+  axis: Phaser.GameObjects.Text;
+  /** Which `type.label` the two lines currently show, so setText is rare. */
+  label: string;
   /** The SENSE mark: a bar above the roof and its caption on a backing. */
   bar: Phaser.GameObjects.Rectangle;
   tagBack: Phaser.GameObjects.Rectangle;
@@ -22,10 +26,32 @@ export interface GateTarget {
 }
 
 /**
+ * Splits a gate label into its two lines at the LAST space - `+180% DMG` is
+ * `+180%` over `DMG`, `+2 PIERCE` is `+2` over `PIERCE`. `+SENSE` has no
+ * space: it shows `+` over `SENSE`, so the axis word sits on the axis line
+ * like every other card's. The label string itself is untouched - the
+ * DecisionLog and every instrument read `type.label`, and this is display.
+ */
+export function splitLabel(label: string): { magnitude: string; axis: string } {
+  const at = label.lastIndexOf(' ');
+  if (at > 0) return { magnitude: label.slice(0, at), axis: label.slice(at + 1) };
+  const word = label.match(/[A-Z].*$/);
+  if (word && word.index) return { magnitude: label.slice(0, word.index), axis: word[0] };
+  return { magnitude: label, axis: '' };
+}
+
+/**
  * The descending offer cards. Each has a translucent body in its axis colour,
  * a solid ROOF bar along its top edge, and its label on the topmost gameplay
  * layer - depth 15, above the squad's bullet stream (12), because a label a
  * bullet can cross is unreadable exactly when the decision is due.
+ *
+ * The label is two lines, magnitude over axis, because from wave 4 dead space
+ * narrows the card (`GATES.deadSpace`) and a one-line `+180% DMG` needs more
+ * than the 100px floor. The magnitude is drawn at `GATES.magnitudeSize` and
+ * SHRUNK to the card's inner width when it overflows - `+1840%` at 26px is
+ * wider than the narrowest card - so every label the generator can produce
+ * fits, and the common short ones stay large.
  *
  * On a sensed offer the option that is best RIGHT NOW - priced by the same
  * `scoreOffer` par and the death screen use - wears a pulsing bar and a
@@ -63,8 +89,19 @@ export class GateCards {
         .setStrokeStyle(isTarget ? 3 : 2, g.type.color, stroke * reveal);
       v.roof.setVisible(on).setPosition(g.x, top).setSize(width, RENDER.gate.roof)
         .setFillStyle(g.type.color, reveal);
-      v.label.setVisible(on).setPosition(g.x, g.y).setAlpha(reveal);
-      if (v.label.text !== g.type.label) v.label.setText(g.type.label);
+      if (v.label !== g.type.label) {
+        v.label = g.type.label;
+        const { magnitude, axis } = splitLabel(g.type.label);
+        v.magnitude.setText(magnitude).setScale(1);
+        v.axis.setText(axis);
+      }
+      // Two lines centred on the card: the magnitude a little above centre,
+      // the axis word tucked beneath it. The 4px inset keeps a shrunk
+      // magnitude off the card's stroke.
+      const inner = width - 4;
+      v.magnitude.setVisible(on).setPosition(g.x, g.y - 9).setAlpha(reveal)
+        .setScale(Math.min(1, inner / Math.max(1, v.magnitude.width)));
+      v.axis.setVisible(on).setPosition(g.x, g.y + 18).setAlpha(reveal);
 
       const isMarked = on && marked.has(`${g.pair}:${g.index}`);
       const barY = top - 3 - 3;
@@ -76,7 +113,8 @@ export class GateCards {
     }
     for (let i = used; i < this.visuals.length; i++) {
       const v = this.visuals[i];
-      v.rect.setVisible(false); v.roof.setVisible(false); v.label.setVisible(false);
+      v.rect.setVisible(false); v.roof.setVisible(false);
+      v.magnitude.setVisible(false); v.axis.setVisible(false);
       v.bar.setVisible(false); v.tagBack.setVisible(false); v.tag.setVisible(false);
     }
   }
@@ -86,9 +124,13 @@ export class GateCards {
     const v: GateVisual = {
       rect: s.add.rectangle(0, 0, 10, GATES.height, 0xffffff, RENDER.gate.fill).setDepth(4),
       roof: s.add.rectangle(0, 0, 10, RENDER.gate.roof, 0xffffff, 1).setOrigin(0.5, 0).setDepth(4),
-      label: s.add.text(0, 0, '', {
-        fontFamily: FONT, fontSize: `${GATES.labelSize}px`, color: COLORS.text, fontStyle: 'bold',
+      magnitude: s.add.text(0, 0, '', {
+        fontFamily: FONT, fontSize: `${GATES.magnitudeSize}px`, color: COLORS.text, fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(15),
+      axis: s.add.text(0, 0, '', {
+        fontFamily: FONT, fontSize: `${GATES.axisSize}px`, color: COLORS.text, fontStyle: 'bold',
+      }).setOrigin(0.5).setLetterSpacing(2).setDepth(15),
+      label: '',
       bar: s.add.rectangle(0, 0, 10, 6, AXIS_COLOR.sense, 1).setDepth(4).setVisible(false),
       tagBack: s.add.rectangle(0, 0, 52, 18, 0x0b0f1c, 0.85).setDepth(14).setVisible(false),
       tag: s.add.text(0, 0, 'SENSE', {

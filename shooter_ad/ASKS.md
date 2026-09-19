@@ -134,10 +134,16 @@ with the dead-space strand. The audio `miss` cue ships ON at -20 dB.
 > think I'd like us to do an audit basically of the difficulty curve in
 > concept matched with #1 above
 
-Status: `open`. Audit answered in chat (see "Judgment curve audit" in
-`notes.md` once landed); dead space to be built as a wave-scaled gate width
-on the judgment axis (`judgmentWave`, so hard mode gets it earlier), with
-the MISS grade and cue tied to it.
+Status: `landed`. Dead space between gates ships as `GATES.deadSpace`: zero
+until wave 4, 6px a wave from wave 5, capped at 72px from wave 16 (a 108px
+gate in a 180px lane), on `judgmentWave` so hard mode starts at 12px. The
+width is the hit test, the card is drawn to it, and MISS is now reachable in
+play (the word lands over the nearest option). Cards grew 64 -> 88px tall
+with a two-line label so every value stays legible at the narrowest width.
+`npm run model` prints "the judgment curve, per wave" for both modes, which
+is the audit in a reproducible form; `npm run moments` photographs a wave-16
+offer (`moment-deadspace.png`). Version 0.5. Pending: the root-table
+schedule below (5a).
 
 ### 5a. Follow-up on gate frequency and the curve (verbatim)
 
@@ -159,11 +165,14 @@ Answered: fixed 7.5s clock, ~8 offers a minute, not per wave.
 >
 > The rest of the difficulty parts look good to me
 
-Status: `open`. Constraint raised in chat: the tiers must share a mean
-(arithmetic and geometric) or the legibility axis is a power axis in
-disguise; "tenths" cannot be mean-neutral inside the fixed [1.05, 1.5]
-range. Awaiting the author's choice between accepting the drift or a
-neutral variant. Taller two-line gate cards agreed in principle.
+Status: `open` (tables), `landed` (legibility). The taller two-line cards
+shipped with §5: magnitude over axis, and a magnitude too wide for the card
+shrinks to fit rather than truncating. The root-table schedule is still
+pending: the tiers must share a mean (arithmetic and geometric) or the
+legibility axis is a power axis in disguise; "tenths" cannot be mean-neutral
+inside the fixed [1.05, 1.5] range. Awaiting the author's choice between
+accepting the drift or a neutral variant. Today decimals start at wave 11
+normal / 6 hard (`notes.md`, "Numeric legibility").
 
 ## 6. Anonymous analytics
 

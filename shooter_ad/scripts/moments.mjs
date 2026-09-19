@@ -177,6 +177,43 @@ const withEnemy = (place) => page.evaluate((fn) => {
   if (!s.titan) errors.push('titan-bar: no Titan on the board on wave 5');
 }
 
+// --- dead space: a wave-16 offer, where the cards are narrowest ------------
+// Wave 16 is where `GATES.deadSpace` caps (108px cards in 180px lanes), so
+// this is the two-line label at the smallest size it ever renders, with the
+// gaps an offer can be missed through beside it. The wave is set through the
+// same seam `npm run from` uses and the next offer forced rather than waited
+// for. The squad is given a wave-16-sized army first: the wave-16 bodies that
+// arrive in the ~4s the offer takes to descend would otherwise walk a
+// nine-power ring to nothing before the shot, and the offer is rolled against
+// the army it is shown to. The Titan the previous frame left on the board is
+// retired so it cannot end the run first; the death frame below sets the
+// power it needs itself.
+{
+  await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    for (const e of g.enemies.items) if (e.type.id === 'titan') e.active = false;
+    g.squad.progress.power = 3000;
+    g.squad.rebuild();
+    g.enemies.startAt(16);
+    window.__pickRank = 99;
+    for (const gate of g.gates.items) gate.active = false;
+    g.gates.accum = 1e9;
+  });
+  await page.waitForFunction(
+    () => window.game.scene.getScene('Game').registry.get('stats').gates.some((g) => g.y > 380 && g.y < 640),
+    null, { timeout: 30000, polling: 16 },
+  ).catch(() => errors.push('deadspace: no wave-16 offer reached mid-screen inside 30s'));
+  await shoot('moment-deadspace');
+  const widths = await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    return g.gates.items.filter((x) => x.active).map((x) => x.width);
+  });
+  const texts = await shownTexts();
+  const same = widths.length > 0 && widths.every((w) => w === widths[0]);
+  console.log(`moment-deadspace.png  gates ${widths.join('/')}px wide at wave 16  [${texts.join(', ')}]`);
+  if (!same || widths[0] >= 180) errors.push(`deadspace: expected narrowed gates at wave 16, got ${widths.join('/')}`);
+}
+
 // --- death: the beat, then the end screen ----------------------------------
 // Measured in the UI scene's OWN clock, not wall time: under headless Chromium
 // Phaser steps a fixed 17ms per frame whatever the frame actually took, so an

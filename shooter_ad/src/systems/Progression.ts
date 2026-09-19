@@ -140,6 +140,25 @@ export function waveGateSpeedMult(wave: number): number {
   return Math.min(GATES.maxSpeedMult, 1 + Math.max(0, w - 1) * GATES.speedPerWave);
 }
 
+/**
+ * Dead space between gates at this wave: px of each lane no option covers, so
+ * the leader has to be placed rather than merely on the right third of the
+ * screen. The fourth judgment lever - see `GATES.deadSpace` for the numbers -
+ * and, like the other three, it reads `judgmentWave` so hard mode starts it
+ * five waves in. Zero through wave 4 (normal), 6px at wave 5; capped at `max`.
+ *
+ * NOT priced by `reach`. Reach measures how far the squad can travel while an
+ * offer descends, in lane widths; dead space narrows the target inside the
+ * lane rather than moving it further away, and pricing the precision cost of
+ * a pick would mean pricing the player's hand, which `scoreOffer` cannot see.
+ * Par is therefore a little generous late, in the same way it is about the
+ * bullets a player has to dodge to get there.
+ */
+export function gateDeadSpace(wave: number): number {
+  const { fromWave, perWave, max } = GATES.deadSpace;
+  return Math.min(max, Math.max(0, judgmentWave(wave) - fromWave) * perWave);
+}
+
 /** Px/s an offer descends at, for this wave and this run's accumulated `+TIME`. */
 export function gateSpeed(wave: number, u: Upgrades): number {
   return GATES.speed * waveGateSpeedMult(wave) * u.gateSpeedMult;

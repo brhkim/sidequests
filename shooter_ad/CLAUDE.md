@@ -120,7 +120,13 @@ card's own footprint, held then lifted - the one authored motion), `MISS`
 at the lane line, `+N ARMY` over a rescue, `-N` at a contact, and the death
 dim. The `toast` string event and the 420ms halo are gone. Gate labels and
 the SENSE tag sit at depth 15, above the squad's stream; `render/GateCards`
-owns the cards. Every tappable line on a screen has a Rectangle hit bar of
+owns the cards, and draws each label as two lines - the magnitude (`×1.05`,
+`+2`) at 26px over the axis word (`DMG`, `PIERCE`) at 14px, split at the
+label's last space (`+SENSE` is `+` over `SENSE`) - because from wave 5
+dead space narrows the card to as little as 100px. A magnitude wider than
+the card (`+1840%` is 121px at 26px) is scaled down to fit rather than the
+whole ladder being sized for the rare case. `type.label` is unchanged; the
+split is display only. Every tappable line on a screen has a Rectangle hit bar of
 at least 44px, and the end screen restarts only from `REPLAY_BUTTON`, which
 `GameScene.bindInput` hit-tests - a tap anywhere else leaves the shareable
 screenshot alone. The pause screen's SOUND line emits `mutetoggle` and
@@ -512,6 +518,43 @@ Squad movement is rate-limited in `Squad.update`. Under a pointer it used to
 assign the finger's x directly, so the squad teleported, travel was free and the
 whole movement economy was inert. `SQUAD.moveSpeed` came down from 620 to 260
 when the movement bonuses landed; set it high again and `x MOVE` buys nothing.
+
+### Dead space is the fourth judgment lever
+
+From wave 5 (judgment wave) each gate is narrower than its lane, and the band
+between neighbours belongs to no option: `GATES.deadSpace` is `{ fromWave: 4,
+perWave: 6, max: 72 }`, read through `Progression.gateDeadSpace(wave)` beside
+`waveGateSpeedMult`, so a 180px lane holds a 174px gate at wave 5, 144px on
+the second Titan at wave 10, and 108px from wave 16 on - the leader must then
+be within ±54px of a card's centre. It keys off `judgmentWave` like speed and
+legibility, so hard mode starts at 12px and caps at real wave 11. The width
+IS the hit test (`checkGates` and `FieldRender.findTarget` both read
+`g.width`) and the card is drawn exactly as wide as it hits; `GATES.gap` is
+the drawn inset on top of that, so what the eye sees as a gap is dead space
+plus 8px. `GATES.minWidth` (100) floors the width whatever the config asks,
+and `npm run model` fails if `max` would ever breach it.
+
+Why it exists: past the point where the sum is hard and the time is short,
+the author wants the pick to also cost precision of movement through the
+noise of a late wave, and to be MISSABLE. That was once deliberately removed
+- a gap at wave 1 turned a missed offer into a geometry accident - and it
+returns as a curve rather than a constant for exactly that reason. `MISS` at
+the lane line is now reachable in play, and the word lands on the option the
+squad was nearest.
+
+It is NOT priced by `reach`, and that is acceptable: reach is lane widths of
+travel per descent, and dead space narrows the target inside the lane rather
+than moving it. Pricing the precision cost would mean pricing the player's
+hand, which `scoreOffer` cannot see - par is a little generous late in the
+same way it is about bullets the player has to dodge. The bot steers to a
+card's exact x, so `npm run balance` barely feels it; a human will.
+
+`GATES.height` grew from 64 to 88 with it, to hold the two-line label at the
+narrowest width. That widened the vertical hit window by 24px of descent
+(timing, not precision) and lengthened `gateDescentSeconds` by 24px worth,
+which `reach` reads - so par's access pricing moved by a hair and the change
+is NOT render-neutral; version 0.5. `npm run model` prints the whole curve
+per wave under "the judgment curve" for both modes, Titan waves marked.
 
 ### `Progression.ts` is the single definition of squad strength
 

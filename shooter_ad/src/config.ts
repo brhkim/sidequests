@@ -458,10 +458,42 @@ export const GATES = {
    * the game stops testing judgment and starts testing reflexes.
    */
   maxSpeedMult: 2.5,
-  height: 64,
+  /**
+   * Card height, and the vertical hit window with it. 88 holds two lines - the
+   * magnitude over the axis - so a label stays readable on the narrowest card
+   * dead space leaves. The 24px it grew by is TIMING, not precision: the
+   * squad is always on the lane line, so a taller card only widens the moment
+   * a gate can be entered in, by 24px of descent (~0.1s at wave 16 speed).
+   */
+  height: 88,
   /** Options per offer. The choice between them IS the gameplay. */
   perOffer: 3,
+  /** Drawn inset between neighbouring cards. Visual only: dead space is real. */
   gap: 8,
+  /**
+   * Dead space between gates: px of each lane that belongs to NO option, so an
+   * offer can be fully MISSED. The fourth judgment lever, beside approach
+   * speed, legibility and the sense chance: later waves do not only ask for
+   * the right answer in less time, they ask for precision of movement to
+   * collect it through the noise of everything else on the field.
+   *
+   * Keyed on `judgmentWave`, like speed and legibility, so hard mode gets it
+   * five waves earlier. `fromWave` is the last wave WITHOUT it: zero through
+   * wave 4, then `perWave` more every wave - 6px at wave 5, 12 at 6, 36 on the
+   * second Titan at 10 - capped at `max` from wave 16 (hard: wave 11).
+   * In the player's units: three lanes across 540px are 180px each, so at
+   * wave 16 a lane holds a 108px gate and the leader must be within ±54px of
+   * its centre; the card is drawn exactly as wide as it hits.
+   *
+   * `max` is derived from `minWidth`: the widest magnitude a card must hold
+   * (`+9999%`, two-line, see `magnitudeSize`) needs ~100px, so the lane can
+   * lose at most 80. 72 is the last multiple of `perWave` that leaves the
+   * card above that floor with a margin, and `minWidth` clamps regardless so
+   * a future lane count cannot squeeze a card past legibility.
+   */
+  deadSpace: { fromWave: 4, perWave: 6, max: 72 },
+  /** A gate is never narrower than this, whatever the dead space asks. */
+  minWidth: 100,
   /**
    * GUN and PIERCE are whole numbers, so they cannot draw a root the way the
    * pools do - and a flat `+1` shrinks as you stack them: the fourth gun is
@@ -473,11 +505,18 @@ export const GATES = {
    */
   scaleDiscreteFrom: 3,
   /**
-   * Label size. Three lanes across 540px leaves ~175px each, so this is sized
-   * to fit the longest label the generator can produce (`+180% DMG` at a high
-   * pool, `×1.05 ARMY`) without truncation.
+   * The two-line label: MAGNITUDE (`×1.05`, `+1840%`, `+2`) over AXIS (`DMG`,
+   * `PIERCE`). Splitting the label is what lets the card shrink to `minWidth`
+   * and stay legible - `+180% DMG` on one line needed ~175px at 21px.
+   *
+   * 26px bold fits `×1.05` (86px) inside the narrowest card's 92px, but
+   * `+1840%` measures 121px, so the renderer shrinks a magnitude that
+   * overflows to fit: `+9999%` lands at ~19.8px on a 100px card and at full
+   * size on a 180px one. Measured in the headless Chromium `npm run verify`
+   * uses, `system-ui` bold.
    */
-  labelSize: 21,
+  magnitudeSize: 26,
+  axisSize: 14,
 } as const;
 
 /**
