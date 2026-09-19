@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
 } from '../config';
-import { bulletTint, tierRow } from '../data/tiers';
+import { tierRow } from '../data/tiers';
 import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
 import { EnemyBullets } from '../systems/EnemyBullets';
@@ -15,7 +15,6 @@ import { Difficulty } from '../systems/Difficulty';
 import { DecisionLog } from '../systems/DecisionLog';
 import { scoreOffer } from '../systems/Scoring';
 import { Grid } from '../systems/Grid';
-import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
 import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
 import { modeFromQuery, setMode } from '../systems/Mode';
@@ -23,16 +22,13 @@ import { VERSION } from '../version';
 import {
   bundleFactor, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
 } from '../systems/Progression';
-import { AXIS_COLOR } from '../data/gates';
-import { hex } from './hud/types';
 import { mulberry32 } from '../systems/Rng';
 import { armorAgainst } from '../systems/EnemyMotion';
 import { strike } from '../systems/Bullets';
 import { PAUSE_BUTTON } from './hud/PauseScreen';
-import { RAIL_HEIGHT } from './hud/TopRail';
+import { SpriteRender } from './render/SpriteRender';
+import { FieldRender } from './render/FieldRender';
 import type { HudPayload } from './hud/types';
-
-const SKIN = 0xf2c9a0;
 
 /** One live gate, priced by the game's own `scoreOffer`. */
 interface ScoredGate {
@@ -77,27 +73,9 @@ export class GameScene extends Phaser.Scene {
   private accumulator = 0;
   private grid!: Grid<Enemy>;
 
-  private bodyPool!: SpritePool;
-  private headPool!: SpritePool;
-  private enemyPool!: SpritePool;
-  private bulletPool!: SpritePool;
-  private enemyBulletPool!: SpritePool;
-  private cagePool!: SpritePool;
-
-  private overlay!: Phaser.GameObjects.Graphics;
-  /**
-   * The selection guide, on its own layer ABOVE the squad and every
-   * projectile. On the shared overlay it sat under the bullet stream and was
-   * unreadable exactly when it mattered - mid-wave, with an offer closing.
-   */
-  private selection!: Phaser.GameObjects.Graphics;
-  private gateVisuals: {
-    rect: Phaser.GameObjects.Rectangle;
-    label: Phaser.GameObjects.Text;
-    /** The SENSE mark: a ring round the offer's best option, and its caption. */
-    ring: Phaser.GameObjects.Rectangle;
-    tag: Phaser.GameObjects.Text;
-  }[] = [];
+  /** The two rendering layers. See `render/`. */
+  private sprites!: SpriteRender;
+  private field!: FieldRender;
   private cursors?: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
 
   /**
@@ -217,17 +195,8 @@ export class GameScene extends Phaser.Scene {
     );
     this.grid = new Grid<Enemy>(48, VIEW.width);
 
-    this.drawBackground();
-    this.overlay = this.add.graphics().setDepth(6);
-    // 25: above the squad (21), below the HUD backing strip (30).
-    this.selection = this.add.graphics().setDepth(25);
-
-    this.enemyPool = new SpritePool(this, 'dot', 10);
-    this.cagePool = new SpritePool(this, 'cage', 11);
-    this.bulletPool = new SpritePool(this, 'bullet', 12);
-    this.enemyBulletPool = new SpritePool(this, 'dot', 13);
-    this.bodyPool = new SpritePool(this, 'body', 20);
-    this.headPool = new SpritePool(this, 'head', 21);
+    this.field = new FieldRender(this);
+    this.sprites = new SpriteRender(this);
 
     this.bindInput();
     this.emitHud();
@@ -315,18 +284,6 @@ export class GameScene extends Phaser.Scene {
     this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
   }
 
-  private drawBackground(): void {
-    const g = this.add.graphics().setDepth(0);
-    g.fillStyle(COLORS.bg, 1).fillRect(0, 0, VIEW.width, VIEW.height);
-    g.fillStyle(COLORS.lane, 1).fillRect(0, ARENA.laneY - 120, VIEW.width, 260);
-    g.lineStyle(2, COLORS.breach, 0.35);
-    g.lineBetween(0, ARENA.breachY, VIEW.width, ARENA.breachY);
-    // Backing strip so the HUD stays legible as enemies walk in from the top.
-    const hud = this.add.graphics().setDepth(30);
-    hud.fillStyle(COLORS.bg, 0.86).fillRect(0, 0, VIEW.width, RAIL_HEIGHT);
-    hud.fillStyle(COLORS.bg, 0.3).fillRect(0, RAIL_HEIGHT, VIEW.width, 12);
-  }
-
   private bindInput(): void {
     const kb = this.input.keyboard;
     if (kb) {
@@ -388,6 +345,8 @@ export class GameScene extends Phaser.Scene {
     this.breachLoss = 0;
     this.fireLoss = 0;
     this.sim.drain();
+    this.sprites.reset();
+    this.field.reset();
     this.lastSensedPair = -1;
     this.drawCredit = 0;
     this.simCredit = 0;
@@ -1033,226 +992,28 @@ export class GameScene extends Phaser.Scene {
 
   // --- rendering ------------------------------------------------------------
 
+  /**
+   * One frame. Everything the steps since the last frame did is drained
+   * first, in order, as one `moment` emit and one call into each layer: the
+   * renderer's, the HUD's and the audio's single account of the step. The
+   * layers live in `render/`; this scene only hands them the state.
+   */
   private render(): void {
-    // Everything the steps since the last frame did, in order, as one emit:
-    // the renderer's, the HUD's and the audio's single account of the step.
     const events = this.sim.drain();
-    if (events.length) this.game.events.emit('moment', events);
-    this.renderEnemies();
-    this.renderBullets();
-    this.renderEnemyFire();
-    this.renderSquad();
-    this.renderGates();
-    this.renderOverlay();
-    // Last, and on the topmost gameplay layer: the guide has to survive a
-    // screen full of bullets.
-    this.renderSelection();
-  }
-
-  private renderEnemies(): void {
-    this.enemyPool.begin();
-    this.cagePool.begin();
-    for (const e of this.enemies.items) {
-      if (!e.active) continue;
-      const s = this.enemyPool.claim();
-      s.setPosition(e.x, e.y)
-        .setDisplaySize(e.radius * 2, e.radius * 2)
-        .setTint(e.type.color)
-        .setAlpha(0.55 + 0.45 * (e.hp / e.maxHp));
+    if (events.length) {
+      this.game.events.emit('moment', events);
+      this.sprites.onEvents(events);
+      this.field.onEvents(events);
     }
-    for (const c of this.enemies.cages) {
-      if (!c.active) continue;
-      this.cagePool.claim()
-        .setPosition(c.x, c.y)
-        .setDisplaySize(CAGE.radius * 2, CAGE.radius * 2)
-        .setTint(COLORS.cage);
-    }
-    this.enemyPool.end();
-    this.cagePool.end();
-  }
-
-  /**
-   * Draws the bounded subset `fire` marked, tinted by how much of the stream
-   * each one stands for.
-   *
-   * The simulation is untouched here: every bullet in `items` is still flying
-   * and still colliding, drawn or not. Skipping the undrawn ones is the whole
-   * mechanism - at high GUNS and RATE the true stream is thousands of shots a
-   * second and the playfield went solid cream.
-   */
-  private renderBullets(): void {
-    this.bulletPool.begin();
-    for (const b of this.bullets.items) {
-      if (!b.active || !b.drawn) continue;
-      this.bulletPool.claim().setPosition(b.x, b.y).setTint(bulletTint(b.density));
-    }
-    this.bulletPool.end();
-  }
-
-  private renderEnemyFire(): void {
-    this.enemyBulletPool.begin();
-    for (const b of this.enemyFire.items) {
-      if (!b.active) continue;
-      this.enemyBulletPool.claim()
-        .setPosition(b.x, b.y)
-        .setDisplaySize(ENEMY_FIRE.radius * 2, ENEMY_FIRE.radius * 2)
-        .setTint(COLORS.enemyBullet);
-    }
-    this.enemyBulletPool.end();
-  }
-
-  private renderSquad(): void {
-    this.bodyPool.begin();
-    this.headPool.begin();
-    for (const u of this.squad.units) {
-      const tier = tierRow(u.tier);
-      // Slot 0 is the centre of the formation and the unit that actually
-      // selects a gate. Drawing it larger is the only cue that says so.
-      const lead = u.slot === 0;
-      const scale = lead ? SQUAD.leaderScale : 1;
-      this.bodyPool.claim()
-        .setPosition(u.x, u.y + (lead ? 3 : 2))
-        .setScale(scale)
-        .setTint(tier.shirt);
-      this.headPool.claim()
-        .setPosition(u.x, u.y - 10 * scale)
-        .setScale(scale)
-        .setTint(SKIN);
-    }
-    this.bodyPool.end();
-    this.headPool.end();
-  }
-
-  /**
-   * Which gate the squad is about to take, drawn as a line from the leader up
-   * to the offer.
-   *
-   * The selection rule - the CENTRE of the formation is what passes through a
-   * gate - is invisible otherwise. A player watching a nineteen-unit ring drift
-   * across three lanes has no way to know which one counts, and finds out only
-   * after committing. The leader is also drawn larger; this says the same thing
-   * a second way, at the moment it matters.
-   */
-  private renderSelection(): void {
-    this.selection.clear();
-    let target: { x: number; y: number; color: number } | null = null;
-    for (const g of this.gates.items) {
-      if (!g.active || g.y > this.squad.y) continue;
-      if (Math.abs(g.x - this.squad.x) > g.width / 2) continue;
-      if (target === null || g.y > target.y) {
-        target = { x: g.x, y: g.y, color: g.type.color };
-      }
-    }
-    if (target === null) return;
-
-    // Fades in as the offer closes, so it guides without nagging.
-    const nearness = Phaser.Math.Clamp(
-      1 - (this.squad.y - target.y) / 520, 0.12, 0.55,
-    );
-    this.selection.lineStyle(3, target.color, nearness);
-    this.selection.lineBetween(
-      this.squad.x, this.squad.y - 18,
-      // Never draw up into the rail, for the same reason gates fade in below it.
-      this.squad.x, Math.max(target.y + GATES.height / 2, RAIL_HEIGHT + 6),
-    );
-    this.selection.lineStyle(3, target.color, nearness + 0.25);
-    this.selection.strokeCircle(this.squad.x, this.squad.y - 2, 16);
-  }
-
-  /**
-   * Gates, and the SENSE mark. On a sensed offer the option that is best RIGHT
-   * NOW - priced by the same `scoreOffer` par and the death screen use - wears
-   * a pulsing pale ring and a caption. It is recomputed every frame rather
-   * than fixed at spawn, so if taking the previous gate changes which of
-   * these three is best, the mark moves with the truth. The pulse reads the
-   * simulated clock for its phase; it is rendering and touches nothing.
-   */
-  private renderGates(): void {
+    this.sprites.render({
+      enemies: this.enemies, bullets: this.bullets, enemyFire: this.enemyFire,
+      squad: this.squad, elapsed: this.elapsed,
+    });
     const marked = new Set<string>();
     for (const s of this.scoreLiveGates()) if (s.sensed) marked.add(`${s.pair}:${s.index}`);
-    const pulse = 0.55 + 0.45 * Math.sin(this.elapsed * 7);
-    let used = 0;
-    for (const g of this.gates.items) {
-      if (!g.active) continue;
-      let v = this.gateVisuals[used];
-      if (!v) {
-        v = {
-          rect: this.add.rectangle(0, 0, 10, GATES.height, 0xffffff, 0.22).setDepth(4),
-          label: this.add.text(0, 0, '', {
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: `${GATES.labelSize}px`,
-            color: COLORS.text,
-            fontStyle: 'bold',
-          }).setOrigin(0.5).setDepth(5),
-          ring: this.add.rectangle(0, 0, 10, GATES.height + 14, 0xffffff, 0)
-            .setStrokeStyle(4, AXIS_COLOR.sense, 1).setDepth(3).setVisible(false),
-          tag: this.add.text(0, 0, 'SENSE', {
-            fontFamily: 'system-ui, sans-serif', fontSize: '11px',
-            color: hex(AXIS_COLOR.sense), fontStyle: 'bold',
-          }).setOrigin(0.5, 1).setLetterSpacing(2).setDepth(5).setVisible(false),
-        };
-        this.gateVisuals.push(v);
-      }
-      // Fade in clear of the top rail. Gates spawn above the screen and would
-      // otherwise slide through the HUD numbers, putting two unrelated sets of
-      // figures on top of each other exactly where the player reads par.
-      const reveal = Phaser.Math.Clamp((g.y - RAIL_HEIGHT - 6) / 44, 0, 1);
-      v.rect.setVisible(reveal > 0).setPosition(g.x, g.y)
-        // Inset for the visual separation the hit test no longer has.
-        .setSize(g.width - GATES.gap, GATES.height)
-        .setFillStyle(g.type.color, 0.22 * reveal)
-        .setStrokeStyle(3, g.type.color, 0.9 * reveal);
-      v.label.setVisible(reveal > 0).setPosition(g.x, g.y).setAlpha(reveal);
-      if (v.label.text !== g.type.label) v.label.setText(g.type.label);
-      const isMarked = marked.has(`${g.pair}:${g.index}`);
-      v.ring.setVisible(isMarked && reveal > 0).setPosition(g.x, g.y)
-        .setSize(g.width - GATES.gap + 14, GATES.height + 14)
-        .setStrokeStyle(4, AXIS_COLOR.sense, pulse * reveal);
-      v.tag.setVisible(isMarked && reveal > 0)
-        .setPosition(g.x, g.y - GATES.height / 2 - 10).setAlpha(reveal);
-      used++;
-    }
-    for (let i = used; i < this.gateVisuals.length; i++) {
-      this.gateVisuals[i].rect.setVisible(false);
-      this.gateVisuals[i].label.setVisible(false);
-      this.gateVisuals[i].ring.setVisible(false);
-      this.gateVisuals[i].tag.setVisible(false);
-    }
-  }
-
-  private renderOverlay(): void {
-    this.overlay.clear();
-    // Shield facing. A directional shield the player cannot see is just an
-    // unexplained damage number, so draw where it actually points.
-    for (const e of this.enemies.items) {
-      if (!e.active || !e.type.frontArmor) continue;
-      const nx = -e.fy, ny = e.fx;
-      const r = e.radius + 3;
-      this.overlay.lineStyle(3, COLORS.shield, 0.85);
-      this.overlay.lineBetween(
-        e.x + e.fx * r - nx * e.radius, e.y + e.fy * r - ny * e.radius,
-        e.x + e.fx * r + nx * e.radius, e.y + e.fy * r + ny * e.radius,
-      );
-    }
-    // Health bars for anything big enough to be worth aiming at.
-    for (const e of this.enemies.items) {
-      if (!e.active || e.radius < 14 || e.hp >= e.maxHp) continue;
-      const w = e.radius * 2;
-      this.overlay.fillStyle(0x000000, 0.5);
-      this.overlay.fillRect(e.x - w / 2, e.y - e.radius - 9, w, 4);
-      this.overlay.fillStyle(0xff5566, 0.95);
-      this.overlay.fillRect(e.x - w / 2, e.y - e.radius - 9, w * (e.hp / e.maxHp), 4);
-    }
-    for (const c of this.enemies.cages) {
-      if (!c.active) continue;
-      this.overlay.fillStyle(0x000000, 0.5);
-      this.overlay.fillRect(c.x - CAGE.radius, c.y - CAGE.radius - 9, CAGE.radius * 2, 4);
-      this.overlay.fillStyle(COLORS.cage, 0.95);
-      this.overlay.fillRect(
-        c.x - CAGE.radius, c.y - CAGE.radius - 9,
-        CAGE.radius * 2 * (c.hp / c.maxHp), 4,
-      );
-    }
+    this.field.render({
+      gates: this.gates, enemies: this.enemies, squad: this.squad, marked, elapsed: this.elapsed,
+    });
   }
 }
 

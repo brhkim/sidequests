@@ -31,7 +31,7 @@ soldiers** (squad stays human; enemies organic, one silhouette per type).
 > I'd like us to remove the Healer enemy type; it's far too troublesome in the
 > context of the Titan, which makes the game feel unfair
 
-Status: `building` (gameplay strand). Trait code removed with it.
+Status: `done` (commit "enemies have a hurt box..."). Trait code removed with it.
 
 > I'd also like us to adjust the enemy bullets to look more bullet-like; it's
 > currently very easy to visually mistake them for other enemies.
@@ -58,7 +58,8 @@ sounds bundled and pitched down by count, never louder.
 > Titan: 100% of army size
 > Something like that.
 
-Status: `building` (gameplay strand). Decisions when asked: enemy is
+Status: `done` (commit "enemies have a hurt box..."; the share regime
+above 75 power is unmeasured by any instrument). Decisions when asked: enemy is
 **destroyed on contact**; tiers **by body size** (Basic = Grunt, Runner;
 Medium = Shielder, Spitter, Splitter, Lancer; Large = Brute, Bomber);
 **keep Large floor 3** even though the Bomber's early cost drops from 5.
