@@ -54,7 +54,7 @@ velocity, on a hue no enemy body wears.
 > stacking), bonus sounds for grabbing gate bonuses, clearing rescued army,
 > etc. etc.
 
-Status: `landed` (merging): procedural WebAudio, no assets, 21 cues, kill
+Status: `done` (commit "sound, procedural and collapsed"): procedural WebAudio, no assets, 21 cues, kill
 sounds bundled at most 10 voices/s and pitched down a semitone per
 doubling, never louder; mute on the pause screen and the M key; `npm run
 audio` writes every cue to `.verify/audio/*.wav` for listening. Nobody has
@@ -140,7 +140,7 @@ with the dead-space strand. The audio `miss` cue ships ON at -20 dB.
 > think I'd like us to do an audit basically of the difficulty curve in
 > concept matched with #1 above
 
-Status: `landed`. Dead space between gates ships as `GATES.deadSpace`: zero
+Status: `done` (commit "dead space between gates is the fourth judgment lever, v0.5"). Dead space between gates ships as `GATES.deadSpace`: zero
 until wave 4, 6px a wave from wave 5, capped at 72px from wave 16 (a 108px
 gate in a 180px lane), on `judgmentWave` so hard mode starts at 12px. The
 width is the hit test, the card is drawn to it, and MISS is now reachable in
@@ -171,7 +171,7 @@ Answered: fixed 7.5s clock, ~8 offers a minute, not per wave.
 >
 > The rest of the difficulty parts look good to me
 
-Status: `open` (tables), `landed` (legibility). The taller two-line cards
+Status: `open` (tables), `done` (legibility, same commit). The taller two-line cards
 shipped with §5: magnitude over axis, and a magnitude too wide for the card
 shrinks to fit rather than truncating. The root-table schedule is still
 pending: the tiers must share a mean (arithmetic and geometric) or the
