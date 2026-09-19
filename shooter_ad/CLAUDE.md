@@ -26,6 +26,7 @@ npm run behaviour  # per-enemy movement signatures, shield taper, enemy fire
 npm run pressure   # sweeps the two knobs that set how hard ordinary enemies are
 npm run neutral    # proves a change was RENDERING-ONLY, against a reference build
 npm run from       # plays real runs from an INJECTED late-game state, par equal to it
+npm run titan      # parks a squad under the boss and reports where on its descent it died
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -128,6 +129,18 @@ survive here?", not a chosen ratio), and plays real seeded runs from there.
 roller and scoring; `--power= --guns= --damageMult=` and the other `Upgrades`
 fields set one by hand; `--wave=` sets the enemy pool, spawn curve and gate
 speed to match. The bot is still the bot, so read it as a floor.
+
+`npm run titan` is the instrument for the boss check, on the boss's own terms.
+The Titan's HP is a deadline - `bossKillPar` of par's single-target DPS over
+`bossKillDistance` of its descent, every shot landing - and nothing else can
+say whether that sentence is true of the shipped game: `from` meets the boss
+with a bot that is off chasing gates, and `model` checks the arithmetic against
+itself. This parks a squad UNDER the Titan, takes no gates, and prints where on
+its descent the boss died next to where the budget says it should have, given
+the single-target standing the boss was actually sized against. Their ratio is
+the **delivery** - how much of the assumed damage arrived. It is a ceiling on
+what a player can do to the boss and says nothing about the feel of doing it
+while also dodging.
 
 **A passing typecheck is not verification.** Never report a gameplay change as
 working without `verify` output.
@@ -583,9 +596,77 @@ Whether the late game past these ceilings is any GOOD is what `npm run from`
 exists to ask. Its first answer, twelve runs across four injected states from
 1e5 to 1e10 DPS: every ceiling is gone in play, peak power reaches 500,000
 with the ring in its second palette cycle, and **every late run ends by a
-Titan landing** - the bot survives the first Titan it meets and dies to the
-second, at 0.4 to 0.7 of par. That is the first observation of the Titan-as-
-loss path at all. Full tables in `RESTART.md`.
+Titan landing**. Those runs were first read as "the bot survives the first
+Titan it meets and dies to the second"; the clock says otherwise - each death
+sits at exactly the second the FIRST Titan crossed the line - and the section
+below says why no bot could have killed it. Re-run at 1e5 after that section's
+fixes, the same bot passes the wave-20 and wave-25 Titans and dies to the
+wave-30 one at standing 0.22 to 0.33; one seed collapsed to attrition first.
+The figures are in `RESTART.md`, Part D.
+
+### The Titan budget, and the two multipliers hiding in it
+
+**The finding, from real play:** a player at ~1.1 of par, also dodging and
+taking gates, got the first Titan to 75% of its HP before it landed. The
+budget said 0.9 of par kills it over 75% of its descent. The constants were
+not the problem; three things sat between them and the game:
+
+- **The wave's `hpMult` was applied to the boss.** `Enemies.spawn` scales
+  every body by the throttle's `hpMult` to spend the pressure budget, and the
+  Titan was spawned through the same path with its deadline budget passed as
+  a further scale - so its HP was `titanHp x hpMult`. At wave 5 that is a
+  small factor; by the wave-20 Titan it is thousands, which is why every
+  `npm run from` run died to the first boss it met. The boss now spawns with
+  ABSOLUTE HP (`absoluteHp` on `spawn`), and `npm run model` asserts the
+  budget is reached at exactly `bossKillPar x bossKillDistance` of the
+  descent with no dependence on the wave.
+- **Armor was not in the budget.** The Titan has `armor: 0.35`, which
+  `armorAgainst` applies to every hit, so 1.54x the budgeted damage had to be
+  fired. `titanHp` now takes the armor and budgets DELIVERED damage.
+- **The firing column was ~170px wide against a 72px boss.** Units fired from
+  their own slots (a 96px formation) and extra guns spread 72px more around
+  each. A perfectly placed squad landed about half its shots. Every shot now
+  spawns inside `WEAPON.columnWidth`, the Titan's diameter: the unit's offset
+  from the squad centre is scaled down from `FORMATION_HALF_WIDTH`, and the
+  guns spread `WEAPON.gunSpread` inside that. `npm run model` fails if the
+  column is ever wider than the boss. This is a balance change everywhere,
+  not only against the boss - the stream is a beam rather than a curtain -
+  and `notes.md` records it as the intent.
+
+**A fourth was found by the instrument built to check the other three.** With
+the column, the armor and the `hpMult` fixed, `npm run titan` still reported a
+parked squad killing the boss at 20% of its descent against a budgeted 27% -
+a delivery of 1.3, at pierce 1, on every seed at 1e5 and 1e8 DPS, and about
+1.0 at pierce 0. A piercing bullet had no re-hit guard: `collide` charged it
+against every body it overlapped on every step, and a bullet crosses a Titan
+in about five steps, so one pierce-1 shot struck the boss twice - 2 hits
+against the 1.5x the fixed-q model prices pierce at, which is exactly 1.33.
+`Bullet.struck` now records the bodies a bullet has met and `collide` skips
+them: one encounter per body, which is what `strike` already resolves at one
+instant. With the guard, `npm run titan` reads a median delivery of **0.98**
+over nine kills (0.94 to 1.23 at pierce 0, 0.80 to 1.01 at pierce 1), so the
+budget's sentence is now true of the shipped game.
+
+It moves the probe regime too - a two-hit shot was hitting ordinary bodies as
+well, wherever a body was wider than a step of travel, and the analytic budget
+never credited the second hit. This is the first change on the branch the
+probe can see. `npm run balance`, seeds 1-5, skill 0.7, before on a snapshot
+of the parent commit and after with the guard and the 72px column:
+
+| | survival | median | optimal | standing | breach/min |
+| --- | --- | --- | --- | --- | --- |
+| before | 54.8 / 57.9 / 93.8 / 103.2 / 124s | 93.8s | 57% | 0.70 | 26.1 |
+| after | 54.4 / 59.4 / 78.1 / 93.0 / 101.5s | 78.1s | 63% | 0.55 | 25.2 |
+
+Three seeds moved under two seconds; two shortened by 16s and 31s. Read the
+direction and not the size, and note that the pair cannot separate the guard
+from the column, which landed in the same commit. The sweep table above
+predates this pair and is stale by that much.
+
+With those four gone, `bossKillDistance` is now the only thing the boss's
+difficulty is made of, and it came down from 0.75 to **0.3** as the author's
+next value to feel out. The distance is measured to `ARENA.breachY`, the line
+that actually ends the run, not to the lane line.
 
 ### Legibility must stay difficulty-neutral, and once did not
 

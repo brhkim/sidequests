@@ -15,6 +15,15 @@ export interface Bullet {
   shots: number;
   active: boolean;
   /**
+   * Bodies this bullet has already struck. A bullet meets a body ONCE: `strike`
+   * resolves the whole encounter at one instant, and the shots that pierced
+   * are on their way to the next body. Without this a piercing bullet inside a
+   * large body was charged again on every step it overlapped it - about five
+   * steps across a Titan - and pierce 1 delivered twice its budgeted damage to
+   * the boss. Reused, not reallocated; pierce is a small number.
+   */
+  struck: object[];
+  /**
    * Whether the renderer draws this bullet. PRESENTATION ONLY - an undrawn
    * bullet moves, collides and does damage exactly like a drawn one. Decided
    * once at spawn rather than per frame so a bullet does not flicker in and out
@@ -59,7 +68,7 @@ export class Bullets {
     for (let i = 0; i < WEAPON.maxBullets; i++) {
       this.items.push({
         x: 0, y: 0, vx: 0, vy: 0, damage: 0, bundle: [], shots: 0, active: false,
-        drawn: true, density: 1,
+        struck: [], drawn: true, density: 1,
       });
     }
   }
@@ -87,6 +96,7 @@ export class Bullets {
         b.bundle.fill(0);
         b.bundle[pierce] = shots;
         b.shots = shots;
+        b.struck.length = 0;
         b.drawn = drawn; b.density = density;
         this.spawned++;
         this.shotsSpawned += shots;

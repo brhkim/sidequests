@@ -722,6 +722,49 @@ keeping:
   play, and the game was survivable only because they happened to point in
   opposite directions. Any single-knob fix would have exposed the other.
 
+### The Titan was three times too tough, and the constants had nothing to do with it
+
+Real play, on the wave-5 boss: a player at roughly 1.1 of par, playing the rest
+of the game as well - dodging, taking gates, missing a little - got the first
+Titan down to about 75% of its HP before it landed. The budget said 0.9 of par
+kills it over 75% of its descent. Three things were wrong, and only one of them
+is a tuning value:
+
+- **The firing column was ~170px wide against a 72px boss.** Each unit fired
+  from its own slot, three hex rings are 96px across, and extra guns spread a
+  further 72px around each unit. A perfectly placed squad landed about half its
+  shots, and the budget assumed all of them. **Design: the player's damage is
+  focused in a column the Titan's own width.** `WEAPON.columnWidth` is that
+  number, the ring is scaled into it, and `npm run model` fails if the column
+  ever grows wider than the boss. It is a real change to how the game feels
+  against ordinary enemies too - the stream is a beam now, not a curtain - and
+  that is accepted: the boss check is the thing the damage economy is FOR.
+- **Two multipliers were hiding inside the HP.** The boss took the wave's
+  `hpMult` on top of its deadline budget, and its 35% armor was budgeted as if
+  it were zero. The first made every late Titan unkillable whatever the
+  constants said (the runs recorded as "survived the first Titan, died to the
+  second" had in fact died to the first, at exactly the second it landed); the
+  second made every Titan 1.5x its budget. Both are accounted for now, so
+  `bossKillPar` and `bossKillDistance` mean what they say.
+- **75% of the descent at full single-target DPS is too much to ask** of a
+  player who also has to dodge, grab bonuses and miss a little. Difficulty is
+  the point, but the slack has to be real. **It is 30% now, to feel out.** The
+  rest of the descent is what real play spends.
+
+The instrument built to check those three found a fourth on its first run: a
+piercing bullet was charged against the boss on every step it spent inside it,
+so pierce 1 hit the Titan twice where the budget priced it at 1.5. Bullets now
+meet a body once. That is a rule about what pierce IS - the shot goes through
+to the NEXT body - and it holds against ordinary enemies too.
+
+The instrument for the boss is `npm run titan`: a squad parked under the
+Titan, taking no gates, and the fraction of the descent at which the boss died
+next to the fraction the budget predicts. Their ratio is how much of the assumed
+damage actually arrives - escorts eat some shots, the boss drifts, breaches
+cost power while parked - and it is a ceiling on the player, not a verdict on
+the feel. `npm run from` at a wave just below a multiple of five is the nearer
+thing to a played run.
+
 ## Open questions
 
 

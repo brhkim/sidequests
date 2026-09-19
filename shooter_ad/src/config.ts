@@ -132,14 +132,30 @@ export const WEAPON = {
    * is wrong, not the cap.
    */
   maxBullets: Math.ceil(SIM_SHOT_CAP * BULLET_FLIGHT_SECONDS * 1.25),
-  /** Firing is staggered across the ring so shots stream rather than pulse. */
   /**
-   * Extra guns fire PARALLEL, spread across this width in pixels - not fanned
-   * into a cone. A cone scatters damage at range, so more guns made a squad
-   * worse against a single target, which is backwards. The width is sized to a
-   * Titan's diameter so a full volley lands on the boss it exists to kill.
+   * The FIRING COLUMN: every shot the squad fires spawns inside a column this
+   * wide, centred on the squad, whatever the formation's footprint. It is the
+   * Titan's diameter (`radius: 36` in data/enemies.ts; `npm run model` asserts
+   * the two agree), so a squad parked under the boss lands every shot on it -
+   * which is the assumption the Titan's HP budget is built on, and the only
+   * thing that makes that budget a statement about the player rather than
+   * about geometry.
+   *
+   * It used to be that each unit fired from its own x and extra guns spread a
+   * further 72px around it. Three hex rings are 96px across, so the column was
+   * ~170px wide against a 72px boss and a perfectly placed squad landed about
+   * half of its shots; the HP budget assumed all of them, and a player at 1.1
+   * of par took the first Titan down to 75% in real play. Extra guns still
+   * fire PARALLEL, not fanned - a cone scatters damage at range, so more guns
+   * would make a squad worse against a single target, which is backwards.
    */
-  volleyWidth: 72,
+  columnWidth: 72,
+  /**
+   * Width a unit's extra guns spread across, inside the column. Units are laid
+   * across the rest of it (`columnWidth - gunSpread`), scaled down from their
+   * formation slots, so the ring still reads as the source of the stream.
+   */
+  gunSpread: 24,
   /**
    * Chance a piercing bullet meets another body after a hit. Tuned constant,
    * deliberately not live enemy density - see Progression.pierceMultiplier.
@@ -289,14 +305,24 @@ export const DIFFICULTY = {
   /**
    * A boss is sized by the DEADLINE it creates, not by a pressure budget.
    *
-   * The Titan ends the run if it reaches the squad or the bottom of the screen,
-   * so its HP is set so a player holding `bossKillPar` of par - measured in
-   * SINGLE-TARGET damage - kills it by the time it has covered
-   * `bossKillDistance` of the way down. The slack is deliberate: a boss killable
-   * only on the last pixel is a coin flip, not a test.
+   * The Titan ends the run when it crosses the breach line, so its HP is set
+   * so a player holding `bossKillPar` of par - measured in SINGLE-TARGET
+   * damage, with every shot landing - kills it by the time it has covered
+   * `bossKillDistance` of the way down. Everything past that fraction is the
+   * slack for dodging, taking gates and missing, which real play spends: at
+   * 0.75 a player at 1.1 of par who also had to play the rest of the game got
+   * the first Titan to 75% and no further. 0.3 is the author's next value to
+   * feel out, and `npm run titan` is the instrument that says what a squad
+   * parked under the boss actually achieves.
+   *
+   * Two multipliers used to hide inside this number and made it wrong by a
+   * large factor whatever it was set to: the boss took the wave's `hpMult` on
+   * top of its budget, and its 35% armor was budgeted as if it were 0. Both
+   * are accounted for now (`Difficulty.titanHp`, `Enemies.advanceWave`), so
+   * the constant means what it says.
    */
   bossKillPar: 0.9,
-  bossKillDistance: 0.75,
+  bossKillDistance: 0.3,
   /**
    * Seconds for the budget to catch up to a change in par. Multiplier gates
    * double par in a single instant, which used to halve your standing with no
