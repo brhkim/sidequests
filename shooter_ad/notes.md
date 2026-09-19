@@ -371,11 +371,16 @@ model` fails otherwise.
 
 ## Instant feedback on every pick
 
-A halo flash on the gate the moment you take it:
+A wash over the gate the moment you take it, with the word on it:
 
-- **green** — optimal
-- **yellow** — middle
-- **red** — worst of the three
+- **green PERFECT** — optimal
+- **yellow GOOD** — middle
+- **red BAD** — worst of the three
+
+and a red **MISS** at the lane line if an offer passes untaken (DDR-style; a
+missed offer is graded as a BAD pick in the tally). The halo it replaced was a
+circle the size of a unit on a card three times wider, and read as a hit
+rather than a verdict.
 
 The death screen teaches after the fact; this teaches *during*, which is what
 actually makes players improve. Both read the same `DecisionLog` scoring, so they
@@ -551,7 +556,20 @@ Consider surfacing a single headline number: **"you played at 82% of optimal."**
 
 Par is permanently on screen, not saved for the death readout. Seeing yourself
 fall behind in real time is the feedback that makes the next decision mean
-something.
+something. The standing bar under the rail flashes ONCE when the run crosses
+the curve's target line in either direction and never pulses otherwise; a
+streak track under KILLS fills toward the next streak bonus.
+
+**The field says what is about to hit you.** The bottom of the lane is a
+ground band, not a line, from where a full ring's front rank sits down to the
+breach horizon; every body inside it puts a red tick on the horizon that
+brightens as it nears. Gate cards wear a solid roof bar in their axis colour
+and their labels sit above the bullet stream, so an offer stays readable
+mid-wave; the card the centre unit is lined up on brightens and its siblings
+fade. Damage flashes the screen's edges (sized by how much of the army went),
+never the play space. Everything else - the grade wash, MISS, rescue and
+contact labels, the wave banner, the Titan bar, the death beat - is a typed
+`moment` from the simulation, so audio and rendering read one account.
 
 **Directly beneath the red line** is *the squad*: every input to the DPS
 product and nothing else — **ARMY** (power and rank), DMG pool and mult, RATE

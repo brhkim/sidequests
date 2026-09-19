@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { ARENA, VIEW } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
-import { compact, formatMult, hex, type HudPayload } from './types';
+import { compact, FONT, formatMult, hex, type HudPayload } from './types';
 
 /**
  * The active-bonus readout, directly beneath the breach line: every input to
@@ -29,8 +29,12 @@ import { compact, formatMult, hex, type HudPayload } from './types';
  *   the pool is what the conversion needs and the multiplier cancels out of it.
  * - Values are LEFT-aligned off a coloured accent, so a digit appearing does
  *   not shuffle the whole cell sideways mid-wave.
- * - A cell you hold nothing on fades out, so what you actually have pops
- *   without needing to read any of it.
+ * - A cell you hold nothing on fades, so what you actually have pops without
+ *   needing to read any of it - to 0.55, not further, so it still reads.
+ *
+ * A cell that changes flashes in the colour of WHY it changed: the grade of
+ * the pick, green for army gained, red for army lost. `prime` sets that
+ * colour from the event; the next change spends it.
  */
 const TOP = ARENA.breachY + 2;
 const CELLS = [
@@ -40,6 +44,7 @@ const CELLS = [
   { axis: 'guns' as const, label: 'GUNS', width: 92 },
   { axis: 'pierce' as const, label: 'PIERCE', width: 92 },
 ];
+const MAIN = '#f2f6ff';
 
 interface Cell {
   accent: Phaser.GameObjects.Rectangle;
@@ -51,6 +56,8 @@ interface Cell {
 
 export class BonusStrip {
   private readonly cells: Cell[] = [];
+  private readonly floater: Phaser.GameObjects.Text;
+  private pending: number | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {
     scene.add.rectangle(0, TOP, VIEW.width, VIEW.height - TOP, 0x0b0f1c, 0.96)
@@ -63,21 +70,22 @@ export class BonusStrip {
       this.cells.push({
         accent: scene.add.rectangle(x + 8, TOP + 12, 3, 70, color, 0.9).setOrigin(0, 0),
         label: scene.add.text(textX, TOP + 10, spec.label, {
-          fontFamily: 'system-ui, sans-serif', fontSize: '12px',
-          color: hex(color), fontStyle: 'bold',
+          fontFamily: FONT, fontSize: '12px', color: hex(color), fontStyle: 'bold',
         }).setOrigin(0, 0).setLetterSpacing(1.2),
         main: scene.add.text(textX, TOP + 24, '', {
-          fontFamily: 'system-ui, sans-serif', fontSize: '26px',
-          color: '#f2f6ff', fontStyle: 'bold',
+          fontFamily: FONT, fontSize: '26px', color: MAIN, fontStyle: 'bold',
         }).setOrigin(0, 0),
         sub: scene.add.text(textX, TOP + 61, '', {
-          fontFamily: 'system-ui, sans-serif', fontSize: '15px',
-          color: '#8b99bb', fontStyle: 'bold',
+          fontFamily: FONT, fontSize: '15px', color: '#8b99bb', fontStyle: 'bold',
         }).setOrigin(0, 0),
         last: '',
       });
       x += spec.width;
     }
+    // `-N` / `+N` over the ARMY cell, rising out of the strip.
+    this.floater = scene.add.text(50, TOP + 4, '', {
+      fontFamily: FONT, fontSize: '16px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5, 1).setStroke('#05070f', 3).setDepth(1).setVisible(false);
   }
 
   update(h: HudPayload): void {
@@ -94,10 +102,33 @@ export class BonusStrip {
     // Pierce shows what it is actually worth, from the same valuation par
     // prices it with - a bare `2` says nothing about what a level buys.
     this.set(4, String(h.pierce), multOrBlank(h.pierceMult), h.pierce > 0);
+    this.pending = null;
+  }
+
+  /** The colour the next changed cell flashes in; spent by the next `update`. */
+  prime(color: number): void { this.pending = color; }
+
+  /** Flash a cell now, whatever changed, e.g. ARMY on a batch of fire hits. */
+  flashCell(index: number, color: number, ms = 500): void {
+    this.flash(this.cells[index], color, ms);
+  }
+
+  /** `-3` or `+5` rising out of the ARMY cell. */
+  float(text: string, color: number): void {
+    const f = this.floater;
+    this.scene.tweens.killTweensOf(f);
+    f.setText(text).setColor(hex(color)).setPosition(50, TOP + 4).setAlpha(1).setVisible(true);
+    this.scene.tweens.add({
+      targets: f, y: TOP - 22, alpha: 0, duration: 700, ease: 'Quad.easeOut',
+      onComplete: () => f.setVisible(false),
+    });
   }
 
   reset(): void {
     for (const cell of this.cells) cell.last = '';
+    this.pending = null;
+    this.scene.tweens.killTweensOf(this.floater);
+    this.floater.setVisible(false);
   }
 
   private set(index: number, main: string, sub: string, held: boolean, subColor = '#8b99bb'): void {
@@ -105,25 +136,25 @@ export class BonusStrip {
     cell.main.setText(main);
     cell.sub.setText(sub).setColor(subColor);
 
-    const alpha = held ? 1 : 0.32;
+    const alpha = held ? 1 : 0.55;
     cell.accent.setAlpha(held ? 0.9 : 0.22);
     cell.label.setAlpha(alpha);
     cell.main.setAlpha(alpha);
     cell.sub.setAlpha(0.95);
 
-    // A gate you drove through has to register somewhere other than the toast,
-    // which is already gone by the time the next offer appears.
+    // A gate you drove through has to register somewhere other than the field,
+    // where the wash is already gone by the time the next offer appears.
     const signature = `${main}|${sub}`;
-    if (cell.last !== '' && cell.last !== signature) this.flash(cell);
+    if (cell.last !== '' && cell.last !== signature) this.flash(cell, this.pending ?? 0xffffff, 500);
     cell.last = signature;
   }
 
-  private flash(cell: Cell): void {
+  private flash(cell: Cell, color: number, ms: number): void {
     this.scene.tweens.killTweensOf(cell.main);
-    cell.main.setScale(1.15).setColor('#ffffff');
+    cell.main.setScale(1.15).setColor(hex(color));
     this.scene.tweens.add({
-      targets: cell.main, scale: 1, duration: 320, ease: 'Quad.easeOut',
-      onComplete: () => cell.main.setColor('#f2f6ff'),
+      targets: cell.main, scale: 1, duration: ms, ease: 'Quad.easeOut',
+      onComplete: () => cell.main.setColor(MAIN),
     });
   }
 }

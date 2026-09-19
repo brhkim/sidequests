@@ -623,6 +623,27 @@ export const RENDER = {
   shardRing: 96,
   /** Enemy bullets draw a faint copy a few pixels behind them. */
   bulletTrail: true,
+
+  // --- field and feedback
+  /**
+   * Gate cards. `fill` is the card's alpha at rest, `targetFill` the one the
+   * squad is lined up on, `roof` the height of the solid axis-coloured bar
+   * along the card's top edge - the part of a card that still reads when a
+   * bullet stream is crossing it.
+   */
+  gate: { fill: 0.16, targetFill: 0.3, roof: 4 },
+  /**
+   * Durations, in milliseconds of WALL clock, for the feedback moments. They
+   * drive tweens on display objects and are read by nothing the simulation
+   * touches; a pick wash that lingers longer changes no outcome.
+   */
+  moments: { pickHold: 240, pickFade: 480, deathBeat: 480, edgeFade: 360 },
+  /**
+   * Draw, for every enemy bullet still above the lane, a dash on the lane at
+   * the x it will cross. Off by default: it tells the player where to stand,
+   * which is more than the game means to say. Rendering only either way.
+   */
+  landingDashes: false,
 } as const;
 
 export const COLORS = {

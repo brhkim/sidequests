@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
-import { ARENA, CAGE, COLORS, GATES, VIEW } from '../../config';
-import { AXIS_COLOR } from '../../data/gates';
+import { ARENA, CAGE, COLORS, GATES, RENDER, VIEW } from '../../config';
 import type { Enemies } from '../../systems/Enemies';
+import type { EnemyBullets } from '../../systems/EnemyBullets';
 import type { Gates } from '../../systems/Gates';
 import type { Squad } from '../../systems/Squad';
 import type { SimEvent } from '../../systems/SimEvents';
-import { hex } from '../hud/types';
+import { FieldFx } from '../fx/FieldFx';
+import { FONT, hex } from '../hud/types';
 import { RAIL_HEIGHT } from '../hud/TopRail';
+import { GateCards, type GateTarget } from './GateCards';
 
 /** What the field layer reads, once per frame. Simulation state it may look at
  * and never write. `marked` is the set of `pair:index` keys wearing the SENSE
@@ -18,60 +20,74 @@ export interface FieldWorld {
   readonly marked: ReadonlySet<string>;
   /** Simulated seconds, for the SENSE pulse. Never the wall clock. */
   readonly elapsed: number;
+  /** Only read when `RENDER.landingDashes` is on; the scene need not pass it. */
+  readonly enemyFire?: EnemyBullets;
 }
 
-interface GateVisual {
-  rect: Phaser.GameObjects.Rectangle;
-  label: Phaser.GameObjects.Text;
-  /** The SENSE mark: a ring round the offer's best option, and its caption. */
-  ring: Phaser.GameObjects.Rectangle;
-  tag: Phaser.GameObjects.Text;
-}
+/** Ground band: where contact happens, drawn as a floor rather than a strip. */
+const GROUND_TOP = 740;
+/** A body below this line is about to breach; its tick brightens as it nears. */
+const TICK_FROM = 772;
 
 /**
- * The playfield's furniture: the ground and breach line, the descending gate
- * cards with their SENSE mark, the selection guide, and the cage health
- * bars. Everything here is rendering; nothing may reach back into the
- * simulation. `onEvents` receives what the simulation did since the last
- * frame (see `systems/SimEvents.ts`) for field-space feedback.
+ * The playfield's furniture: the ground and breach horizon, the descending
+ * gate cards with their SENSE mark, the selection guide, the cage health bars
+ * with what each cage is worth, and - through `FieldFx` - the feedback that
+ * happens at a place on the field. Everything here is rendering; nothing may
+ * reach back into the simulation.
  */
 export class FieldRender {
+  private readonly cards: GateCards;
+  private readonly fx: FieldFx;
+  /** Breach ticks, landing dashes and cage bars. Below the bodies (10). */
+  private readonly overlay: Phaser.GameObjects.Graphics;
   /**
    * The selection guide, on its own layer ABOVE the squad and every
    * projectile. On the shared overlay it sat under the bullet stream and was
    * unreadable exactly when it mattered - mid-wave, with an offer closing.
    */
   private readonly selection: Phaser.GameObjects.Graphics;
-  private readonly overlay: Phaser.GameObjects.Graphics;
-  private readonly gateVisuals: GateVisual[] = [];
+  private readonly rewards: Phaser.GameObjects.Text[] = [];
 
   constructor(private readonly scene: Phaser.Scene) {
     this.drawBackground();
     this.overlay = scene.add.graphics().setDepth(6);
-    // 25: above the squad (21), below the HUD backing strip (30).
     this.selection = scene.add.graphics().setDepth(25);
+    this.cards = new GateCards(scene);
+    this.fx = new FieldFx(scene);
   }
 
-  /** Events since the last frame. Nothing here yet; the hook is the contract. */
-  onEvents(_events: readonly SimEvent[]): void {}
+  /** Events since the last frame, for the field-space feedback. */
+  onEvents(events: readonly SimEvent[]): void { this.fx.onEvents(events); }
 
   /** Forget any per-run animation state. */
-  reset(): void {}
+  reset(): void { this.fx.reset(); }
 
   render(w: FieldWorld): void {
-    this.renderGates(w);
-    this.renderCageBars(w);
+    const target = this.findTarget(w);
+    this.cards.render(w.gates.items, w.marked, target, w.elapsed);
+    this.renderOverlay(w);
     // Last, and on the topmost gameplay layer: the guide has to survive a
     // screen full of bullets.
-    this.renderSelection(w);
+    this.renderSelection(w, target);
   }
 
+  /**
+   * The ground is a band, not a line: from where a full ring's front rank
+   * sits (contact) down to the breach horizon. The horizon itself glows
+   * faintly upward so a body approaching it is seen against something.
+   */
   private drawBackground(): void {
     const g = this.scene.add.graphics().setDepth(0);
     g.fillStyle(COLORS.bg, 1).fillRect(0, 0, VIEW.width, VIEW.height);
     g.fillStyle(COLORS.lane, 1).fillRect(0, ARENA.laneY - 120, VIEW.width, 260);
-    g.lineStyle(2, COLORS.breach, 0.35);
-    g.lineBetween(0, ARENA.breachY, VIEW.width, ARENA.breachY);
+    const ground = this.scene.add.graphics().setDepth(1);
+    ground.fillStyle(0x171d2e, 1).fillRect(0, GROUND_TOP, VIEW.width, ARENA.breachY - GROUND_TOP);
+    ground.fillStyle(0x2a3350, 1).fillRect(0, GROUND_TOP, VIEW.width, 1);
+    [0.05, 0.035, 0.02].forEach((a, i) => {
+      ground.fillStyle(COLORS.breach, a).fillRect(0, ARENA.breachY - 6 * (i + 1), VIEW.width, 6);
+    });
+    ground.fillStyle(COLORS.breach, 0.6).fillRect(0, ARENA.breachY - 1, VIEW.width, 2);
     // Backing strip so the HUD stays legible as enemies walk in from the top.
     const hud = this.scene.add.graphics().setDepth(30);
     hud.fillStyle(COLORS.bg, 0.86).fillRect(0, 0, VIEW.width, RAIL_HEIGHT);
@@ -79,111 +95,93 @@ export class FieldRender {
   }
 
   /**
-   * Which gate the squad is about to take, drawn as a line from the leader up
-   * to the offer.
-   *
-   * The selection rule - the CENTRE of the formation is what passes through a
-   * gate - is invisible otherwise. A player watching a nineteen-unit ring drift
-   * across three lanes has no way to know which one counts, and finds out only
-   * after committing. The leader is also drawn larger; this says the same thing
-   * a second way, at the moment it matters.
+   * Which gate the squad is about to take. The selection rule - the CENTRE of
+   * the formation is what passes through a gate - is invisible otherwise.
    */
-  private renderSelection(w: FieldWorld): void {
-    this.selection.clear();
-    let target: { x: number; y: number; color: number } | null = null;
+  private findTarget(w: FieldWorld): (GateTarget & { x: number; y: number; color: number }) | null {
+    let target: (GateTarget & { x: number; y: number; color: number }) | null = null;
     for (const g of w.gates.items) {
       if (!g.active || g.y > w.squad.y) continue;
       if (Math.abs(g.x - w.squad.x) > g.width / 2) continue;
       if (target === null || g.y > target.y) {
-        target = { x: g.x, y: g.y, color: g.type.color };
+        target = { pair: g.pair, index: g.index, x: g.x, y: g.y, color: g.type.color };
       }
     }
-    if (target === null) return;
+    return target;
+  }
 
-    // Fades in as the offer closes, so it guides without nagging.
-    const nearness = Phaser.Math.Clamp(
-      1 - (w.squad.y - target.y) / 520, 0.12, 0.55,
-    );
-    this.selection.lineStyle(3, target.color, nearness);
-    this.selection.lineBetween(
-      w.squad.x, w.squad.y - 18,
-      // Never draw up into the rail, for the same reason gates fade in below it.
-      w.squad.x, Math.max(target.y + GATES.height / 2, RAIL_HEIGHT + 6),
-    );
-    this.selection.lineStyle(3, target.color, nearness + 0.25);
+  /**
+   * The targeted card is lit by `GateCards`; this adds the two bottom-corner
+   * brackets on it, a short stub above the leader, and the leader ring. All
+   * fade in as the offer closes, so it guides without nagging.
+   */
+  private renderSelection(w: FieldWorld, t: ReturnType<FieldRender['findTarget']>): void {
+    this.selection.clear();
+    if (t === null) return;
+    const nearness = Phaser.Math.Clamp(1 - (w.squad.y - t.y) / 520, 0.12, 0.55);
+    const width = w.gates.items.find((g) => g.active && g.pair === t.pair)?.width ?? 170;
+    const hw = width / 2 - GATES.gap / 2;
+    const bottom = t.y + GATES.height / 2;
+    this.selection.lineStyle(3, 0xffffff, Math.min(0.9, nearness + 0.35));
+    for (const side of [-1, 1]) {
+      const cx = t.x + side * hw;
+      this.selection.beginPath();
+      this.selection.moveTo(cx, bottom - 14);
+      this.selection.lineTo(cx, bottom);
+      this.selection.lineTo(cx - side * 14, bottom);
+      this.selection.strokePath();
+    }
+    this.selection.lineStyle(3, t.color, Math.min(0.6, nearness + 0.05));
+    this.selection.lineBetween(w.squad.x, w.squad.y - 18, w.squad.x, w.squad.y - 42);
+    this.selection.lineStyle(3, t.color, nearness + 0.25);
     this.selection.strokeCircle(w.squad.x, w.squad.y - 2, 16);
   }
 
   /**
-   * Gates, and the SENSE mark. On a sensed offer the option that is best RIGHT
-   * NOW - priced by the same `scoreOffer` par and the death screen use - wears
-   * a pulsing pale ring and a caption. It is recomputed every frame rather
-   * than fixed at spawn, so if taking the previous gate changes which of
-   * these three is best, the mark moves with the truth. The pulse reads the
-   * simulated clock for its phase; it is rendering and touches nothing.
+   * What is about to hit the army. A tick on the horizon under every body in
+   * the ground band, brightening as it nears the line; cage bars with the
+   * reward the cage would pay right now; and, if `RENDER.landingDashes` is
+   * on, a dash on the lane where each enemy bullet will cross it.
    */
-  private renderGates(w: FieldWorld): void {
-    const pulse = 0.55 + 0.45 * Math.sin(w.elapsed * 7);
-    let used = 0;
-    for (const g of w.gates.items) {
-      if (!g.active) continue;
-      let v = this.gateVisuals[used];
-      if (!v) {
-        v = {
-          rect: this.scene.add.rectangle(0, 0, 10, GATES.height, 0xffffff, 0.22).setDepth(4),
-          label: this.scene.add.text(0, 0, '', {
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: `${GATES.labelSize}px`,
-            color: COLORS.text,
-            fontStyle: 'bold',
-          }).setOrigin(0.5).setDepth(5),
-          ring: this.scene.add.rectangle(0, 0, 10, GATES.height + 14, 0xffffff, 0)
-            .setStrokeStyle(4, AXIS_COLOR.sense, 1).setDepth(3).setVisible(false),
-          tag: this.scene.add.text(0, 0, 'SENSE', {
-            fontFamily: 'system-ui, sans-serif', fontSize: '11px',
-            color: hex(AXIS_COLOR.sense), fontStyle: 'bold',
-          }).setOrigin(0.5, 1).setLetterSpacing(2).setDepth(5).setVisible(false),
-        };
-        this.gateVisuals.push(v);
+  private renderOverlay(w: FieldWorld): void {
+    const o = this.overlay;
+    o.clear();
+    for (const e of w.enemies.items) {
+      if (!e.active || e.y <= TICK_FROM) continue;
+      const a = Math.min(1, 0.4 + 0.6 * (e.y - TICK_FROM) / (ARENA.breachY - TICK_FROM));
+      o.fillStyle(COLORS.breach, a).fillRect(e.x - 1.5, ARENA.breachY - 10, 3, 10);
+    }
+    if (RENDER.landingDashes && w.enemyFire) {
+      for (const b of w.enemyFire.items) {
+        if (!b.active || b.vy <= 0 || b.y >= ARENA.laneY) continue;
+        const crossX = b.x + b.vx * (ARENA.laneY - b.y) / b.vy;
+        const progress = Phaser.Math.Clamp(b.y / ARENA.laneY, 0, 1);
+        o.fillStyle(COLORS.enemyBullet, 0.15 + 0.5 * progress)
+          .fillRect(crossX - 5, ARENA.laneY + 21, 10, 2);
       }
-      // Fade in clear of the top rail. Gates spawn above the screen and would
-      // otherwise slide through the HUD numbers, putting two unrelated sets of
-      // figures on top of each other exactly where the player reads par.
-      const reveal = Phaser.Math.Clamp((g.y - RAIL_HEIGHT - 6) / 44, 0, 1);
-      v.rect.setVisible(reveal > 0).setPosition(g.x, g.y)
-        // Inset for the visual separation the hit test no longer has.
-        .setSize(g.width - GATES.gap, GATES.height)
-        .setFillStyle(g.type.color, 0.22 * reveal)
-        .setStrokeStyle(3, g.type.color, 0.9 * reveal);
-      v.label.setVisible(reveal > 0).setPosition(g.x, g.y).setAlpha(reveal);
-      if (v.label.text !== g.type.label) v.label.setText(g.type.label);
-      const isMarked = w.marked.has(`${g.pair}:${g.index}`);
-      v.ring.setVisible(isMarked && reveal > 0).setPosition(g.x, g.y)
-        .setSize(g.width - GATES.gap + 14, GATES.height + 14)
-        .setStrokeStyle(4, AXIS_COLOR.sense, pulse * reveal);
-      v.tag.setVisible(isMarked && reveal > 0)
-        .setPosition(g.x, g.y - GATES.height / 2 - 10).setAlpha(reveal);
-      used++;
     }
-    for (let i = used; i < this.gateVisuals.length; i++) {
-      this.gateVisuals[i].rect.setVisible(false);
-      this.gateVisuals[i].label.setVisible(false);
-      this.gateVisuals[i].ring.setVisible(false);
-      this.gateVisuals[i].tag.setVisible(false);
-    }
-  }
-
-  private renderCageBars(w: FieldWorld): void {
-    this.overlay.clear();
+    const reward = w.squad.power > CAGE.shareFrom
+      ? Math.round(w.squad.power * CAGE.share) : CAGE.reward;
+    let used = 0;
     for (const c of w.enemies.cages) {
       if (!c.active) continue;
-      this.overlay.fillStyle(0x000000, 0.5);
-      this.overlay.fillRect(c.x - CAGE.radius, c.y - CAGE.radius - 9, CAGE.radius * 2, 4);
-      this.overlay.fillStyle(COLORS.cage, 0.95);
-      this.overlay.fillRect(
-        c.x - CAGE.radius, c.y - CAGE.radius - 9,
-        CAGE.radius * 2 * (c.hp / c.maxHp), 4,
-      );
+      const barY = c.y - CAGE.radius - 10;
+      o.fillStyle(0x000000, 0.5).fillRect(c.x - CAGE.radius, barY, CAGE.radius * 2, 5);
+      o.fillStyle(COLORS.cage, 0.95).fillRect(c.x - CAGE.radius, barY, CAGE.radius * 2 * (c.hp / c.maxHp), 5);
+      const t = this.rewards[used] ?? this.makeReward();
+      const text = `+${reward}`;
+      if (t.text !== text) t.setText(text);
+      t.setPosition(c.x, barY - 3).setVisible(true);
+      used++;
     }
+    for (let i = used; i < this.rewards.length; i++) this.rewards[i].setVisible(false);
+  }
+
+  private makeReward(): Phaser.GameObjects.Text {
+    const t = this.scene.add.text(0, 0, '', {
+      fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: hex(COLORS.cage),
+    }).setOrigin(0.5, 1).setStroke('#05070f', 3).setDepth(15);
+    this.rewards.push(t);
+    return t;
   }
 }

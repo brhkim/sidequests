@@ -21,6 +21,7 @@ npm run repeat  # plays ONE seed several times; fails if the runs disagree
 npm run sweep   # every seed at every skill level; prints the table below
 npm run hud     # screenshots the HUD in early / mid / late upgrade states
 npm run endscreen  # screenshots the end, start and pause screens after real runs
+npm run moments    # forces every feedback moment and photographs it mid-animation
 npm run matchcode  # round-trips share codes; pure logic, fast
 npm run behaviour  # per-enemy movement signatures, shield taper, enemy fire
 npm run pressure   # sweeps the two knobs that set how hard ordinary enemies are
@@ -99,6 +100,31 @@ screen carrying the score, the decision tally and the match code - the entire
 shareable artefact - is never otherwise seen by any automated check, and it is
 the screen most likely to be wrong because it is the only one built from values
 that do not exist until a run ends.
+
+`npm run moments` photographs every feedback moment mid-animation - the pick
+wash at each grade, a MISS, a breach, a contact, a volley of fire, a rescue, a
+wave clear, the Titan's warning and its bar, and the death beat at 250ms and
+900ms. Each is FORCED (a body moved into the ring, a one-hit cage dropped into
+the column, the wave clock zeroed) rather than waited for, and it asserts the
+expected text is on screen and that the end screen is held back for the beat.
+Stills are not motion; look at them, and read `npm run neutral` beside them,
+because a feedback change that reached the simulation would pass this.
+
+**HUD and feedback, as built.** `UIScene` draws the rail, the strip, the
+pause button and the three screens, and dispatches the `moment` stream to
+`hud/EdgeFlash` (damage, at the screen edges, sized by `share`),
+`hud/BossBar` (the Titan's HP under the rail from `HudPayload.titan`) and
+`hud/WaveBanner`. Field-space feedback is `scenes/fx/FieldFx` inside
+`render/FieldRender`: the grade wash (`PERFECT` / `GOOD` / `BAD` in the
+card's own footprint, held then lifted - the one authored motion), `MISS`
+at the lane line, `+N ARMY` over a rescue, `-N` at a contact, and the death
+dim. The `toast` string event and the 420ms halo are gone. Gate labels and
+the SENSE tag sit at depth 15, above the squad's stream; `render/GateCards`
+owns the cards. Every tappable line on a screen has a Rectangle hit bar of
+at least 44px, and the end screen restarts only from `REPLAY_BUTTON`, which
+`GameScene.bindInput` hit-tests - a tap anywhere else leaves the shareable
+screenshot alone. The pause screen's SOUND line emits `mutetoggle` and
+follows the `muted` answer; it never asserts a state audio is not in.
 
 `npm run matchcode` round-trips share codes, including every 32-bit boundary and
 the ways a person mistypes one off a screenshot. A sharing code that loses a bit

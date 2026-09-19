@@ -21,6 +21,7 @@
     "behaviour": "node scripts/behaviour.mjs",
     "matchcode": "node --experimental-strip-types scripts/matchcode.mjs",
     "endscreen": "node scripts/endscreen.mjs",
+    "moments": "node scripts/moments.mjs",
     "from": "node --experimental-strip-types scripts/from.mjs",
     "titan": "node --experimental-strip-types scripts/titan.mjs",
     "roster": "node scripts/roster.mjs"

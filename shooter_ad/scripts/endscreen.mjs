@@ -125,23 +125,28 @@ for (const run of RUNS) {
     g.over = true;
     g.emitGameOver();
     const s = g.registry.get('stats');
-    const ui = window.game.scene.getScene('UI');
-    const texts = ui.children.list
-      .filter((o) => o.type === 'Container' && o.visible)
-      .flatMap((c) => c.list.filter((o) => o.type === 'Text').map((o) => o.text));
-    return {
-      decisions: s.decisions, optimal: s.optimal, tally: s.tally, wave: s.wave,
-      mode: g.mode, texts,
-    };
+    return { decisions: s.decisions, optimal: s.optimal, tally: s.tally, wave: s.wave, mode: g.mode };
   });
-  await page.waitForTimeout(400);
+  // The end screen is held back for the death beat (RENDER.moments.deathBeat,
+  // 480ms) and then fades in over 200ms, so the texts are read AFTER the wait
+  // rather than in the same evaluate as the emit - at that instant the screen
+  // is not yet visible, by design.
+  await page.waitForTimeout(900);
+  summary.texts = await visibleTexts(page);
   await page.screenshot({ path: join(OUT_DIR, `${run.name}.png`) });
   // "Replay this match" must be the same match: same seed, run restarted.
   // It used to continue the stream under the old code, which no code could
-  // reproduce. Checked once, on the first run.
+  // reproduce. Checked once, on the first run. The control is a BUTTON now,
+  // located by its label - a tap anywhere else must NOT restart, because a
+  // screenshot is the medium and a stray touch used to destroy it.
   if (run.name === 'end-good') {
     const seedBefore = await page.evaluate(() => window.game.scene.getScene('Game').seed);
     await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.3);
+    await page.waitForTimeout(300);
+    const stray = await page.evaluate(() => window.game.scene.getScene('Game').over);
+    if (!stray) { console.log('  ERROR a tap off the replay button restarted the run'); errors++; }
+    const replay = await findText(page, 'REPLAY THIS MATCH');
+    await page.mouse.click(box.x + (replay.x / 540) * box.width, box.y + (replay.y / 960) * box.height);
     await page.waitForTimeout(300);
     const after = await page.evaluate(() => {
       const g = window.game.scene.getScene('Game');
@@ -154,7 +159,7 @@ for (const run of RUNS) {
     // And "new match" from the end screen returns to the start screen on a
     // fresh code.
     await page.evaluate(() => { const g = window.game.scene.getScene('Game'); g.over = true; g.emitGameOver(); });
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(900);
     const fresh = await findText(page, 'or start a new match');
     await page.mouse.click(box.x + (fresh.x / 540) * box.width, box.y + (fresh.y / 960) * box.height);
     await page.waitForTimeout(300);

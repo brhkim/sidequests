@@ -26,6 +26,7 @@ import { mulberry32 } from '../systems/Rng';
 import { armorAgainst } from '../systems/EnemyMotion';
 import { strike } from '../systems/Bullets';
 import { PAUSE_BUTTON } from './hud/PauseScreen';
+import { REPLAY_BUTTON } from './hud/EndScreen';
 import { SpriteRender } from './render/SpriteRender';
 import { FieldRender } from './render/FieldRender';
 import type { HudPayload } from './hud/types';
@@ -299,12 +300,12 @@ export class GameScene extends Phaser.Scene {
       // The pause control is hit-tested HERE, not as an interactive object in
       // the UI scene: a tap reaching both scenes would pause the game and also
       // order the squad to the button's x, which it walks to on resume.
-      if (!this.over && !this.waiting && inPauseButton(p.worldX, p.worldY)) {
+      if (!this.over && !this.waiting && inButton(PAUSE_BUTTON, p.worldX, p.worldY)) {
         this.setPaused(!this.paused);
         return;
       }
       if (this.paused) return;
-      if (this.over) this.restart();
+      if (this.over) { if (inButton(REPLAY_BUTTON, p.worldX, p.worldY)) this.restart(); }
       else this.targetX = p.worldX;
     });
     this.input.keyboard?.on('keydown-SPACE', () => { if (this.over) this.restart(); });
@@ -429,7 +430,6 @@ export class GameScene extends Phaser.Scene {
     if (newWave) {
       this.squad.addPower(WAVE.clearBonus);
       this.difficulty.awardWaveClear();
-      this.toast(`WAVE ${this.enemies.wave.index}`);
       const boss = this.enemies.wave.index % WAVE.bossEvery === 0;
       this.sim.push({ kind: 'wave', index: this.enemies.wave.index, bonus: WAVE.clearBonus, titan: boss });
       if (boss) {
@@ -700,7 +700,6 @@ export class GameScene extends Phaser.Scene {
             ? Math.round(this.squad.power * CAGE.share)
             : CAGE.reward;
           this.squad.addPower(reward);
-          this.toast(`RESCUED +${reward}`);
           this.sim.push({ kind: 'rescue', x: c.x, y: c.y, amount: reward });
         }
         if (!b.active) break;
@@ -714,7 +713,6 @@ export class GameScene extends Phaser.Scene {
     if (this.streak >= STREAK.killsPerBonus) {
       this.streak = 0;
       this.squad.addPower(STREAK.bonus);
-      this.toast(`STREAK +${STREAK.bonus}`);
       this.sim.push({ kind: 'streak', x, y, amount: STREAK.bonus });
     }
   }
@@ -733,13 +731,12 @@ export class GameScene extends Phaser.Scene {
       this.gates.consumePair(g.pair);
       const rank = this.log.resolve(g.pair, g.index);
       if (rank !== null) {
-        this.flashPick(g.x, g.y, rank);
         this.sim.push({
           kind: 'pick', x: g.x, y: g.y, width: g.width, axis: g.type.axis, label: g.type.label,
           grade: rank <= 0.001 ? 'perfect' : rank >= 0.999 ? 'bad' : 'good',
         });
       }
-      this.toast(this.squad.applyGate(g.type));
+      this.squad.applyGate(g.type);
     }
   }
 
@@ -817,27 +814,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Green / amber / red on the gate you just took, graded by the same scoring
-   * the death screen will use - so instant feedback and the post-mortem can
-   * never disagree about the same pick.
-   *
-   * The death screen teaches after the fact; this teaches during, which is what
-   * actually makes players improve. Graded on the SPREAD of the offer, so
-   * taking the second of three near-identical bonuses does not read as a
-   * blunder.
-   */
-  private flashPick(x: number, y: number, rank: number): void {
-    const color = rank <= 0.001 ? 0x3ecf7a : rank >= 0.999 ? 0xff4757 : 0xffc93c;
-    const halo = this.add.circle(x, y, 34, color, 0.5).setDepth(26);
-    this.tweens.add({
-      targets: halo,
-      scale: 2.6, alpha: 0,
-      duration: 420, ease: 'Quad.easeOut',
-      onComplete: () => halo.destroy(),
-    });
-  }
-
-  /**
    * The end screen's whole payload, including the match code, because that
    * screen is a shareable artefact rather than a summary - see hud/EndScreen.
    */
@@ -861,10 +837,6 @@ export class GameScene extends Phaser.Scene {
       mode: this.mode,
       link: matchUrl(match, window.location.href),
     });
-  }
-
-  private toast(text: string): void {
-    this.game.events.emit('toast', text);
   }
 
   /**
@@ -987,6 +959,8 @@ export class GameScene extends Phaser.Scene {
       gateSpeedMult: u.gateSpeedMult,
       sense: u.sense,
       senseChance: senseChance(u.sense),
+      streak: this.streak,
+      titan: (() => { const t = this.enemies.titan; return t ? { hpFrac: t.hp / t.maxHp, progress: Enemies.titanProgress(t) } : null; })(),
     };
     this.game.events.emit('hud', hud);
   }
@@ -1018,8 +992,7 @@ export class GameScene extends Phaser.Scene {
   }
 }
 
-/** Shared with the UI scene, which draws the control this rectangle describes. */
-function inPauseButton(x: number, y: number): boolean {
-  return Math.abs(x - PAUSE_BUTTON.x) <= PAUSE_BUTTON.width / 2
-    && Math.abs(y - PAUSE_BUTTON.y) <= PAUSE_BUTTON.height / 2;
+/** Shared with the UI scene, which draws the controls these rectangles describe. */
+function inButton(b: { x: number; y: number; width: number; height: number }, x: number, y: number): boolean {
+  return Math.abs(x - b.x) <= b.width / 2 && Math.abs(y - b.y) <= b.height / 2;
 }

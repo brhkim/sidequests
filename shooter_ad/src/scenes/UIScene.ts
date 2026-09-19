@@ -1,11 +1,22 @@
 import Phaser from 'phaser';
-import { VIEW } from '../config';
+import { RENDER } from '../config';
+import type { SimEvent } from '../systems/SimEvents';
 import { BonusStrip } from './hud/BonusStrip';
+import { BossBar } from './hud/BossBar';
+import { EdgeFlash } from './hud/EdgeFlash';
 import { EndScreen, type EndPayload } from './hud/EndScreen';
 import { PauseScreen, PAUSE_BUTTON } from './hud/PauseScreen';
 import { StartScreen, type StartPayload } from './hud/StartScreen';
 import { TopRail } from './hud/TopRail';
-import type { HudPayload } from './hud/types';
+import { CAPTION, FONT, GRADE_COLOR, type HudPayload } from './hud/types';
+import { WaveBanner } from './hud/WaveBanner';
+
+const RED = 0xff5566;
+const BREACH = 0xff4d5e;
+const FIRE = 0xff8a5c;
+const GREEN = 0x3ecf7a;
+/** Fire hits arrive several a step; one flash and one `-N` per this window. */
+const FIRE_BATCH_MS = 250;
 
 /**
  * HUD in its own scene so it never inherits the game camera's shake, and so
@@ -15,28 +26,36 @@ import type { HudPayload } from './hud/types';
  * your DPS against par so falling behind is visible while it happens, and the
  * strip beneath the red line carries the bonus pools without which the
  * raw-versus-multiplicative choice cannot be worked out at all.
+ *
+ * Feedback arrives as the typed `moment` stream (`systems/SimEvents.ts`), one
+ * array per frame, and is dispatched here to the HUD-space modules: the edge
+ * flash for damage, the boss bar, the wave banner, and cell flashes on the
+ * rail and strip. Field-space feedback is `FieldFx`, in the game scene.
  */
 export class UIScene extends Phaser.Scene {
   private rail!: TopRail;
   private strip!: BonusStrip;
-  private toastText!: Phaser.GameObjects.Text;
+  private edge!: EdgeFlash;
+  private boss!: BossBar;
+  private banner!: WaveBanner;
   private end!: EndScreen;
   private start!: StartScreen;
   private pause!: PauseScreen;
   /** The last frame the game published. The pause screen reads from it, because
    *  a paused GameScene stops publishing. */
   private lastHud: HudPayload | null = null;
+  private endTimer: Phaser.Time.TimerEvent | null = null;
+  private fireCost = 0;
+  private fireTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() { super('UI'); }
 
   create(): void {
     this.rail = new TopRail(this);
     this.strip = new BonusStrip(this);
-
-    this.toastText = this.add.text(VIEW.width / 2, 620, '', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '34px',
-      color: '#ffe9a8', fontStyle: 'bold',
-    }).setOrigin(0.5).setAlpha(0);
+    this.edge = new EdgeFlash(this);
+    this.boss = new BossBar(this);
+    this.banner = new WaveBanner(this);
 
     this.end = new EndScreen(this, () => {
       this.end.hide();
@@ -61,47 +80,88 @@ export class UIScene extends Phaser.Scene {
       this,
       () => this.game.events.emit('setpaused', false),
       () => this.game.events.emit('restartrequest'),
+      // Audio owns the truth about mute; it answers with `muted`.
+      () => this.game.events.emit('mutetoggle'),
     );
     this.drawPauseButton();
 
-    this.game.events.on('hud', this.onHud, this);
-    this.game.events.on('toast', this.onToast, this);
-    this.game.events.on('gameover', this.onGameOver, this);
-    this.game.events.on('showstart', this.onShowStart, this);
+    const on: [string, (...args: never[]) => void][] = [
+      ['hud', this.onHud], ['moment', this.onMoment], ['gameover', this.onGameOver],
+      ['showstart', this.onShowStart], ['restart', this.onRestart], ['paused', this.onPaused],
+      ['muted', this.onMuted],
+    ];
+    for (const [name, fn] of on) this.game.events.on(name, fn, this);
     // GameScene.create has already run by now and is waiting for this before it
     // announces the match - see the note there.
     this.game.events.emit('uiready');
-    this.game.events.on('restart', this.onRestart, this);
-    this.game.events.on('paused', this.onPaused, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.game.events.off('hud', this.onHud, this);
-      this.game.events.off('toast', this.onToast, this);
-      this.game.events.off('gameover', this.onGameOver, this);
-      this.game.events.off('showstart', this.onShowStart, this);
-      this.game.events.off('restart', this.onRestart, this);
-      this.game.events.off('paused', this.onPaused, this);
+      for (const [name, fn] of on) this.game.events.off(name, fn, this);
     });
   }
 
   /**
    * The pause control, drawn here rather than in the rail because the rail's
-   * five columns are full. GameScene owns the hit test - see PAUSE_BUTTON -
+   * four columns are full. GameScene owns the hit test - see PAUSE_BUTTON -
    * so one tap cannot both pause and order the squad across the lane.
    */
   private drawPauseButton(): void {
     const { x, y, width, height } = PAUSE_BUTTON;
-    this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.72)
-      .setStrokeStyle(1, 0x6f7a94, 0.7).setDepth(40);
+    this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.85)
+      .setStrokeStyle(1, 0x6f7b99, 0.9).setDepth(40);
     this.add.text(x, y, 'PAUSE', {
-      fontFamily: 'system-ui, sans-serif', fontSize: '13px',
-      color: '#8f9ab5', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(40).setLetterSpacing(1);
+      fontFamily: FONT, fontSize: '12px', color: CAPTION, fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(40).setLetterSpacing(1.5);
   }
 
   private onHud(h: HudPayload): void {
     this.lastHud = h;
     this.rail.update(h);
     this.strip.update(h);
+    this.boss.update(h.titan);
+  }
+
+  private onMoment(events: readonly SimEvent[]): void {
+    for (const e of events) {
+      switch (e.kind) {
+        case 'pick': this.strip.prime(GRADE_COLOR[e.grade]); break;
+        case 'contact':
+        case 'breach':
+          if (e.titan) break;
+          this.edge.flash(BREACH, Phaser.Math.Clamp(0.15 + 0.6 * e.share, 0.15, 0.75),
+            e.kind === 'contact' ? 240 : RENDER.moments.edgeFade);
+          this.strip.prime(RED);
+          // A contact's `-N` is at the point of contact, on the field.
+          if (e.kind === 'breach') this.strip.float(`-${e.cost}`, RED);
+          break;
+        case 'fire':
+          this.edge.flash(FIRE, Phaser.Math.Clamp(0.12 + 0.4 * e.share, 0.12, 0.6), 280);
+          this.strip.prime(FIRE);
+          this.batchFire(e.cost);
+          break;
+        case 'rescue': case 'wave': this.strip.prime(GREEN); break;
+        case 'streak': this.rail.flashStreak(); this.strip.prime(GREEN); break;
+        case 'titan':
+          if (e.phase === 'arrive') this.boss.arrive();
+          if (e.phase === 'down') { this.boss.down(); this.banner.titanDown(); }
+          break;
+        case 'over':
+          if (e.cause === 'overrun') this.edge.flash(RED, 0.85, RENDER.moments.deathBeat);
+          break;
+        default: break;
+      }
+      if (e.kind === 'wave') this.banner.wave(e.index, e.bonus);
+    }
+  }
+
+  private batchFire(cost: number): void {
+    this.fireCost += cost;
+    if (this.fireTimer) return;
+    this.fireTimer = this.time.delayedCall(FIRE_BATCH_MS, () => {
+      this.fireTimer = null;
+      this.strip.flashCell(0, FIRE);
+      this.strip.float(`-${this.fireCost}`, FIRE);
+      this.fireCost = 0;
+    });
   }
 
   private onPaused(paused: boolean): void {
@@ -109,29 +169,33 @@ export class UIScene extends Phaser.Scene {
     else this.pause.hide();
   }
 
+  private onMuted(muted: boolean): void { this.pause.setMuted(muted); }
+
   private onRestart(): void {
+    this.endTimer?.remove(false);
+    this.endTimer = null;
+    this.fireTimer?.remove(false);
+    this.fireTimer = null;
+    this.fireCost = 0;
     this.end.hide();
     this.pause.hide();
     this.strip.reset();
-  }
-
-  private onToast(text: string): void {
-    this.toastText.setText(text).setAlpha(1).setScale(1);
-    this.tweens.killTweensOf(this.toastText);
-    this.tweens.add({
-      targets: this.toastText,
-      alpha: 0, scale: 1.25, y: 580,
-      duration: 900, ease: 'Quad.easeOut',
-      onStart: () => this.toastText.setY(620),
-    });
+    this.rail.reset();
+    this.edge.reset();
+    this.banner.reset();
+    this.boss.hide();
   }
 
   private onShowStart(payload: StartPayload): void {
     this.start.show(payload);
   }
 
+  /** Held back for the death beat, so the last frame of the run is seen. */
   private onGameOver(payload: EndPayload & { link: string }): void {
-    this.end.show(payload, payload.link);
+    this.endTimer?.remove(false);
+    this.endTimer = this.time.delayedCall(RENDER.moments.deathBeat, () => {
+      this.endTimer = null;
+      this.end.show(payload, payload.link);
+    });
   }
-
 }

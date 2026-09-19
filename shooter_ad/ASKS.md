@@ -25,8 +25,10 @@ author via the GitHub UI; loaded, `PRODUCT.md` written under its init flow.
 > preserved, but there's a lot of room to run here to make this a more
 > aesthetically pleasing experience.
 
-Status: `planned` (visual strand). Decision when asked: **creatures vs
-soldiers** (squad stays human; enemies organic, one silhouette per type).
+Status: `done` (commit "creatures, not discs"; `npm run roster` is the
+photograph). Decision when asked: **creatures vs soldiers** (squad stays
+human; enemies organic, one silhouette per type). Motion (pulse, swell, gun
+tracking) unverified by a human.
 
 > I'd like us to remove the Healer enemy type; it's far too troublesome in the
 > context of the Titan, which makes the game feel unfair
@@ -36,8 +38,8 @@ Status: `done` (commit "enemies have a hurt box..."). Trait code removed with it
 > I'd also like us to adjust the enemy bullets to look more bullet-like; it's
 > currently very easy to visually mistake them for other enemies.
 
-Status: `planned` (visual strand): outlined magenta darts oriented along
-velocity.
+Status: `done` (same commit): outlined magenta darts oriented along
+velocity, on a hue no enemy body wears.
 
 > I'd like us to also think about audio design. Something fairly minimal for
 > now; enemy death sounds (should be very minor since they'll be constant and
