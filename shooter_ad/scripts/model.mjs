@@ -653,7 +653,7 @@ console.log('\n=== the bundle rule ===');
 const bullet = (shots, pierce) => {
   const bundle = new Array(pierce + 1).fill(0);
   bundle[pierce] = shots;
-  return { damage: 1, bundle, shots, active: true };
+  return { damage: 1, bundle, shots, active: true, struck: [] };
 };
 const expect = (label, ok) => {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${label}`);
@@ -705,6 +705,43 @@ const expect = (label, ok) => {
   // 7 shots with one pierce each are charged exactly 14 times. Bodies six and
   // seven each meet the last shot alone - one charge each - so it takes eight.
   expect('7 shots @p1 are charged 14 times across eight 2-hp bodies then spent', charged === 14 && bodies === 8 && !b.active);
+}
+
+console.log('\n=== the Titan budget ===');
+{
+  const { ENEMY_BY_ID } = await import('../src/data/enemies.ts');
+  const { Difficulty } = await import('../src/systems/Difficulty.ts');
+  const { singleTargetDps } = await import('../src/systems/Progression.ts');
+  const { FORMATION_HALF_WIDTH } = await import('../src/systems/Formation.ts');
+  const titan = ENEMY_BY_ID.get('titan');
+  // Geometry: a squad parked under the boss lands EVERY shot. A shot is a hit
+  // when its centre is within (titan.radius + bulletRadius) of the boss, so
+  // the column's half width may not exceed the boss's radius.
+  console.log(`  column ${WEAPON.columnWidth}px (guns ${WEAPON.gunSpread}px of it), formation ${2 * FORMATION_HALF_WIDTH}px, Titan ${2 * titan.radius}px`);
+  expect('every shot from a centred squad lands on a centred Titan',
+    WEAPON.columnWidth / 2 <= titan.radius && WEAPON.gunSpread <= WEAPON.columnWidth);
+  expect('units are spread across the column, not stacked on its centre',
+    FORMATION_HALF_WIDTH > 0 && WEAPON.columnWidth > WEAPON.gunSpread);
+  // Arithmetic: at standing 1.0 with every shot landing, the boss dies at
+  // exactly bossKillPar x bossKillDistance of its descent - armor included,
+  // and independent of the wave's hpMult, which is what made it wrong before.
+  const d = new Difficulty();
+  const p = state(500, { damageMult: 4, rateMult: 2, guns: 3, pierce: 2 });
+  d.seedPar(p);
+  const spawnY = ARENA.spawnY - 40;
+  const travel = (ARENA.breachY - spawnY) / titan.speed;
+  const hp = d.titanHp(travel, titan.armor);
+  const delivered = singleTargetDps(p) * (1 - titan.armor);
+  const killAt = hp / delivered / travel;
+  const want = DIFFICULTY.bossKillPar * DIFFICULTY.bossKillDistance;
+  console.log(`  descent ${travel.toFixed(1)}s, HP ${hp.toExponential(2)}, delivered ${delivered.toExponential(2)}/s -> dies at ${(killAt * 100).toFixed(1)}% (budget ${(want * 100).toFixed(1)}%)`);
+  expect('a par squad with every shot landing kills the Titan at bossKillPar x bossKillDistance',
+    Math.abs(killAt - want) < 1e-9);
+  expect('the boss is pinned to single-target DPS, not to pierce', (() => {
+    const q = state(500, { damageMult: 4, rateMult: 2, guns: 3, pierce: 0 });
+    const e = new Difficulty(); e.seedPar(q);
+    return Math.abs(e.titanHp(travel, titan.armor) / hp - 1) < 1e-9;
+  })());
 }
 
 console.log('PASS');

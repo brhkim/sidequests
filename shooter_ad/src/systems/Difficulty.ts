@@ -132,6 +132,17 @@ export class Difficulty {
   }
 
   /**
+   * The player's SINGLE-TARGET output against par's - the ratio the Titan's
+   * budget is written in, since pierce is worth nothing against one body.
+   * Read by `npm run titan` at the moment a boss spawns; nothing shipped
+   * needs it.
+   */
+  singleTargetStanding(p: Progress): number {
+    const par = singleTargetDps(this.ideal);
+    return par > 0 ? singleTargetDps(p) / par : 1;
+  }
+
+  /**
    * A gate set has been offered. Par takes whichever option leaves it
    * strongest, judged by the shared `scoreOffer` - the SAME function the death
    * screen grades the player with, so the two can never disagree about which
@@ -208,24 +219,35 @@ export class Difficulty {
     };
   }
 
-  /** Bosses are budgeted as a burst of several seconds of the same pressure. */
   /**
    * Titan HP, derived from the deadline it creates rather than from a pressure
    * budget.
    *
-   * The Titan ends the run when it reaches the squad, so the only question that
-   * matters is whether a competent player can kill it in the distance it has to
-   * cover. HP is therefore `bossKillPar` of par's SINGLE-TARGET damage, times
-   * the seconds it takes to cover `bossKillDistance` of the way down.
+   * The Titan ends the run when it crosses the breach line, so the only
+   * question that matters is whether a competent player can kill it in the
+   * distance it has to cover. HP is therefore `bossKillPar` of par's
+   * SINGLE-TARGET damage, times the seconds it takes to cover
+   * `bossKillDistance` of the way down - and then scaled by what the boss
+   * actually lets through, `1 - armor`, so the budget is a statement about
+   * DELIVERED damage. Left out, a 35% armor made every Titan 1.5x the budget
+   * whatever the constants said, which is one of the two multipliers real
+   * play found hiding in this number (the other is the wave's `hpMult`, which
+   * `Enemies.advanceWave` no longer applies to the boss).
    *
    * Single-target, not `squadDps`, because pierce is worth nothing against one
    * body - see `singleTargetDps`. Sizing the boss off a pierce-inflated par
    * would hand a pierce build a boss it cannot hurt fast enough.
+   *
+   * The result is ABSOLUTE HP. It assumes every shot lands, which is what
+   * `WEAPON.columnWidth` guarantees for a squad parked under the boss; the
+   * slack between `bossKillDistance` and 1 is what dodging, gates and misses
+   * spend. `npm run titan` measures both halves of that claim.
    */
-  titanHp(travelSeconds: number): number {
+  titanHp(travelSeconds: number, armor: number): number {
     const parSingle = singleTargetDps(this.ideal);
     const killSeconds = travelSeconds * DIFFICULTY.bossKillDistance;
-    return Math.max(1, parSingle * DIFFICULTY.bossKillPar * killSeconds);
+    const delivered = Math.max(0.05, 1 - armor);
+    return Math.max(1, parSingle * DIFFICULTY.bossKillPar * killSeconds * delivered);
   }
 
 

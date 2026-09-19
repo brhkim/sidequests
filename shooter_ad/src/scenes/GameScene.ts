@@ -7,6 +7,7 @@ import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
 import { EnemyBullets } from '../systems/EnemyBullets';
 import { Enemies, type Enemy } from '../systems/Enemies';
+import { FORMATION_HALF_WIDTH } from '../systems/Formation';
 import { Gates } from '../systems/Gates';
 import { Difficulty } from '../systems/Difficulty';
 import { DecisionLog } from '../systems/DecisionLog';
@@ -48,6 +49,8 @@ type AutopilotFn = (state: {
   squadX: number;
   wave: number;
   gates: ScoredGate[];
+  /** The live Titan, so an instrument can park the squad under it. */
+  titan: { x: number; y: number; progress: number; hpFrac: number } | null;
 }) => number | null;
 
 export class GameScene extends Phaser.Scene {
@@ -117,6 +120,14 @@ export class GameScene extends Phaser.Scene {
   /** Highest power the run reached. The sweep reports it; a run's peak is what
    * says whether the old ceilings were ever within reach of real play. */
   private peakPower = 0;
+  /**
+   * One entry per Titan this run met: the player's single-target standing at
+   * the moment it spawned, and the fraction of its descent it had covered
+   * when it died - `null` while it is alive, and forever if it landed, which
+   * is `cause === 'titan'`. The boss budget is written in exactly these two
+   * numbers, so this is what `npm run titan` reads.
+   */
+  private titanChecks: { standing: number; killedAt: number | null }[] = [];
   private lastX = VIEW.width / 2;
   private streak = 0;
   private over = false;
@@ -277,6 +288,7 @@ export class GameScene extends Phaser.Scene {
     this.cause = null;
     this.kills = 0;
     this.streak = 0;
+    this.titanChecks = [];
     this.targetX = VIEW.width / 2;
     this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
     this.bullets = new Bullets();
@@ -364,6 +376,12 @@ export class GameScene extends Phaser.Scene {
       this.squad.addPower(WAVE.clearBonus);
       this.difficulty.awardWaveClear();
       this.toast(`WAVE ${this.enemies.wave.index}`);
+      if (this.enemies.wave.index % WAVE.bossEvery === 0) {
+        this.titanChecks.push({
+          standing: Number(this.difficulty.singleTargetStanding(this.squad.progress).toFixed(3)),
+          killedAt: null,
+        });
+      }
     }
 
     this.collide();
@@ -416,11 +434,15 @@ export class GameScene extends Phaser.Scene {
   private steerAutopilot(): void {
     const fn = (window as unknown as { __autopilot?: AutopilotFn }).__autopilot;
     if (!fn) return;
+    const t = this.enemies.titan;
     const x = fn({
       elapsed: this.elapsed,
       squadX: this.squad.x,
       wave: this.enemies.wave.index,
       gates: this.scoreLiveGates(),
+      titan: t
+        ? { x: t.x, y: t.y, progress: Enemies.titanProgress(t), hpFrac: t.hp / t.maxHp }
+        : null,
     });
     if (typeof x === 'number' && Number.isFinite(x)) {
       this.targetX = Math.max(ARENA.minX, Math.min(ARENA.maxX, x));
@@ -500,12 +522,21 @@ export class GameScene extends Phaser.Scene {
         const base = Math.floor(total / honoured);
         const extra = total % honoured;
 
-        // Parallel, not fanned. Extra guns widen the column rather than the
-        // angle, so damage stays focused at any range and a full volley lands
-        // on a single body - which is what makes the Titan's HP budget honest.
-        const lateral = guns === 1
+        // Every shot spawns inside the FIRING COLUMN, `WEAPON.columnWidth`,
+        // centred on the squad: the unit's offset from the centre is scaled
+        // down from the formation's footprint, and extra guns spread a further
+        // `gunSpread` around that, parallel rather than fanned. A fan scatters
+        // damage at range; a column the Titan's own width is what lets every
+        // shot from a squad parked under the boss land on it, which is the
+        // assumption its HP budget is built on. Firing from each unit's own x
+        // made the column ~170px against a 72px boss, and half the volley
+        // missed a perfectly placed target.
+        const unitSpan = (WEAPON.columnWidth - WEAPON.gunSpread) / 2;
+        const unitLateral = (u.x - this.squad.x) / FORMATION_HALF_WIDTH * unitSpan;
+        const gunLateral = guns === 1
           ? 0
-          : (g / (guns - 1) - 0.5) * WEAPON.volleyWidth;
+          : (g / (guns - 1) - 0.5) * WEAPON.gunSpread;
+        const x = this.squad.x + unitLateral + gunLateral;
         for (let k = 0; k < honoured; k++) {
           // The render stride, over SPAWNED bullets. Same shape, separate
           // state, and it may never feed anything above this line.
@@ -513,7 +544,7 @@ export class GameScene extends Phaser.Scene {
           const drawn = this.drawCredit >= 1;
           if (drawn) this.drawCredit -= 1;
           this.bullets.spawn(
-            u.x + lateral, u.y - 10,
+            x, u.y - 10,
             0, -WEAPON.bulletSpeed,
             perShot, pierce, base + (k < extra ? 1 : 0),
             drawn, density,
@@ -534,6 +565,11 @@ export class GameScene extends Phaser.Scene {
         const dx = e.x - b.x, dy = e.y - b.y;
         const r = e.radius + WEAPON.bulletRadius;
         if (dx * dx + dy * dy > r * r) return;
+        // One encounter per body. The bullet is still inside a large body on
+        // the steps after it struck, and the shots that pierced have already
+        // been charged for this one - see `Bullet.struck`.
+        if (b.struck.includes(e)) return;
+        b.struck.push(e);
         const len = Math.hypot(b.vx, b.vy) || 1;
         const ux = b.vx / len, uy = b.vy / len;
         // The body consumes as many of the bullet's shots as it takes to kill
@@ -541,7 +577,14 @@ export class GameScene extends Phaser.Scene {
         // old rule exactly: one hit, then pierce down or gone.
         const perShot = b.damage * (1 - armorAgainst(e, ux, uy));
         const consumed = strike(b, e.hp, perShot, true);
-        if (this.enemies.damage(e, consumed * b.damage, ux, uy)) this.onKill();
+        const titan = e.type.id === 'titan' ? Enemies.titanProgress(e) : -1;
+        if (this.enemies.damage(e, consumed * b.damage, ux, uy)) {
+          this.onKill();
+          if (titan >= 0) {
+            const check = this.titanChecks[this.titanChecks.length - 1];
+            if (check) check.killedAt = Number(titan.toFixed(3));
+          }
+        }
       });
 
       if (!b.active) continue;
@@ -599,9 +642,9 @@ export class GameScene extends Phaser.Scene {
     this.squad.addPower(-cost * SQUAD.breachLoss);
     this.breachLoss += cost * SQUAD.breachLoss;
     // A Titan reaching the line ends the run outright, whatever power is left.
-    // Its HP is budgeted so that killing it is achievable at 90% of par over
-    // three quarters of its descent; letting it land and merely taking damage
-    // would make that budget meaningless.
+    // Its HP is budgeted so that killing it is achievable at `bossKillPar` of
+    // par over `bossKillDistance` of its descent; letting it land and merely
+    // taking damage would make that budget meaningless.
     this.cameras.main.shake(titan ? 260 : 120, titan ? 0.014 : 0.006);
     if (titan || !this.squad.alive) {
       this.over = true;
@@ -732,6 +775,15 @@ export class GameScene extends Phaser.Scene {
       kills: this.kills,
       over: this.over,
       cause: this.cause,
+      // The boss check, in the unit its budget is written in: where each Titan
+      // died as a fraction of its descent, and the live one's state.
+      titanChecks: this.titanChecks,
+      titan: (() => {
+        const t = this.enemies.titan;
+        return t
+          ? { progress: Number(Enemies.titanProgress(t).toFixed(3)), hpFrac: Number((t.hp / t.maxHp).toFixed(3)) }
+          : null;
+      })(),
       seed: this.seed,
       gates,
       breachLoss: Math.round(this.breachLoss),

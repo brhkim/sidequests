@@ -123,8 +123,28 @@ export class Enemies {
     };
   }
 
-  private spawn(type: EnemyType, x: number, y: number, hpScale = 1): void {
-    const hp = type.hp * this.hpMult * hpScale;
+  /** Where a Titan appears; `titanProgress` measures its descent from here. */
+  static readonly titanSpawnY = ARENA.spawnY - 40;
+
+  /** The live Titan, if one is on the board. Instruments read it; nothing in
+   * the shipped game does. */
+  get titan(): Enemy | null {
+    return this.items.find((e) => e.active && e.type.id === 'titan') ?? null;
+  }
+
+  /** Fraction of the descent a Titan has covered, 0 at spawn and 1 at the
+   * breach line - the axis the boss budget is written in. */
+  static titanProgress(e: Enemy): number {
+    return (e.y - Enemies.titanSpawnY) / (ARENA.breachY - Enemies.titanSpawnY);
+  }
+
+  /**
+   * `hpScale` multiplies the wave-scaled HP ordinary bodies get; `absoluteHp`
+   * replaces it outright, for the one body whose HP is a deadline and not a
+   * share of a pressure budget.
+   */
+  private spawn(type: EnemyType, x: number, y: number, hpScale = 1, absoluteHp?: number): void {
+    const hp = absoluteHp ?? type.hp * this.hpMult * hpScale;
     const phase = this.rng() * Math.PI * 2;
     const free = this.items.find((e) => !e.active);
     const enemy: Enemy = {
@@ -155,12 +175,18 @@ export class Enemies {
       const boss = ENEMY_BY_ID.get('titan');
       if (boss) {
         // Sized by the distance it has to cover, not by a pressure budget: the
-        // Titan ends the run when it arrives, so the only question is whether a
-        // competent player can kill it on the way down.
-        const spawnY = ARENA.spawnY - 40;
-        const travelSeconds = (ARENA.laneY - spawnY) / boss.speed;
-        const hp = this.difficulty.titanHp(travelSeconds);
-        this.spawn(boss, VIEW.width / 2, spawnY, Math.max(1, hp / boss.hp));
+        // Titan ends the run when it crosses the breach line, so the only
+        // question is whether a competent player can kill it on the way down.
+        // The budget is ABSOLUTE HP: the wave's `hpMult` is what ordinary
+        // bodies are scaled by to spend a pressure budget, and applying it here
+        // too once multiplied the boss by whatever the wave happened to be
+        // scaled by - thousands of times, late - so no Titan past the first was
+        // ever killable, and the constants that were supposed to size it did
+        // not matter at all.
+        const spawnY = Enemies.titanSpawnY;
+        const travelSeconds = (ARENA.breachY - spawnY) / boss.speed;
+        const hp = this.difficulty.titanHp(travelSeconds, boss.armor);
+        this.spawn(boss, VIEW.width / 2, spawnY, 1, hp);
       }
     }
     return true;

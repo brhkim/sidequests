@@ -30,6 +30,13 @@ function buildSlots(max: number): Slot[] {
 
 export const SLOTS: readonly Slot[] = buildSlots(SQUAD.ringCap);
 
+/**
+ * Half the formation's footprint in x. `GameScene.fire` scales unit positions
+ * by it so the whole ring fires inside `WEAPON.columnWidth`.
+ */
+export const FORMATION_HALF_WIDTH: number =
+  SLOTS.reduce((m, s) => Math.max(m, Math.abs(s.x)), 0);
+
 /** Slots sorted front-to-back, so the front rank fires first. */
 export const FIRING_ORDER: readonly number[] = SLOTS
   .map((_, i) => i)
