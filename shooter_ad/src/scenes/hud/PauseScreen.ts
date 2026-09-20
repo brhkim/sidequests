@@ -76,7 +76,7 @@ export class PauseScreen {
     }).setOrigin(0.5, 0));
 
     // Three tabs as a segmented row: the lit card is the page.
-    this.tabs = segmented<Page>(scene, cx, 74, 164, 40, 4, [
+    this.tabs = segmented<Page>(scene, cx, 74, 164, 44, 4, [
       { key: 'guide', label: 'BASICS', color: 0x9fe8ff },
       { key: 'bonuses', label: 'BONUSES', color: 0x9fe8ff },
       { key: 'details', label: 'DETAILS', color: 0x9fe8ff },

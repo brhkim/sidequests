@@ -82,13 +82,15 @@ Every item is the author's ask, recorded verbatim in `ASKS.md`.
 4. **The UX round** (impeccable context loaded; rendering only): every
    control is a `cardButton` (primary / secondary / danger, hover and
    pressed fills); difficulty and pause tabs are `segmented`; the pause
-   screen is BASICS / BONUSES / DETAILS (the first tab is BASICS; the button that opens the screen is HOW TO PLAY), with `hud/PauseGuide` (twelve
-   tappable topics in plain words); the start screen's HOW TO PLAY opens
+   screen is BASICS / BONUSES / DETAILS, with `hud/PauseGuide` (twelve
+   tappable topics in plain words; HOW TO PLAY is the button that opens it); the start screen's HOW TO PLAY opens
    that screen before a run (GameScene publishes a start-state HUD frame in
    `announceMatch`); the demo offer deals six offers in rotation; every
    explanation, caption and rail label is written for a first-time player;
-   the end screen says YOUR SQUAD WAS OVERRUN / OF THE BEST PICKS / PEAK
-   DAMAGE / SEC. The pitch is untouched. `npm run endscreen` presses every
+   the end screen says YOUR SQUAD WAS OVERRUN / OF THE GROWTH ON OFFER /
+   PEAK DAMAGE / SEC; the rank word under the strip's ARMY cell is gone.
+   The pitch is untouched. The finish review's eight fixes are in
+   `ASKS.md` §4 and all taken. `npm run endscreen` presses every
    new control, opens the guide, and asserts the demo swap.
 
 **Measured**, `npm run balance`, skill 0.7 (see §3 of the session report in

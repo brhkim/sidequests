@@ -47,7 +47,7 @@ const TOPICS: readonly Topic[] = [
 const GRID_TOP = 114;
 const COLS = 2;
 const BUTTON_W = 240;
-const BUTTON_H = 40;
+const BUTTON_H = 44;
 const GAP = 8;
 
 export class PauseGuide {
