@@ -442,7 +442,7 @@ rotated along velocity with a fainter copy (0.45 alpha, 0.35 scale) behind.
 - **Primary (START MATCH 380x64, RESUME 300x56, REPLAY THIS MATCH 300x56):**
   ARMY green. The only filled button; one per screen. The primary action is
   itself an offer.
-- **Pause:** 88x44 panel fill at 0.96, 1px `{colors.small}` stroke at 0.9,
+- **Pause:** 68x44 panel fill at 0.96, in the rail's right-hand 80px, 1px `{colors.small}` stroke at 0.9,
   14px bold tracking 1.5 caption-colour PAUSE.
 - **States:** none drawn; hit-tested by GameScene, hand cursor only.
 
