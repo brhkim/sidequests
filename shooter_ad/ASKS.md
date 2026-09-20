@@ -312,12 +312,15 @@ breach line where the strip used to be.
 
 > Okay great. Let's roll option 1 out.
 
-Status: `landed`, awaiting the site code. `src/analytics/Analytics.ts`
-(GoatCounter) is installed from `main.ts` like audio; it ships OFF because
-`ANALYTICS.site` is empty. To turn it on: create a site at goatcounter.com
-(free), put its code in `ANALYTICS.site`, rebuild. Nothing else to do; no
-key, no cookies, no banner. Counts: pageviews, `run/start`,
-`run/end/<mode>/wave-NN`, `run/time/<bucket>`.
+> Done with goatcounter, got this bit of code for you:
+> `<script data-goatcounter="https://brhkim.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>`
+
+Status: `done`. `ANALYTICS.site` is `brhkim`; the hook loads that script
+and posts to that endpoint on the deployed page only (never on `?seed=`
+pages or local hosts). Counts: pageviews, `run/start`,
+`run/end/<mode>/wave-NN`, `run/time/<bucket>`. Nothing has been observed
+arriving at the dashboard from this session: the sandbox cannot reach the
+counter, so the first real count is yours to check after deploy.
 
 > It looks like the DPS status bar moved up but the rest of the screen
 > elements did not move down accordingly, is that right? We need to move it,

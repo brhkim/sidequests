@@ -8,8 +8,11 @@ import { ANALYTICS } from '../config';
  *
  * It follows audio's rule exactly. It reads `game.events` and nothing else,
  * is installed once from `main.ts`, and no scene file knows it exists. It
- * never runs on an instrument page (`?seed=`) and never when `ANALYTICS.site`
- * is empty, so the headless checks and a local dev server send nothing.
+ * never runs on an instrument page (`?seed=`), never on a local host (the
+ * dev server and `npm run verify`, which opens the bare player URL; the
+ * counter ignores localhost anyway, and a sandbox that cannot reach it would
+ * log a console error the check counts), and never when `ANALYTICS.site` is
+ * empty.
  * Every call is in try/catch: a blocked script or an offline player must
  * cost the game nothing, and nothing here may ever reach the simulation.
  *
@@ -29,6 +32,12 @@ export function installAnalytics(events: Phaser.Events.EventEmitter, search: str
   let params: URLSearchParams;
   try { params = new URLSearchParams(search); } catch { return; }
   if (params.has('seed')) return;
+  try {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '' || host.endsWith('.local')) return;
+  } catch {
+    return;
+  }
 
   const endpoint = `https://${ANALYTICS.site}.goatcounter.com/count`;
   try {

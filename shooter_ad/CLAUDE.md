@@ -1261,8 +1261,11 @@ could be taken for a Runner.
 way audio is: it reads `game.events` and nothing else, no scene knows it
 exists, and nothing in it can reach the simulation. `ANALYTICS.site` in
 config is the GoatCounter site code (public by nature; empty means OFF, and
-it ships empty until the author creates the site). Instrument pages
-(`?seed=`) never send. It counts a pageview, then three events per run as
+it is `brhkim`, the author's site). Instrument pages (`?seed=`) and local
+hosts (`localhost`, `127.0.0.1`, so the dev server and `npm run verify`)
+never load the script: the counter ignores localhost anyway, and in a
+sandbox that cannot reach it the failed load is a console error `verify`
+would count. It counts a pageview, then three events per run as
 paths - `run/start`, `run/end/<mode>/wave-NN` (title: the cause), and
 `run/time/<bucket>` from the `elapsed` the end payload now carries (under
 30s, 30s-1m, 1-2m, 2-4m, 4-8m, over 8m) - because GoatCounter stores counts,

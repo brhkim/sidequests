@@ -596,7 +596,7 @@ export const CAGE = {
  * sent. Instrument pages (`?seed=`) never send whatever this says.
  */
 export const ANALYTICS = {
-  site: '',
+  site: 'brhkim',
 } as const;
 
 /**
