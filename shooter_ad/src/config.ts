@@ -14,7 +14,7 @@ export const ARENA = {
   /** Horizontal travel limits for the squad centre. */
   minX: 70,
   maxX: VIEW.width - 70,
-  /** Enemies crossing this line damage the squad. */
+  /** Enemies crossing this line beside the army charge it as a contact does. */
   breachY: 862,
   /** Enemies spawn above the top edge. */
   spawnY: -40,
@@ -82,14 +82,6 @@ export const SQUAD = {
    * still finite and increasing there.
    */
   maxPower: 1e15,
-  /** Power lost when an enemy breaches the line, multiplied by enemy damage. */
-  breachLoss: 1,
-  /**
-   * Power lost per enemy bullet that lands, multiplied by the gun's damage.
-   * Deliberately well under `breachLoss`: fire is a steady tax that asks you to
-   * keep moving, while a breach is the punishment for failing to kill.
-   */
-  fireLoss: 0.5,
 } as const;
 
 /** Referenced twice inside WEAPON, so they cannot be self-references. */
@@ -135,7 +127,7 @@ export const WEAPON = {
   /**
    * The FIRING COLUMN: every shot the squad fires spawns inside a column this
    * wide, centred on the squad, whatever the formation's footprint. It is the
-   * Titan's diameter (`radius: 36` in data/enemies.ts; `npm run model` asserts
+   * Titan's hit width (`radius: 38` in data/enemies.ts; `npm run model` asserts
    * the two agree), so a squad parked under the boss lands every shot on it -
    * which is the assumption the Titan's HP budget is built on, and the only
    * thing that makes that budget a statement about the player rather than
@@ -148,8 +140,21 @@ export const WEAPON = {
    * of par took the first Titan down to 75% in real play. Extra guns still
    * fire PARALLEL, not fanned - a cone scatters damage at range, so more guns
    * would make a squad worse against a single target, which is backwards.
+   *
+   * 83 is 72 widened by 15% at the author's request (72 read as too narrow in
+   * play). A shot lands when its centre is within `radius + bulletRadius` of
+   * the boss, so the Titan grew from 36 to 38 in radius to keep the invariant
+   * above: half the column (41.5) still sits inside its hit radius (42).
+   *
+   * The column is centred on the LEADER'S DRAWN POSITION, not on the squad's
+   * logical centre. Units ease toward their slots, so under a moving finger
+   * the whole ring trails the centre by ~18px; a column centred on the centre
+   * therefore came out of the air ahead of the character, which is the
+   * "off-centre" the author saw. Centring on the leader makes the beam leave
+   * the body that is visibly firing it; the two coincide the moment the squad
+   * stops, so a parked squad under the boss is unchanged.
    */
-  columnWidth: 72,
+  columnWidth: 83,
   /**
    * Width a unit's extra guns spread across, inside the column. Units are laid
    * across the rest of it (`columnWidth - gunSpread`), scaled down from their
@@ -157,9 +162,11 @@ export const WEAPON = {
    */
   gunSpread: 24,
   /**
-   * Chance a piercing bullet meets another body after a hit. Tuned constant,
-   * deliberately not live enemy density - see Progression.pierceMultiplier.
-   * At 0.5, pierce 1/2/3 are worth 1.5x / 1.75x / 1.875x.
+   * What one level of pierce is worth, in bodies: each level adds this much of
+   * an extra hit, so pierce P is worth `1 + q * P`. Tuned constant, deliberately
+   * not live enemy density - see Progression.pierceMultiplier, which also says
+   * why the series stopped compounding. At 0.5, pierce 1/2/3/10 are worth
+   * 1.5x / 2x / 2.5x / 6x.
    */
   pierceQ: 0.5,
 } as const;
@@ -196,7 +203,67 @@ export const ENEMY_FIRE = {
   maxStep: 16,
   /** Grace after a spawn before its gun can fire, so volleys are staggered. */
   armDelay: 0.7,
+  /**
+   * What a landing bullet costs: this share of the army you hold, rounded DOWN
+   * to whole power, never less than `minCost`, times the gun's `damage`. A
+   * flat half-power tax went dead once armies reached the hundreds, so enemy
+   * fire stopped being a reason to move exactly when there was the most of it.
+   * At 1% a bullet is 1 power until 200, 2 until 300, and 100 at 10,000 - the
+   * same proportional bite all run. Half a Basic contact and a sixth of a
+   * Large one (`CONTACT`): a body reaching you is a failure to kill, fire is
+   * a tax on standing still.
+   */
+  powerShare: 0.01,
+  minCost: 1,
 } as const;
+
+/**
+ * What an enemy costs when it is not killed - by TOUCHING the army or by
+ * crossing `ARENA.breachY` beside it. The two are one event priced by one
+ * function (`systems/Contact.ts`): a body that reaches you is a failure to
+ * kill whichever line it crossed first, and two prices would drift the way
+ * two scorings would.
+ *
+ * The price is a SHARE of the army you hold, rounded down to whole power and
+ * never below `floor`, per tier of body - the rule enemy fire already
+ * follows (`ENEMY_FIRE.powerShare`). The flat table this replaces
+ * (1/1/3/2/2/5/1/2 per type) went dead the way a flat bullet did: at 640
+ * power a Grunt leaking through cost a sixth of a percent, so past the first
+ * few minutes nothing an enemy did to the army was a reason to move.
+ *
+ * At the floors the early game is the old table almost exactly: a Grunt is
+ * still 1, a Shielder still 2, a Brute still 3 - only the Bomber (5 -> 3)
+ * and the Spitter (1 -> 2) move. The share overtakes the floor at 100 power
+ * for a Basic, 75 for a Medium, 67 for a Large; from there a leak costs the
+ * same bite of a run at 640 as at 38,912 (12 / 25 / 38 there, 778 / 1556 /
+ * 2334 at the old cap). Contact is always at least a bullet (2% vs 1%), and
+ * a Large is three bullets.
+ *
+ * Contact lands EARLIER than a breach did. A full ring's front rank sits at
+ * y ~755 and a lone leader at 800, so a Grunt (r 11) is consumed at y ~736
+ * or ~781 against 862 for the line: 81-126 px sooner, which is 2.4-3.7 s of
+ * a Grunt's descent, 1.5 s of a Runner's, 4.7 s of a Shielder's and 0.8 s
+ * of a Bomber's sprint. Bodies that used to die in those seconds are charges
+ * now, so the floors do not make the early game identical - `npm run
+ * balance` before and after is the record (see CLAUDE.md, "Contact damage").
+ *
+ * The Titan is 100%: reaching you ends the run, whichever line it crossed.
+ *
+ * Tiers are by body size, and are the roster's `tier` field:
+ *   basic  = Grunt, Runner
+ *   medium = Shielder, Spitter, Splitter, Lancer
+ *   large  = Brute, Bomber
+ *   titan  = Titan
+ */
+export const CONTACT = {
+  basic:  { share: 0.02, floor: 1 },
+  medium: { share: 0.04, floor: 2 },
+  large:  { share: 0.06, floor: 3 },
+  titan:  { share: 1,    floor: 0 },
+} as const;
+
+/** A tier is a row of `CONTACT`: a type cannot name a tier that has no price. */
+export type EnemyTier = keyof typeof CONTACT;
 
 export const WAVE = {
   /** Seconds of the first wave; each wave is slightly shorter. */
@@ -320,9 +387,13 @@ export const DIFFICULTY = {
    * top of its budget, and its 35% armor was budgeted as if it were 0. Both
    * are accounted for now (`Difficulty.titanHp`, `Enemies.advanceWave`), so
    * the constant means what it says.
+   *
+   * 0.36 is 0.3 with 20% more HP, the author's second value after playing the
+   * first. HP is linear in this number, so "20% tougher" is exactly x1.2 here.
+   * Rescue cages are sized from the same budget - see `CAGE.hpTitanFraction`.
    */
   bossKillPar: 0.9,
-  bossKillDistance: 0.3,
+  bossKillDistance: 0.36,
   /**
    * Seconds for the budget to catch up to a change in par. Multiplier gates
    * double par in a single instant, which used to halve your standing with no
@@ -387,16 +458,65 @@ export const GATES = {
    * the game stops testing judgment and starts testing reflexes.
    */
   maxSpeedMult: 2.5,
-  height: 64,
+  /**
+   * Card height, and the vertical hit window with it. 88 holds two lines - the
+   * magnitude over the axis - so a label stays readable on the narrowest card
+   * dead space leaves. The 24px it grew by is TIMING, not precision: the
+   * squad is always on the lane line, so a taller card only widens the moment
+   * a gate can be entered in, by 24px of descent (~0.1s at wave 16 speed).
+   */
+  height: 88,
   /** Options per offer. The choice between them IS the gameplay. */
   perOffer: 3,
+  /** Drawn inset between neighbouring cards. Visual only: dead space is real. */
   gap: 8,
   /**
-   * Label size. Three lanes across 540px leaves ~175px each, so this is sized
-   * to fit the longest label the generator can produce (`+180% DMG` at a high
-   * pool, `×1.05 ARMY`) without truncation.
+   * Dead space between gates: px of each lane that belongs to NO option, so an
+   * offer can be fully MISSED. The fourth judgment lever, beside approach
+   * speed, legibility and the sense chance: later waves do not only ask for
+   * the right answer in less time, they ask for precision of movement to
+   * collect it through the noise of everything else on the field.
+   *
+   * Keyed on `judgmentWave`, like speed and legibility, so hard mode gets it
+   * five waves earlier. `fromWave` is the last wave WITHOUT it: zero through
+   * wave 4, then `perWave` more every wave - 6px at wave 5, 12 at 6, 36 on the
+   * second Titan at 10 - capped at `max` from wave 16 (hard: wave 11).
+   * In the player's units: three lanes across 540px are 180px each, so at
+   * wave 16 a lane holds a 108px gate and the leader must be within ±54px of
+   * its centre; the card is drawn exactly as wide as it hits.
+   *
+   * `max` is derived from `minWidth`: the widest magnitude a card must hold
+   * (`+9999%`, two-line, see `magnitudeSize`) needs ~100px, so the lane can
+   * lose at most 80. 72 is the last multiple of `perWave` that leaves the
+   * card above that floor with a margin, and `minWidth` clamps regardless so
+   * a future lane count cannot squeeze a card past legibility.
    */
-  labelSize: 21,
+  deadSpace: { fromWave: 4, perWave: 6, max: 72 },
+  /** A gate is never narrower than this, whatever the dead space asks. */
+  minWidth: 100,
+  /**
+   * GUN and PIERCE are whole numbers, so they cannot draw a root the way the
+   * pools do - and a flat `+1` shrinks as you stack them: the fourth gun is
+   * +33%, the tenth +11%, and past that the axis is dead. From this many held,
+   * a discrete offer draws a root like everything else and presents it as the
+   * whole number whose effect matches it, `+N GUNS` or `+N PIERCE`, floor 1 -
+   * the same share-of-what-you-hold rule raw ARMY uses. Below it the offer is
+   * `+1`, which the rule would round to anyway at one or two held.
+   */
+  scaleDiscreteFrom: 3,
+  /**
+   * The two-line label: MAGNITUDE (`×1.05`, `+1840%`, `+2`) over AXIS (`DMG`,
+   * `PIERCE`). Splitting the label is what lets the card shrink to `minWidth`
+   * and stay legible - `+180% DMG` on one line needed ~175px at 21px.
+   *
+   * 26px bold fits `×1.05` (86px) inside the narrowest card's 92px, but
+   * `+1840%` measures 121px, so the renderer shrinks a magnitude that
+   * overflows to fit: `+9999%` lands at ~19.8px on a 100px card and at full
+   * size on a 180px one. Measured in the headless Chromium `npm run verify`
+   * uses, `system-ui` bold.
+   */
+  magnitudeSize: 26,
+  axisSize: 14,
 } as const;
 
 /**
@@ -431,15 +551,53 @@ export const SCORING = {
    * compounding and one that stops.
    */
   accessWeight: 0.8,
+  /**
+   * How much of a state's value is JUDGMENT bought by `+SENSE`. Sense carries
+   * no damage and no reach; what it buys is a chance (`SENSE.chance`) that an
+   * offer arrives with its best option marked, which is a share of every
+   * future pick made well. Priced as `1 + senseWeight x chance`, so the first
+   * sense is worth +10% of value, the second +6%, the third +4% - a weak-to-
+   * middling damage draw, which is the call the design wants: take the hint
+   * or take the damage. Difficulty ignores it entirely; see `progressValue`.
+   */
+  senseWeight: 0.4,
+} as const;
+
+/**
+ * `+SENSE`: the one bonus about the player rather than the squad. Each level
+ * raises the chance that an offer arrives with its BEST option highlighted.
+ * The roll is made once per offer, from the seeded generator, when the offer
+ * is rolled - so a match code reproduces which offers were sensed too.
+ */
+export const SENSE = {
+  /** Chance an offer is sensed, indexed by sense held. Length sets the cap. */
+  chance: [0, 0.25, 0.4, 0.5],
 } as const;
 
 export const CAGE = {
   /** Rescue cages: shoot one open to free allies. A way to grow mid-wave. */
   chancePerWave: 0.75,
-  hp: 22,
   speed: 52,
   radius: 18,
-  reward: 6,
+  /**
+   * The reward is flat until the army passes `shareFrom`, then a share of it,
+   * whole: +5 up to 100 power, +5% after, so a cage is worth the same bite of
+   * a run at 20 power and at 20,000. It is the one source of army par does
+   * NOT collect - a rescue is how a player who has fallen behind catches up,
+   * and crediting par with it would move the curve out of reach by exactly
+   * what it was meant to give back.
+   */
+  reward: 5,
+  share: 0.05,
+  shareFrom: 100,
+  /**
+   * HP as a fraction of the Titan that would spawn right now (its full budget:
+   * `Difficulty.titanHp` at the boss's own descent and armor). A fifth of a
+   * Titan is about two seconds of par's single-target fire, so opening one is
+   * a real cost against the wave rather than a free pickup, and it scales
+   * with par the way the boss does instead of with the wave's `hpMult`.
+   */
+  hpTitanFraction: 0.2,
 } as const;
 
 export const STREAK = {
@@ -482,6 +640,49 @@ export const RENDER = {
    * draws every shot should keep drawing every shot.
    */
   maxVisibleShotsPerSecond: 60,
+  // --- sprites
+  /**
+   * Seconds a body is drawn pure white after a hit. The simulation stamps its
+   * own clock on the body (`hitFlash` in systems/Enemies.ts); the renderer
+   * compares, so nothing here is ever read back by a system.
+   */
+  hitFlash: 0.07,
+  /** How far a body bleaches toward white at zero HP. Never an alpha fade: a
+   * half-dead Grunt used to vanish into the background. */
+  bleach: 0.35,
+  /** Death pop: shards per kill, per Titan kill, and their lifetime. */
+  shardsPerKill: 3,
+  shardsPerTitan: 12,
+  shardLife: 0.28,
+  /** Contact pop: a body reaching the army leaves a smaller, duller mark. */
+  shardsPerContact: 2,
+  contactLife: 0.18,
+  /** Fixed shard budget. 50 kills/s x 0.28s x 3 = 42 live; the ring overwrites
+   * the oldest past this, so a burst never allocates. */
+  shardRing: 96,
+  /** Enemy bullets draw a faint copy a few pixels behind them. */
+  bulletTrail: true,
+
+  // --- field and feedback
+  /**
+   * Gate cards. `fill` is the card's alpha at rest, `targetFill` the one the
+   * squad is lined up on, `roof` the height of the solid axis-coloured bar
+   * along the card's top edge - the part of a card that still reads when a
+   * bullet stream is crossing it.
+   */
+  gate: { fill: 0.16, targetFill: 0.3, roof: 4 },
+  /**
+   * Durations, in milliseconds of WALL clock, for the feedback moments. They
+   * drive tweens on display objects and are read by nothing the simulation
+   * touches; a pick wash that lingers longer changes no outcome.
+   */
+  moments: { pickHold: 240, pickFade: 480, deathBeat: 480, edgeFade: 360 },
+  /**
+   * Draw, for every enemy bullet still above the lane, a dash on the lane at
+   * the x it will cross. Off by default: it tells the player where to stand,
+   * which is more than the game means to say. Rendering only either way.
+   */
+  landingDashes: false,
 } as const;
 
 export const COLORS = {
@@ -491,6 +692,6 @@ export const COLORS = {
   bullet: BULLET_BASE,
   text: '#e8ecf8',
   cage: 0xb9a06a,
-  enemyBullet: 0xff8a5c,
+  enemyBullet: 0xff2fa6,
   shield: 0xbcd8ff,
 } as const;

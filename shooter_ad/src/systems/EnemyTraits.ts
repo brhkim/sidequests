@@ -19,8 +19,8 @@ export interface TraitContext {
 
 /**
  * Everything an enemy does that is not movement, driven entirely by which
- * optional fields its type declares. A new enemy combines shooting, healing,
- * escorting and splitting by filling in data; it never needs a case here, which
+ * optional fields its type declares. A new enemy combines shooting, escorting
+ * and splitting by filling in data; it never needs a case here, which
  * is the property that stopped holding last time this file was a `switch`.
  */
 export function applyTraits(e: Enemy, dt: number, ctx: TraitContext): void {
@@ -32,31 +32,20 @@ export function applyTraits(e: Enemy, dt: number, ctx: TraitContext): void {
     // see what is firing at them or do anything about it.
     if (e.gunCooldown <= 0 && e.y > ENEMY_FIRE.minFireY && e.y < ARENA.breachY) {
       e.gunCooldown += t.gun.interval;
+      e.volleyed = true;
       shoot(e, ctx);
     }
   }
 
-  if (!t.heal && !t.escort) return;
+  if (!t.escort) return;
   e.traitCooldown -= dt;
   if (e.traitCooldown > 0) return;
-  e.traitCooldown += t.heal?.interval ?? t.escort?.interval ?? 1;
+  e.traitCooldown += t.escort.interval;
 
-  if (t.heal) {
-    const r2 = t.heal.radius * t.heal.radius;
-    for (const other of ctx.items) {
-      if (!other.active || other === e) continue;
-      const dx = other.x - e.x, dy = other.y - e.y;
-      if (dx * dx + dy * dy > r2) continue;
-      other.hp = Math.min(other.maxHp, other.hp + other.maxHp * t.heal.fraction);
-    }
-  }
-
-  if (t.escort) {
-    const child = ENEMY_BY_ID.get(t.escort.spawn);
-    if (!child) return;
-    for (let i = 0; i < t.escort.count; i++) {
-      ctx.spawn(child, e.x + (ctx.rng() - 0.5) * 80, e.y + 20);
-    }
+  const child = ENEMY_BY_ID.get(t.escort.spawn);
+  if (!child) return;
+  for (let i = 0; i < t.escort.count; i++) {
+    ctx.spawn(child, e.x + (ctx.rng() - 0.5) * 80, e.y + 20);
   }
 }
 

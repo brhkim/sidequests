@@ -1,4 +1,4 @@
-import { CAGE, DIFFICULTY, SQUAD, STREAK, WAVE } from '../config';
+import { DIFFICULTY, SQUAD, STREAK, WAVE } from '../config';
 import type { GateType } from '../data/gates';
 import {
   applyGate, cloneProgress, freshUpgrades, singleTargetDps, squadDps, type Progress,
@@ -184,10 +184,11 @@ export class Difficulty {
     }
   }
 
-  /** Par frees every cage. */
-  awardCage(): void {
-    this.ideal.power = Math.min(SQUAD.maxPower, this.ideal.power + CAGE.reward);
-  }
+  // Par does NOT collect rescue cages, deliberately. A rescue is the one
+  // source of army meant for catching up - a player behind the curve gets a
+  // share of their army back for a few seconds of fire - and crediting the
+  // shadow player with it too would move the curve by exactly what the cage
+  // gave. See `CAGE` in config.
 
   /**
    * Split the budget across the two knobs that make a wave threatening:

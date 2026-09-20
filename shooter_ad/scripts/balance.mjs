@@ -97,10 +97,20 @@ console.log(`standing: median ${med(stands).toFixed(2)}`
 // positioning rather than its judgement.
 const perMin = (xs, r) => (r.survived > 0 ? (xs / r.survived) * 60 : 0);
 console.log(
-  `breach loss/min: median ${med(results.map((r) => perMin(r.breachLoss, r))).toFixed(1)}`
+  `contact loss/min: median ${med(results.map((r) => perMin(r.contactLoss, r))).toFixed(1)}`
+  + `   breach loss/min: median ${med(results.map((r) => perMin(r.breachLoss, r))).toFixed(1)}`
   + `   fire loss/min: median ${med(results.map((r) => perMin(r.fireLoss, r))).toFixed(1)}`,
 );
 console.log(
   `travel/min: median ${Math.round(med(results.map((r) => perMin(r.traveled, r))))}px`,
+);
+// Pierce, claimed against measured. `pierceMultiplier` prices a pierce-P shot
+// at 1 + q x P bodies; this is the bodies a landing shot actually met, over the
+// whole run (so it lags the last pierce pick), with the share of the stream
+// that landed at all. A claim well above the measurement means par and the
+// player are both being credited for damage that does not arrive.
+console.log(
+  'pierce: ' + results.map((r) =>
+    `p${r.pierce} claim x${r.pierceClaim.toFixed(2)} measured x${r.hitsPerLanding.toFixed(2)} (${(r.landed * 100).toFixed(0)}% landed)`).join('; '),
 );
 console.log(`errors: ${results.reduce((n, r) => n + r.errors.length, 0)}`);

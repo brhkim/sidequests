@@ -5,7 +5,7 @@ export interface EnemyBullet {
   /** Position at the start of this frame; the collision test sweeps the gap. */
   px: number; py: number;
   vx: number; vy: number;
-  /** Squad power destroyed if this lands, before `SQUAD.fireLoss`. */
+  /** Multiplies the per-hit cost `ENEMY_FIRE.powerShare` sets when this lands. */
   damage: number;
   active: boolean;
 }

@@ -16,7 +16,9 @@
  * that cannot reproduce a run cannot settle anything.
  *
  * It remains a crude player: no threat avoidance, no positioning for breaches,
- * and it cannot dodge enemy fire at all. A floor on difficulty, not a verdict.
+ * and it cannot dodge enemy fire at all - and since contact damage landed it
+ * parks under the stream it is killing, so bodies it does not kill in time
+ * walk into it. A floor on difficulty, not a verdict.
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -199,6 +201,9 @@ export async function playSeed(
     optimal: last?.optimal ?? 1,
     decisions: last?.decisions ?? 0,
     tally: last?.tally ?? { top: 0, mid: 0, low: 0 },
+    // The three ways the army loses power: bodies touching it, bodies past
+    // the line beside it, and enemy fire. Contact and breach are one price.
+    contactLoss: last?.contactLoss ?? 0,
     breachLoss: last?.breachLoss ?? 0,
     fireLoss: last?.fireLoss ?? 0,
     traveled: last?.traveled ?? 0,
@@ -211,5 +216,13 @@ export async function playSeed(
     // to carry their own copies of the difficulty constants and both printed a
     // threshold from a version that no longer existed.
     clampThreshold: last?.clampThreshold ?? 0,
+    // The pierce instrument: bodies hit per shot that lands, cumulative over
+    // the run, next to the multiplier the build was priced at when it ended;
+    // and the share of the stream that landed at all.
+    pierce: last?.pierce ?? 0,
+    pierceClaim: last?.pierceClaim ?? 1,
+    hitsPerLanding: last?.hitsPerLanding ?? 0,
+    landed: last?.landed ?? 0,
+    sense: last?.sense ?? 0,
   };
 }

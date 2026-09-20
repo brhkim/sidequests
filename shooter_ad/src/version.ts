@@ -6,4 +6,4 @@
  * match code on the end screen. Without it people compare scores from two
  * different games and conclude the leaderboard is broken.
  */
-export const VERSION = '0.3';
+export const VERSION = '0.5';

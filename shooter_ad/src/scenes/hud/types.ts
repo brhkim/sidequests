@@ -26,7 +26,30 @@ export interface HudPayload {
   pierce: number;
   /** Pierce priced by the shared valuation, not by live density. */
   pierceMult: number;
+  moveMult: number;
+  /** Multiplier ON gate speed; `+TIME` drives it below 1. */
+  gateSpeedMult: number;
+  sense: number;
+  /** Chance an offer arrives with its best option marked, at this sense. */
+  senseChance: number;
+  /** Kills toward the next `STREAK.bonus`; the rail draws it as a track. */
+  streak: number;
+  /** The live boss, or null. `progress` is its descent as a fraction. */
+  titan: { hpFrac: number; progress: number } | null;
 }
+
+/** The three grades a pick can earn, in the colours every reader uses. */
+export const GRADE_COLOR = { perfect: 0x3ecf7a, good: 0xffc93c, bad: 0xff4757 } as const;
+export const GRADE_WORD = { perfect: 'PERFECT', good: 'GOOD', bad: 'BAD' } as const;
+export type Grade = keyof typeof GRADE_COLOR;
+
+/** The HUD's type roles. System stack only: nothing is fetched at runtime. */
+export const FONT = 'system-ui, sans-serif';
+export const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
+/** Secondary text, ~7:1 on the dark panels. */
+export const CAPTION = '#8f9ab5';
+/** The quietest text allowed: ~4.6:1. Nothing dimmer is drawn as text. */
+export const SMALL = '#6f7b99';
 
 /** Thousands get a suffix: a six-digit DPS would blow the rail's column. */
 export function compact(value: number): string {

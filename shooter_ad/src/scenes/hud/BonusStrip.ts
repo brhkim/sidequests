@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { ARENA, VIEW } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
-import { formatMult, hex, type HudPayload } from './types';
+import { compact, FONT, formatMult, hex, type HudPayload } from './types';
 
 /**
- * The active-bonus readout, directly beneath the breach line.
+ * The active-bonus readout, directly beneath the breach line: every input to
+ * the DPS product, and nothing else.
  *
  * Why it has to exist: a raw bonus draws `a = (root - 1) * (1 + pool)`, so
  * `+31% DMG` against `×1.25 DMG` is only decidable if you know your damage pool
@@ -16,25 +17,38 @@ import { formatMult, hex, type HudPayload } from './types';
  * already at the red line because that is where the threat resolves, so this
  * costs no extra attention.
  *
+ * ARMY moved down here from the top rail. It is a conversion input exactly as
+ * the pools are - `+120 ARMY` means nothing until you know you hold 504 - and
+ * it was the one term of `squadDps` that lived at the other end of the screen
+ * from the rest. Five cells now, in the order the pause screen's DETAILS page
+ * multiplies them: bodies, damage, rate, guns, pierce.
+ *
  * Three things do the legibility work in a 540x94 strip:
  *
  * - The POOL is the big number and the multiplier is the small one, because
  *   the pool is what the conversion needs and the multiplier cancels out of it.
- * - Values are LEFT-aligned off a coloured accent, so a digit appearing does
- *   not shuffle the whole cell sideways mid-wave.
- * - A cell you hold nothing on fades out, so what you actually have pops
- *   without needing to read any of it.
+ * - Values are LEFT-aligned, so a digit appearing does not shuffle the whole
+ *   cell sideways mid-wave. Cells are parted by 1px hairlines; the axis
+ *   colour is on the label, and a coloured side stripe on top of it said
+ *   the same thing twice.
+ * - A cell you hold nothing on fades, so what you actually have pops without
+ *   needing to read any of it - to 0.55, not further, so it still reads.
+ *
+ * A cell that changes flashes in the colour of WHY it changed: the grade of
+ * the pick, green for army gained, red for army lost. `prime` sets that
+ * colour from the event; the next change spends it.
  */
 const TOP = ARENA.breachY + 2;
 const CELLS = [
-  { axis: 'damage' as const, label: 'DMG', width: 168 },
-  { axis: 'rate' as const, label: 'RATE', width: 168 },
-  { axis: 'guns' as const, label: 'GUNS', width: 102 },
-  { axis: 'pierce' as const, label: 'PIERCE', width: 102 },
+  { axis: 'army' as const, label: 'ARMY', width: 100 },
+  { axis: 'damage' as const, label: 'DMG', width: 128 },
+  { axis: 'rate' as const, label: 'RATE', width: 128 },
+  { axis: 'guns' as const, label: 'GUNS', width: 92 },
+  { axis: 'pierce' as const, label: 'PIERCE', width: 92 },
 ];
+const MAIN = '#f2f6ff';
 
 interface Cell {
-  accent: Phaser.GameObjects.Rectangle;
   label: Phaser.GameObjects.Text;
   main: Phaser.GameObjects.Text;
   sub: Phaser.GameObjects.Text;
@@ -43,6 +57,8 @@ interface Cell {
 
 export class BonusStrip {
   private readonly cells: Cell[] = [];
+  private readonly floater: Phaser.GameObjects.Text;
+  private pending: number | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {
     scene.add.rectangle(0, TOP, VIEW.width, VIEW.height - TOP, 0x0b0f1c, 0.96)
@@ -51,67 +67,98 @@ export class BonusStrip {
     let x = 0;
     for (const spec of CELLS) {
       const color = AXIS_COLOR[spec.axis];
-      const textX = x + 20;
+      const textX = x + 18;
+      if (x > 0) scene.add.rectangle(x, TOP + 12, 1, 70, 0x2a3350, 1).setOrigin(0, 0);
       this.cells.push({
-        accent: scene.add.rectangle(x + 10, TOP + 12, 3, 70, color, 0.9).setOrigin(0, 0),
         label: scene.add.text(textX, TOP + 10, spec.label, {
-          fontFamily: 'system-ui, sans-serif', fontSize: '12px',
-          color: hex(color), fontStyle: 'bold',
+          fontFamily: FONT, fontSize: '12px', color: hex(color), fontStyle: 'bold',
         }).setOrigin(0, 0).setLetterSpacing(1.2),
         main: scene.add.text(textX, TOP + 24, '', {
-          fontFamily: 'system-ui, sans-serif', fontSize: '26px',
-          color: '#f2f6ff', fontStyle: 'bold',
+          fontFamily: FONT, fontSize: '26px', color: MAIN, fontStyle: 'bold',
         }).setOrigin(0, 0),
-        sub: scene.add.text(textX, TOP + 60, '', {
-          fontFamily: 'system-ui, sans-serif', fontSize: '18px',
-          color: '#8b99bb', fontStyle: 'bold',
+        sub: scene.add.text(textX, TOP + 61, '', {
+          fontFamily: FONT, fontSize: '15px', color: '#8b99bb', fontStyle: 'bold',
         }).setOrigin(0, 0),
         last: '',
       });
       x += spec.width;
     }
+    // `-N` / `+N` over the ARMY cell, rising out of the strip.
+    this.floater = scene.add.text(50, TOP + 4, '', {
+      fontFamily: FONT, fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5, 1).setStroke('#05070f', 3).setDepth(1).setVisible(false);
   }
 
   update(h: HudPayload): void {
+    // Army: power, with the rank it buys underneath in the rank's own colour.
+    // Always "held" - there is no identity for an army.
+    this.set(0, compact(h.power), h.tierName.toUpperCase(), true, hex(h.tierColor));
     // Sub-lines are blank at identity. Four columns of `x1.00` is four pieces
     // of furniture the eye has to step over to find the one that changed.
-    this.set(0, `+${Math.round(h.damageBonus * 100)}%`, h.damageMult, h.damageBonus > 0);
-    this.set(1, `+${Math.round(h.rateBonus * 100)}%`, h.rateMult, h.rateBonus > 0);
-    this.set(2, String(h.guns), h.guns, h.guns > 1);
+    this.set(1, `+${Math.round(h.damageBonus * 100)}%`, multOrBlank(h.damageMult),
+      h.damageBonus > 0 || h.damageMult > 1);
+    this.set(2, `+${Math.round(h.rateBonus * 100)}%`, multOrBlank(h.rateMult),
+      h.rateBonus > 0 || h.rateMult > 1);
+    this.set(3, String(h.guns), multOrBlank(h.guns), h.guns > 1);
     // Pierce shows what it is actually worth, from the same valuation par
-    // prices it with - a bare `2` says nothing about diminishing returns.
-    this.set(3, String(h.pierce), h.pierceMult, h.pierce > 0);
+    // prices it with - a bare `2` says nothing about what a level buys.
+    this.set(4, String(h.pierce), multOrBlank(h.pierceMult), h.pierce > 0);
+    this.pending = null;
+  }
+
+  /** The colour the next changed cell flashes in; spent by the next `update`. */
+  prime(color: number): void { this.pending = color; }
+
+  /** Flash a cell now, whatever changed, e.g. ARMY on a batch of fire hits. */
+  flashCell(index: number, color: number, ms = 500): void {
+    this.flash(this.cells[index], color, ms);
+  }
+
+  /** `-3` or `+5` rising out of the ARMY cell. */
+  float(text: string, color: number): void {
+    const f = this.floater;
+    this.scene.tweens.killTweensOf(f);
+    f.setText(text).setColor(hex(color)).setPosition(50, TOP + 4).setAlpha(1).setVisible(true);
+    this.scene.tweens.add({
+      targets: f, y: TOP - 22, alpha: 0, duration: 700, ease: 'Quad.easeOut',
+      onComplete: () => f.setVisible(false),
+    });
   }
 
   reset(): void {
     for (const cell of this.cells) cell.last = '';
+    this.pending = null;
+    this.scene.tweens.killTweensOf(this.floater);
+    this.floater.setVisible(false);
   }
 
-  private set(index: number, main: string, mult: number, poolHeld: boolean): void {
+  private set(index: number, main: string, sub: string, held: boolean, subColor = '#8b99bb'): void {
     const cell = this.cells[index];
     cell.main.setText(main);
-    cell.sub.setText(mult > 1 ? formatMult(mult) : '');
+    cell.sub.setText(sub).setColor(subColor);
 
-    const held = poolHeld || mult > 1;
-    const alpha = held ? 1 : 0.32;
-    cell.accent.setAlpha(held ? 0.9 : 0.22);
+    const alpha = held ? 1 : 0.55;
     cell.label.setAlpha(alpha);
     cell.main.setAlpha(alpha);
     cell.sub.setAlpha(0.95);
 
-    // A gate you drove through has to register somewhere other than the toast,
-    // which is already gone by the time the next offer appears.
-    const signature = `${main}|${mult}`;
-    if (cell.last !== '' && cell.last !== signature) this.flash(cell);
+    // A gate you drove through has to register somewhere other than the field,
+    // where the wash is already gone by the time the next offer appears.
+    const signature = `${main}|${sub}`;
+    if (cell.last !== '' && cell.last !== signature) this.flash(cell, this.pending ?? 0xffffff, 500);
     cell.last = signature;
   }
 
-  private flash(cell: Cell): void {
+  private flash(cell: Cell, color: number, ms: number): void {
     this.scene.tweens.killTweensOf(cell.main);
-    cell.main.setScale(1.15).setColor('#ffffff');
+    cell.main.setScale(1.15).setColor(hex(color));
     this.scene.tweens.add({
-      targets: cell.main, scale: 1, duration: 320, ease: 'Quad.easeOut',
-      onComplete: () => cell.main.setColor('#f2f6ff'),
+      targets: cell.main, scale: 1, duration: ms, ease: 'Quad.easeOut',
+      onComplete: () => cell.main.setColor(MAIN),
     });
   }
+}
+
+function multOrBlank(mult: number): string {
+  return mult > 1 ? formatMult(mult) : '';
 }

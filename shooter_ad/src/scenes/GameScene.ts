@@ -1,39 +1,46 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, COLORS, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
 } from '../config';
-import { bulletTint, tierRow } from '../data/tiers';
+import { tierRow } from '../data/tiers';
 import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
 import { EnemyBullets } from '../systems/EnemyBullets';
-import { Enemies, type Enemy } from '../systems/Enemies';
+import { Enemies, type Consumed, type Enemy } from '../systems/Enemies';
+import { contactCost } from '../systems/Contact';
+import { EventQueue } from '../systems/SimEvents';
 import { FORMATION_HALF_WIDTH } from '../systems/Formation';
 import { Gates } from '../systems/Gates';
 import { Difficulty } from '../systems/Difficulty';
 import { DecisionLog } from '../systems/DecisionLog';
 import { scoreOffer } from '../systems/Scoring';
 import { Grid } from '../systems/Grid';
-import { SpritePool } from '../systems/SpritePool';
 import { createRng } from '../systems/Rng';
 import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../systems/MatchCode';
 import { modeFromQuery, setMode } from '../systems/Mode';
 import { VERSION } from '../version';
-import { bundleFactor, moveSpeed, pierceMultiplier, type Upgrades } from '../systems/Progression';
+import {
+  bundleFactor, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
+} from '../systems/Progression';
+import { mulberry32 } from '../systems/Rng';
 import { armorAgainst } from '../systems/EnemyMotion';
 import { strike } from '../systems/Bullets';
 import { PAUSE_BUTTON } from './hud/PauseScreen';
-import { RAIL_HEIGHT } from './hud/TopRail';
+import { REPLAY_BUTTON } from './hud/EndScreen';
+import { SpriteRender } from './render/SpriteRender';
+import { FieldRender } from './render/FieldRender';
 import type { HudPayload } from './hud/types';
-
-const SKIN = 0xf2c9a0;
 
 /** One live gate, priced by the game's own `scoreOffer`. */
 interface ScoredGate {
   x: number; y: number;
   label: string; axis: string; form: string;
   pair: number;
+  index: number;
   delta: number;
   best: boolean;
+  /** This gate is the best of a SENSED offer, and is drawn marked. */
+  sensed: boolean;
 }
 
 /** See `GameScene.applyStartOverride`. Instruments only. */
@@ -67,27 +74,20 @@ export class GameScene extends Phaser.Scene {
   private accumulator = 0;
   private grid!: Grid<Enemy>;
 
-  private bodyPool!: SpritePool;
-  private headPool!: SpritePool;
-  private enemyPool!: SpritePool;
-  private bulletPool!: SpritePool;
-  private enemyBulletPool!: SpritePool;
-  private cagePool!: SpritePool;
-
-  private overlay!: Phaser.GameObjects.Graphics;
-  /**
-   * The selection guide, on its own layer ABOVE the squad and every
-   * projectile. On the shared overlay it sat under the bullet stream and was
-   * unreadable exactly when it mattered - mid-wave, with an offer closing.
-   */
-  private selection!: Phaser.GameObjects.Graphics;
-  private gateVisuals: {
-    rect: Phaser.GameObjects.Rectangle;
-    label: Phaser.GameObjects.Text;
-  }[] = [];
+  /** The two rendering layers. See `render/`. */
+  private sprites!: SpriteRender;
+  private field!: FieldRender;
   private cursors?: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
 
-  private rng: () => number = Math.random;
+  /**
+   * The seeded stream, behind one level of indirection: every system holds
+   * `rng`, and `rngImpl` is what a match code or a restart swaps out. So a
+   * restart replays the SAME match (the code on the end screen was a lie
+   * before - the stream simply carried on under the old seed's name), and a
+   * code typed on the start screen re-seeds every consumer at once.
+   */
+  private rngImpl: () => number = Math.random;
+  private readonly rng: () => number = () => this.rngImpl();
   private targetX = VIEW.width / 2;
   private kills = 0;
   /**
@@ -96,8 +96,16 @@ export class GameScene extends Phaser.Scene {
    * places at once" - the survival curve falls as PROBE_SKILL rises and these
    * are what decide whether that is the bot's positioning or the game's clamp.
    */
+  private contactLoss = 0;
   private breachLoss = 0;
   private fireLoss = 0;
+  /**
+   * What the simulation did this step, for the renderer. Pushed only inside
+   * `step`, drained at the top of `render`; nothing in `systems/` reads it.
+   */
+  private readonly sim = new EventQueue();
+  /** Highest offer pair announced as sensed, so the event fires once per offer. */
+  private lastSensedPair = -1;
   /**
    * Bresenham accumulator deciding which shots are DRAWN. Rendering state; it
    * is read by nothing in the simulation and reset with the run only so a new
@@ -121,13 +129,25 @@ export class GameScene extends Phaser.Scene {
    * says whether the old ceilings were ever within reach of real play. */
   private peakPower = 0;
   /**
-   * One entry per Titan this run met: the player's single-target standing at
-   * the moment it spawned, and the fraction of its descent it had covered
-   * when it died - `null` while it is alive, and forever if it landed, which
-   * is `cause === 'titan'`. The boss budget is written in exactly these two
-   * numbers, so this is what `npm run titan` reads.
+   * Shots charged against enemy bodies this run. Divided by the shots fired
+   * (`Bullets.shotsSpawned`) it is the measured hits per shot - what pierce is
+   * really worth on this board, next to the `pierceMultiplier` it is priced
+   * at. Read by the probes; nothing in the simulation reads it.
    */
-  private titanChecks: { standing: number; killedAt: number | null }[] = [];
+  private shotHits = 0;
+  /** Shots that met at least one body. `shotHits / shotLandings` is the
+   * measured pierce; `shotLandings / shotsSpawned` is how much of the stream
+   * lands at all. */
+  private shotLandings = 0;
+  /**
+   * One entry per Titan this run met: the player's single-target standing at
+   * the moment it spawned, the fraction of its descent it had covered when it
+   * died - `null` while it is alive, and forever if it landed, which is
+   * `cause === 'titan'` - and where on that descent it was consumed if it did
+   * land, on the ring or at the line. The boss budget is written in exactly
+   * these numbers, so this is what `npm run titan` reads.
+   */
+  private titanChecks: { standing: number; killedAt: number | null; landedAt: number | null }[] = [];
   private lastX = VIEW.width / 2;
   private streak = 0;
   private over = false;
@@ -147,7 +167,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     const { rng, seed } = createRng();
     this.seed = seed;
-    this.rng = rng;
+    this.rngImpl = rng;
     // Set BEFORE anything reads a wave-keyed difficulty number. Hard mode is a
     // wave offset on the judgment axes and every consumer reads it from
     // `Mode.ts`, so this is the one place a run's difficulty is decided.
@@ -161,27 +181,35 @@ export class GameScene extends Phaser.Scene {
     this.log = new DecisionLog();
     this.gates = new Gates(
       this.rng,
-      (pair, offer) => {
+      (pair, offer, sensed) => {
         // Both read the same arrival moment: par takes its pick and the log
         // records the state the player was actually deciding from.
-        this.log.open_(pair, this.squad.progress, offer, this.enemies.wave.index, this.elapsed);
+        this.log.open_(
+          pair, this.squad.progress, offer, this.enemies.wave.index, this.elapsed, sensed,
+        );
         this.difficulty.observeGateOffer(offer, this.enemies.wave.index);
       },
-      (pair) => this.log.resolve(pair, -1),
+      (pair) => {
+        this.log.resolve(pair, -1);
+        // MISS lands on the option the squad was nearest, so the word sits in
+        // the lane the player was standing in - beside the dead space they
+        // stopped in, not in the middle of the screen. The offer's slots are
+        // still intact here: expiry is reported in the same update that
+        // dropped them, before any spawn can reuse one.
+        let x = VIEW.width / 2;
+        let best = Infinity;
+        for (const g of this.gates.items) {
+          if (g.pair !== pair) continue;
+          const d = Math.abs(g.x - this.squad.x);
+          if (d < best) { best = d; x = g.x; }
+        }
+        this.sim.push({ kind: 'miss', x, y: ARENA.laneY, pair });
+      },
     );
     this.grid = new Grid<Enemy>(48, VIEW.width);
 
-    this.drawBackground();
-    this.overlay = this.add.graphics().setDepth(6);
-    // 25: above the squad (21), below the HUD backing strip (30).
-    this.selection = this.add.graphics().setDepth(25);
-
-    this.enemyPool = new SpritePool(this, 'dot', 10);
-    this.cagePool = new SpritePool(this, 'cage', 11);
-    this.bulletPool = new SpritePool(this, 'bullet', 12);
-    this.enemyBulletPool = new SpritePool(this, 'dot', 13);
-    this.bodyPool = new SpritePool(this, 'body', 20);
-    this.headPool = new SpritePool(this, 'head', 21);
+    this.field = new FieldRender(this);
+    this.sprites = new SpriteRender(this);
 
     this.bindInput();
     this.emitHud();
@@ -196,24 +224,22 @@ export class GameScene extends Phaser.Scene {
     // `?m=`, which does NOT skip. `npm run endscreen` photographs this screen
     // so it is not left unseen by every automated check.
     const params = new URLSearchParams(window.location.search);
-    if (params.has('seed')) {
+    const instrument = params.has('seed');
+    if (instrument) {
       this.applyStartOverride();
       this.waiting = false;
-      return;
+    } else {
+      // Wait for the UI scene before announcing the match. Scenes start in the
+      // order main.ts lists them, so GameScene.create runs BEFORE UIScene.create
+      // and an event emitted here would land before anything was listening -
+      // the screen would never appear and the run would never begin.
+      this.game.events.once('uiready', () => this.announceMatch());
     }
-    // Wait for the UI scene before announcing the match. Scenes start in the
-    // order main.ts lists them, so GameScene.create runs BEFORE UIScene.create
-    // and an event emitted here would land before anything was listening - the
-    // screen would never appear and the run would never begin.
-    this.game.events.once('uiready', () => {
-      this.game.events.emit('showstart', {
-        code: encodeMatch({ seed: this.seed, mode: this.mode }),
-        version: VERSION,
-        mode: this.mode,
-        invited: matchFromQuery(window.location.search) !== null,
-      });
-    });
-    this.game.events.once('startmatch', () => { this.waiting = false; });
+    // The match controls are wired on EVERY page, instrument pages included.
+    // They used to be skipped behind the `?seed=` return above, so the end
+    // screen's "new match" did nothing on any page a script had opened - and
+    // a control no check can press is a control nothing has ever tested.
+    this.game.events.on('startmatch', () => { this.waiting = false; });
     // Chosen on the start screen, before the run exists. Re-announcing the
     // match is what redraws the code, which must change with the mode: a hard
     // run is not the same match as a normal one on the same seed, and the code
@@ -222,25 +248,53 @@ export class GameScene extends Phaser.Scene {
       if (this.mode === mode || !this.waiting) return;
       this.mode = mode;
       setMode(mode);
-      this.game.events.emit('showstart', {
-        code: encodeMatch({ seed: this.seed, mode: this.mode }),
-        version: VERSION,
-        mode: this.mode,
-        invited: matchFromQuery(window.location.search) !== null,
-      });
+      this.announceMatch();
+    });
+    // A code typed on the start screen, or a request for a fresh random match.
+    // Both re-seed every consumer through `rngImpl` and rebuild the squad, so
+    // the run that follows is the one the code names - nothing has been drawn
+    // from the old stream that the new run could inherit.
+    this.game.events.on('matchrequest', (match: { seed: number; mode: MatchMode } | null) => {
+      if (!this.waiting) return;
+      const next = match ?? { seed: Math.floor(Math.random() * 0xffffffff), mode: this.mode };
+      this.seed = next.seed;
+      this.mode = next.mode;
+      setMode(this.mode);
+      this.reseed();
+      this.announceMatch();
+    });
+    // From the end screen: back to the start screen with a fresh code, rather
+    // than replaying the match that just ended. Not gated on `over`: the same
+    // tap also reaches this scene's own pointer handler, and whichever runs
+    // first must not decide the outcome - a replay followed by this is still
+    // a fresh match on the start screen.
+    this.game.events.on('newmatchrequest', () => {
+      this.seed = Math.floor(Math.random() * 0xffffffff);
+      this.restart();
+      this.waiting = true;
+      this.announceMatch();
     });
   }
 
-  private drawBackground(): void {
-    const g = this.add.graphics().setDepth(0);
-    g.fillStyle(COLORS.bg, 1).fillRect(0, 0, VIEW.width, VIEW.height);
-    g.fillStyle(COLORS.lane, 1).fillRect(0, ARENA.laneY - 120, VIEW.width, 260);
-    g.lineStyle(2, COLORS.breach, 0.35);
-    g.lineBetween(0, ARENA.breachY, VIEW.width, ARENA.breachY);
-    // Backing strip so the HUD stays legible as enemies walk in from the top.
-    const hud = this.add.graphics().setDepth(30);
-    hud.fillStyle(COLORS.bg, 0.86).fillRect(0, 0, VIEW.width, RAIL_HEIGHT);
-    hud.fillStyle(COLORS.bg, 0.3).fillRect(0, RAIL_HEIGHT, VIEW.width, 12);
+  /** The start screen's payload: what the button will play right now. */
+  private announceMatch(): void {
+    this.game.events.emit('showstart', {
+      code: encodeMatch({ seed: this.seed, mode: this.mode }),
+      version: VERSION,
+      mode: this.mode,
+      invited: matchFromQuery(window.location.search) !== null,
+    });
+  }
+
+  /**
+   * Restarts the seeded stream from `seed` and rebuilds the squad on it. The
+   * squad is rebuilt because its constructor draws the first unit's firing
+   * jitter, and that draw has to be the new stream's first, not the old one's
+   * second.
+   */
+  private reseed(): void {
+    this.rngImpl = mulberry32(this.seed);
+    this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
   }
 
   private bindInput(): void {
@@ -258,18 +312,20 @@ export class GameScene extends Phaser.Scene {
       // The pause control is hit-tested HERE, not as an interactive object in
       // the UI scene: a tap reaching both scenes would pause the game and also
       // order the squad to the button's x, which it walks to on resume.
-      if (!this.over && !this.waiting && inPauseButton(p.worldX, p.worldY)) {
+      if (!this.over && !this.waiting && inButton(PAUSE_BUTTON, p.worldX, p.worldY)) {
         this.setPaused(!this.paused);
         return;
       }
       if (this.paused) return;
-      if (this.over) this.restart();
+      if (this.over) { if (inButton(REPLAY_BUTTON, p.worldX, p.worldY)) this.restart(); }
       else this.targetX = p.worldX;
     });
     this.input.keyboard?.on('keydown-SPACE', () => { if (this.over) this.restart(); });
     const toggle = () => { if (!this.over && !this.waiting) this.setPaused(!this.paused); };
     this.input.keyboard?.on('keydown-ESC', toggle);
     this.input.keyboard?.on('keydown-P', toggle);
+    // M mutes; the pause screen's SOUND line is the same request by touch.
+    this.input.keyboard?.on('keydown-M', () => this.game.events.emit('mutetoggle'));
     // The pause screen holds no state of its own - it reads the last published
     // HUD frame - so resume and restart are requests back into the simulation.
     this.game.events.on('setpaused', (on: boolean) => this.setPaused(on));
@@ -290,21 +346,31 @@ export class GameScene extends Phaser.Scene {
     this.streak = 0;
     this.titanChecks = [];
     this.targetX = VIEW.width / 2;
-    this.squad = new Squad(VIEW.width / 2, ARENA.laneY, SQUAD.startPower, this.rng);
+    // The same match again, from its first draw. "Tap to play again" used to
+    // continue the stream under the same code, so the run it produced was one
+    // nobody could reproduce from the code on screen.
+    this.reseed();
     this.bullets = new Bullets();
     this.enemyFire.reset();
     this.difficulty.reset();
     this.log.reset();
     this.elapsed = 0;
     this.accumulator = 0;
+    this.contactLoss = 0;
     this.breachLoss = 0;
     this.fireLoss = 0;
+    this.sim.drain();
+    this.sprites.reset();
+    this.field.reset();
+    this.lastSensedPair = -1;
     this.drawCredit = 0;
     this.simCredit = 0;
     this.pendingShots = 0;
     this.pendingDamage = 0;
     this.traveled = 0;
     this.peakPower = 0;
+    this.shotHits = 0;
+    this.shotLandings = 0;
     this.lastX = VIEW.width / 2;
     this.waiting = false;
     this.enemies.reset();
@@ -370,24 +436,47 @@ export class GameScene extends Phaser.Scene {
       power: this.squad.power,
       damageBonus: this.squad.upgrades.damageBonus,
       rateBonus: this.squad.upgrades.rateBonus,
+      guns: this.squad.upgrades.guns,
+      pierce: this.squad.upgrades.pierce,
+      sense: this.squad.upgrades.sense,
     }, this.squad.upgrades);
 
     if (newWave) {
       this.squad.addPower(WAVE.clearBonus);
       this.difficulty.awardWaveClear();
-      this.toast(`WAVE ${this.enemies.wave.index}`);
-      if (this.enemies.wave.index % WAVE.bossEvery === 0) {
+      const boss = this.enemies.wave.index % WAVE.bossEvery === 0;
+      this.sim.push({ kind: 'wave', index: this.enemies.wave.index, bonus: WAVE.clearBonus, titan: boss });
+      if (boss) {
         this.titanChecks.push({
           standing: Number(this.difficulty.singleTargetStanding(this.squad.progress).toFixed(3)),
           killedAt: null,
+          landedAt: null,
         });
+        if (this.enemies.titan) this.sim.push({ kind: 'titan', phase: 'arrive' });
       }
     }
+    if (this.enemies.titan?.volleyed) this.sim.push({ kind: 'titan', phase: 'volley' });
+    this.announceSensed();
 
+    // Bullets first, so a body a shot kills this step is a kill and never a
+    // contact; contacts before breaches, so a body satisfying both (a Grunt
+    // at the line is 17px from the bottom rank, inside the 19px it takes to
+    // touch) is a contact.
     this.collide();
+    this.applyContacts();
     this.checkGates();
     this.applyBreaches();
     this.applyIncomingFire();
+  }
+
+  /** One `sense` event per sensed offer, on the step it first appears. */
+  private announceSensed(): void {
+    for (const g of this.gates.items) {
+      if (!g.active || !g.sensed || g.pair <= this.lastSensedPair) continue;
+      this.lastSensedPair = g.pair;
+      this.sim.push({ kind: 'sense', pair: g.pair });
+      return;
+    }
   }
 
   /**
@@ -531,12 +620,19 @@ export class GameScene extends Phaser.Scene {
         // assumption its HP budget is built on. Firing from each unit's own x
         // made the column ~170px against a 72px boss, and half the volley
         // missed a perfectly placed target.
+        //
+        // Centred on the LEADER'S DRAWN x, not the squad's logical centre.
+        // Units ease toward their slots, so under a moving finger the ring
+        // trails the centre by ~18px and a column built on the centre left
+        // the character's body - visibly off-centre. Stationary, the two are
+        // one point, so a squad parked under the boss is unchanged.
+        const centre = this.squad.units[0].x;
         const unitSpan = (WEAPON.columnWidth - WEAPON.gunSpread) / 2;
-        const unitLateral = (u.x - this.squad.x) / FORMATION_HALF_WIDTH * unitSpan;
+        const unitLateral = (u.x - centre) / FORMATION_HALF_WIDTH * unitSpan;
         const gunLateral = guns === 1
           ? 0
           : (g / (guns - 1) - 0.5) * WEAPON.gunSpread;
-        const x = this.squad.x + unitLateral + gunLateral;
+        const x = centre + unitLateral + gunLateral;
         for (let k = 0; k < honoured; k++) {
           // The render stride, over SPAWNED bullets. Same shape, separate
           // state, and it may never feed anything above this line.
@@ -576,11 +672,22 @@ export class GameScene extends Phaser.Scene {
         // it, each spending a pierce; the rest fly on. A one-shot bullet is the
         // old rule exactly: one hit, then pierce down or gone.
         const perShot = b.damage * (1 - armorAgainst(e, ux, uy));
+        // The pierce instrument. Fresh shots sit at the top pierce level and
+        // only ever leave it, so the top level's drop is the number of shots
+        // meeting their FIRST body here; every shot charged is a hit. Hits per
+        // landing shot is what `pierceMultiplier` claims. Diagnostics only.
+        const topBefore = b.bundle[b.bundle.length - 1];
         const consumed = strike(b, e.hp, perShot, true);
+        this.shotHits += consumed;
+        this.shotLandings += topBefore - b.bundle[b.bundle.length - 1];
         const titan = e.type.id === 'titan' ? Enemies.titanProgress(e) : -1;
         if (this.enemies.damage(e, consumed * b.damage, ux, uy)) {
-          this.onKill();
+          this.sim.push({
+            kind: 'kill', x: e.x, y: e.y, radius: e.radius, color: e.type.color, titan: titan >= 0,
+          });
+          this.onKill(e.x, e.y);
           if (titan >= 0) {
+            this.sim.push({ kind: 'titan', phase: 'down' });
             const check = this.titanChecks[this.titanChecks.length - 1];
             if (check) check.killedAt = Number(titan.toFixed(3));
           }
@@ -597,24 +704,30 @@ export class GameScene extends Phaser.Scene {
         // one that opens it carry on.
         const consumed = strike(b, c.hp, b.damage, false);
         c.hp -= consumed * b.damage;
+        c.hitFlash = this.elapsed;
         if (c.hp <= 0) {
           c.active = false;
-          this.squad.addPower(CAGE.reward);
-          this.difficulty.awardCage();
-          this.toast(`RESCUED +${CAGE.reward}`);
+          // Flat until the army passes `shareFrom`, a whole share of it after;
+          // par is NOT credited - see CAGE in config. Read off the power held
+          // at the moment the cage opens.
+          const reward = this.squad.power > CAGE.shareFrom
+            ? Math.round(this.squad.power * CAGE.share)
+            : CAGE.reward;
+          this.squad.addPower(reward);
+          this.sim.push({ kind: 'rescue', x: c.x, y: c.y, amount: reward });
         }
         if (!b.active) break;
       }
     }
   }
 
-  private onKill(): void {
+  private onKill(x: number, y: number): void {
     this.kills++;
     this.streak++;
     if (this.streak >= STREAK.killsPerBonus) {
       this.streak = 0;
       this.squad.addPower(STREAK.bonus);
-      this.toast(`STREAK +${STREAK.bonus}`);
+      this.sim.push({ kind: 'streak', x, y, amount: STREAK.bonus });
     }
   }
 
@@ -631,71 +744,96 @@ export class GameScene extends Phaser.Scene {
       // was actually deciding in.
       this.gates.consumePair(g.pair);
       const rank = this.log.resolve(g.pair, g.index);
-      if (rank !== null) this.flashPick(g.x, g.y, rank);
-      this.toast(this.squad.applyGate(g.type));
+      if (rank !== null) {
+        this.sim.push({
+          kind: 'pick', x: g.x, y: g.y, width: g.width, axis: g.type.axis, label: g.type.label,
+          grade: rank <= 0.001 ? 'perfect' : rank >= 0.999 ? 'bad' : 'good',
+        });
+      }
+      this.squad.applyGate(g.type);
     }
   }
 
-  private applyBreaches(): void {
-    const { cost, titan } = this.enemies.collectBreaches();
-    if (cost <= 0) return;
-    this.squad.addPower(-cost * SQUAD.breachLoss);
-    this.breachLoss += cost * SQUAD.breachLoss;
-    // A Titan reaching the line ends the run outright, whatever power is left.
-    // Its HP is budgeted so that killing it is achievable at `bossKillPar` of
-    // par over `bossKillDistance` of its descent; letting it land and merely
-    // taking damage would make that budget meaningless.
+  /** Bodies touching the ring, consumed at the contact price. */
+  private applyContacts(): void {
+    const { consumed, titan } = this.enemies.collectContacts(this.squad.units, SQUAD.unitRadius);
+    if (consumed.length === 0) return;
+    this.contactLoss += this.charge(consumed, 'contact');
     this.cameras.main.shake(titan ? 260 : 120, titan ? 0.014 : 0.006);
-    if (titan || !this.squad.alive) {
-      this.over = true;
-      this.emitGameOver(titan ? 'titan' : 'overrun');
+    this.endIfLost(titan);
+  }
+
+  /** Bodies past the line that missed the ring. Same price, same function. */
+  private applyBreaches(): void {
+    const { consumed, titan } = this.enemies.collectBreaches();
+    if (consumed.length === 0) return;
+    this.breachLoss += this.charge(consumed, 'breach');
+    this.cameras.main.shake(titan ? 260 : 120, titan ? 0.014 : 0.006);
+    this.endIfLost(titan);
+  }
+
+  /** Prices every body against the power held BEFORE any of them landed. */
+  private charge(consumed: readonly Consumed[], kind: 'contact' | 'breach'): number {
+    const power = this.squad.power;
+    let total = 0;
+    for (const c of consumed) {
+      const cost = contactCost(c.type, power);
+      total += cost;
+      const titan = c.type.id === 'titan';
+      this.sim.push({
+        kind, x: c.x, y: c.y, cost, share: power > 0 ? cost / power : 1, tier: c.type.tier, titan,
+      });
+      if (titan) {
+        const check = this.titanChecks[this.titanChecks.length - 1];
+        if (check) check.landedAt = Number(Enemies.titanProgressAt(c.y).toFixed(3));
+      }
     }
+    this.squad.addPower(-total);
+    return total;
   }
 
   /**
-   * Squad power destroyed by enemy fire. Separate from `applyBreaches` on
-   * purpose: a breach is a failure to kill, while fire is a tax on standing
-   * still, and the two need to read differently.
+   * A Titan reaching the army ends the run outright, whatever power is left.
+   * Its HP is budgeted so that killing it is achievable at `bossKillPar` of
+   * par over `bossKillDistance` of its descent; letting it land and merely
+   * taking damage would make that budget meaningless.
+   */
+  private endIfLost(titan: boolean): void {
+    // Once, whichever check ended it: a Titan contact zeroes the army, and
+    // fire landing on the same step must not re-announce the end as attrition.
+    if (this.over || (!titan && this.squad.alive)) return;
+    this.over = true;
+    this.emitGameOver(titan ? 'titan' : 'overrun');
+  }
+
+  /**
+   * Squad power destroyed by enemy fire. Separate from the contact price on
+   * purpose: a body reaching you is a failure to kill, while fire is a tax on
+   * standing still, and the two need to read differently.
    */
   private applyIncomingFire(): void {
-    const cost = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius);
-    if (cost <= 0) return;
-    this.squad.addPower(-cost * SQUAD.fireLoss);
-    this.fireLoss += cost * SQUAD.fireLoss;
+    const hits = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius);
+    if (hits <= 0) return;
+    // A bullet costs a share of the army you hold, floored to whole power and
+    // never less than one - read once, from the power before this step's
+    // hits, so several bullets landing together each cost the same.
+    const power = this.squad.power;
+    const perHit = Math.max(ENEMY_FIRE.minCost, Math.floor(power * ENEMY_FIRE.powerShare));
+    const cost = hits * perHit;
+    this.squad.addPower(-cost);
+    this.fireLoss += cost;
+    this.sim.push({ kind: 'fire', cost, share: power > 0 ? cost / power : 1, hits });
     this.cameras.main.shake(70, 0.003);
-    if (!this.squad.alive) {
-      this.over = true;
-      this.emitGameOver();
-    }
-  }
-
-  /**
-   * Green / amber / red on the gate you just took, graded by the same scoring
-   * the death screen will use - so instant feedback and the post-mortem can
-   * never disagree about the same pick.
-   *
-   * The death screen teaches after the fact; this teaches during, which is what
-   * actually makes players improve. Graded on the SPREAD of the offer, so
-   * taking the second of three near-identical bonuses does not read as a
-   * blunder.
-   */
-  private flashPick(x: number, y: number, rank: number): void {
-    const color = rank <= 0.001 ? 0x3ecf7a : rank >= 0.999 ? 0xff4757 : 0xffc93c;
-    const halo = this.add.circle(x, y, 34, color, 0.5).setDepth(26);
-    this.tweens.add({
-      targets: halo,
-      scale: 2.6, alpha: 0,
-      duration: 420, ease: 'Quad.easeOut',
-      onComplete: () => halo.destroy(),
-    });
+    this.endIfLost(false);
   }
 
   /**
    * The end screen's whole payload, including the match code, because that
    * screen is a shareable artefact rather than a summary - see hud/EndScreen.
    */
-  private emitGameOver(cause: 'overrun' | 'titan' = 'overrun'): void {
+  private emitGameOver(cause: 'overrun' | 'titan'): void {
     this.cause = cause;
+    this.sim.push({ kind: 'over', cause });
     const match = { seed: this.seed, mode: this.mode };
     this.game.events.emit('gameover', {
       cause,
@@ -703,6 +841,7 @@ export class GameScene extends Phaser.Scene {
       kills: this.kills,
       optimal: this.log.fractionOfOptimal,
       tally: this.log.tally,
+      contactLoss: Math.round(this.contactLoss),
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
       traveled: Math.round(this.traveled),
@@ -712,10 +851,6 @@ export class GameScene extends Phaser.Scene {
       mode: this.mode,
       link: matchUrl(match, window.location.href),
     });
-  }
-
-  private toast(text: string): void {
-    this.game.events.emit('toast', text);
   }
 
   /**
@@ -745,8 +880,10 @@ export class GameScene extends Phaser.Scene {
           x: Math.round(g.x), y: Math.round(g.y),
           label: g.type.label, axis: g.type.axis, form: g.type.form,
           pair: g.pair,
+          index: g.index,
           delta: Number(scored.options[i].delta.toFixed(5)),
           best: i === scored.best,
+          sensed: g.sensed && i === scored.best,
         });
       }
     }
@@ -756,6 +893,7 @@ export class GameScene extends Phaser.Scene {
   private emitHud(): void {
     const par = this.difficulty.snapshot();
     const gates = this.scoreLiveGates();
+    const u = this.squad.upgrades;
     this.registry.set('stats', {
       power: Math.floor(this.squad.power),
       parPower: par.parPower,
@@ -786,10 +924,24 @@ export class GameScene extends Phaser.Scene {
       })(),
       seed: this.seed,
       gates,
+      contactLoss: Math.round(this.contactLoss),
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
       traveled: Math.round(this.traveled),
       peakPower: Math.floor(this.peakPower),
+      // The pierce claim against the pierce measurement, both in bodies hit
+      // per shot that lands. Cumulative over the run, so it lags a pierce pick
+      // by the shots already counted; read it over a long window. `landed` is
+      // the share of fired shots that met anything at all.
+      pierce: u.pierce,
+      pierceClaim: Number(pierceMultiplier(u.pierce).toFixed(3)),
+      hitsPerLanding: this.shotLandings > 0
+        ? Number((this.shotHits / this.shotLandings).toFixed(3))
+        : 0,
+      landed: this.bullets.shotsSpawned > 0
+        ? Number((this.shotLandings / this.bullets.shotsSpawned).toFixed(3))
+        : 0,
+      sense: u.sense,
       // SIMULATED seconds, which is what a run should be measured in. The
       // simulation advances on clamped frame deltas, so wall-clock time and
       // game time are not the same quantity and their ratio moves with how much
@@ -799,7 +951,6 @@ export class GameScene extends Phaser.Scene {
       optimal: Number(this.log.fractionOfOptimal.toFixed(4)),
       tally: this.log.tally,
     });
-    const u = this.squad.upgrades;
     const hud: HudPayload = {
       power: Math.floor(this.squad.power),
       wave: this.enemies.wave.index,
@@ -818,208 +969,44 @@ export class GameScene extends Phaser.Scene {
       guns: u.guns,
       pierce: u.pierce,
       pierceMult: pierceMultiplier(u.pierce),
+      moveMult: u.moveMult,
+      gateSpeedMult: u.gateSpeedMult,
+      sense: u.sense,
+      senseChance: senseChance(u.sense),
+      streak: this.streak,
+      titan: (() => { const t = this.enemies.titan; return t ? { hpFrac: t.hp / t.maxHp, progress: Enemies.titanProgress(t) } : null; })(),
     };
     this.game.events.emit('hud', hud);
   }
 
   // --- rendering ------------------------------------------------------------
 
+  /**
+   * One frame. Everything the steps since the last frame did is drained
+   * first, in order, as one `moment` emit and one call into each layer: the
+   * renderer's, the HUD's and the audio's single account of the step. The
+   * layers live in `render/`; this scene only hands them the state.
+   */
   private render(): void {
-    this.renderEnemies();
-    this.renderBullets();
-    this.renderEnemyFire();
-    this.renderSquad();
-    this.renderGates();
-    this.renderOverlay();
-    // Last, and on the topmost gameplay layer: the guide has to survive a
-    // screen full of bullets.
-    this.renderSelection();
-  }
-
-  private renderEnemies(): void {
-    this.enemyPool.begin();
-    this.cagePool.begin();
-    for (const e of this.enemies.items) {
-      if (!e.active) continue;
-      const s = this.enemyPool.claim();
-      s.setPosition(e.x, e.y)
-        .setDisplaySize(e.radius * 2, e.radius * 2)
-        .setTint(e.type.color)
-        .setAlpha(0.55 + 0.45 * (e.hp / e.maxHp));
+    const events = this.sim.drain();
+    if (events.length) {
+      this.game.events.emit('moment', events);
+      this.sprites.onEvents(events);
+      this.field.onEvents(events);
     }
-    for (const c of this.enemies.cages) {
-      if (!c.active) continue;
-      this.cagePool.claim()
-        .setPosition(c.x, c.y)
-        .setDisplaySize(CAGE.radius * 2, CAGE.radius * 2)
-        .setTint(COLORS.cage);
-    }
-    this.enemyPool.end();
-    this.cagePool.end();
-  }
-
-  /**
-   * Draws the bounded subset `fire` marked, tinted by how much of the stream
-   * each one stands for.
-   *
-   * The simulation is untouched here: every bullet in `items` is still flying
-   * and still colliding, drawn or not. Skipping the undrawn ones is the whole
-   * mechanism - at high GUNS and RATE the true stream is thousands of shots a
-   * second and the playfield went solid cream.
-   */
-  private renderBullets(): void {
-    this.bulletPool.begin();
-    for (const b of this.bullets.items) {
-      if (!b.active || !b.drawn) continue;
-      this.bulletPool.claim().setPosition(b.x, b.y).setTint(bulletTint(b.density));
-    }
-    this.bulletPool.end();
-  }
-
-  private renderEnemyFire(): void {
-    this.enemyBulletPool.begin();
-    for (const b of this.enemyFire.items) {
-      if (!b.active) continue;
-      this.enemyBulletPool.claim()
-        .setPosition(b.x, b.y)
-        .setDisplaySize(ENEMY_FIRE.radius * 2, ENEMY_FIRE.radius * 2)
-        .setTint(COLORS.enemyBullet);
-    }
-    this.enemyBulletPool.end();
-  }
-
-  private renderSquad(): void {
-    this.bodyPool.begin();
-    this.headPool.begin();
-    for (const u of this.squad.units) {
-      const tier = tierRow(u.tier);
-      // Slot 0 is the centre of the formation and the unit that actually
-      // selects a gate. Drawing it larger is the only cue that says so.
-      const lead = u.slot === 0;
-      const scale = lead ? SQUAD.leaderScale : 1;
-      this.bodyPool.claim()
-        .setPosition(u.x, u.y + (lead ? 3 : 2))
-        .setScale(scale)
-        .setTint(tier.shirt);
-      this.headPool.claim()
-        .setPosition(u.x, u.y - 10 * scale)
-        .setScale(scale)
-        .setTint(SKIN);
-    }
-    this.bodyPool.end();
-    this.headPool.end();
-  }
-
-  /**
-   * Which gate the squad is about to take, drawn as a line from the leader up
-   * to the offer.
-   *
-   * The selection rule - the CENTRE of the formation is what passes through a
-   * gate - is invisible otherwise. A player watching a nineteen-unit ring drift
-   * across three lanes has no way to know which one counts, and finds out only
-   * after committing. The leader is also drawn larger; this says the same thing
-   * a second way, at the moment it matters.
-   */
-  private renderSelection(): void {
-    this.selection.clear();
-    let target: { x: number; y: number; color: number } | null = null;
-    for (const g of this.gates.items) {
-      if (!g.active || g.y > this.squad.y) continue;
-      if (Math.abs(g.x - this.squad.x) > g.width / 2) continue;
-      if (target === null || g.y > target.y) {
-        target = { x: g.x, y: g.y, color: g.type.color };
-      }
-    }
-    if (target === null) return;
-
-    // Fades in as the offer closes, so it guides without nagging.
-    const nearness = Phaser.Math.Clamp(
-      1 - (this.squad.y - target.y) / 520, 0.12, 0.55,
-    );
-    this.selection.lineStyle(3, target.color, nearness);
-    this.selection.lineBetween(
-      this.squad.x, this.squad.y - 18,
-      // Never draw up into the rail, for the same reason gates fade in below it.
-      this.squad.x, Math.max(target.y + GATES.height / 2, RAIL_HEIGHT + 6),
-    );
-    this.selection.lineStyle(3, target.color, nearness + 0.25);
-    this.selection.strokeCircle(this.squad.x, this.squad.y - 2, 16);
-  }
-
-  private renderGates(): void {
-    let used = 0;
-    for (const g of this.gates.items) {
-      if (!g.active) continue;
-      let v = this.gateVisuals[used];
-      if (!v) {
-        v = {
-          rect: this.add.rectangle(0, 0, 10, GATES.height, 0xffffff, 0.22).setDepth(4),
-          label: this.add.text(0, 0, '', {
-            fontFamily: 'system-ui, sans-serif',
-            fontSize: `${GATES.labelSize}px`,
-            color: COLORS.text,
-            fontStyle: 'bold',
-          }).setOrigin(0.5).setDepth(5),
-        };
-        this.gateVisuals.push(v);
-      }
-      // Fade in clear of the top rail. Gates spawn above the screen and would
-      // otherwise slide through the HUD numbers, putting two unrelated sets of
-      // figures on top of each other exactly where the player reads par.
-      const reveal = Phaser.Math.Clamp((g.y - RAIL_HEIGHT - 6) / 44, 0, 1);
-      v.rect.setVisible(reveal > 0).setPosition(g.x, g.y)
-        // Inset for the visual separation the hit test no longer has.
-        .setSize(g.width - GATES.gap, GATES.height)
-        .setFillStyle(g.type.color, 0.22 * reveal)
-        .setStrokeStyle(3, g.type.color, 0.9 * reveal);
-      v.label.setVisible(reveal > 0).setPosition(g.x, g.y).setAlpha(reveal);
-      if (v.label.text !== g.type.label) v.label.setText(g.type.label);
-      used++;
-    }
-    for (let i = used; i < this.gateVisuals.length; i++) {
-      this.gateVisuals[i].rect.setVisible(false);
-      this.gateVisuals[i].label.setVisible(false);
-    }
-  }
-
-  private renderOverlay(): void {
-    this.overlay.clear();
-    // Shield facing. A directional shield the player cannot see is just an
-    // unexplained damage number, so draw where it actually points.
-    for (const e of this.enemies.items) {
-      if (!e.active || !e.type.frontArmor) continue;
-      const nx = -e.fy, ny = e.fx;
-      const r = e.radius + 3;
-      this.overlay.lineStyle(3, COLORS.shield, 0.85);
-      this.overlay.lineBetween(
-        e.x + e.fx * r - nx * e.radius, e.y + e.fy * r - ny * e.radius,
-        e.x + e.fx * r + nx * e.radius, e.y + e.fy * r + ny * e.radius,
-      );
-    }
-    // Health bars for anything big enough to be worth aiming at.
-    for (const e of this.enemies.items) {
-      if (!e.active || e.radius < 14 || e.hp >= e.maxHp) continue;
-      const w = e.radius * 2;
-      this.overlay.fillStyle(0x000000, 0.5);
-      this.overlay.fillRect(e.x - w / 2, e.y - e.radius - 9, w, 4);
-      this.overlay.fillStyle(0xff5566, 0.95);
-      this.overlay.fillRect(e.x - w / 2, e.y - e.radius - 9, w * (e.hp / e.maxHp), 4);
-    }
-    for (const c of this.enemies.cages) {
-      if (!c.active) continue;
-      this.overlay.fillStyle(0x000000, 0.5);
-      this.overlay.fillRect(c.x - CAGE.radius, c.y - CAGE.radius - 9, CAGE.radius * 2, 4);
-      this.overlay.fillStyle(COLORS.cage, 0.95);
-      this.overlay.fillRect(
-        c.x - CAGE.radius, c.y - CAGE.radius - 9,
-        CAGE.radius * 2 * (c.hp / c.maxHp), 4,
-      );
-    }
+    this.sprites.render({
+      enemies: this.enemies, bullets: this.bullets, enemyFire: this.enemyFire,
+      squad: this.squad, elapsed: this.elapsed,
+    });
+    const marked = new Set<string>();
+    for (const s of this.scoreLiveGates()) if (s.sensed) marked.add(`${s.pair}:${s.index}`);
+    this.field.render({
+      gates: this.gates, enemies: this.enemies, squad: this.squad, marked, elapsed: this.elapsed,
+    });
   }
 }
 
-/** Shared with the UI scene, which draws the control this rectangle describes. */
-function inPauseButton(x: number, y: number): boolean {
-  return Math.abs(x - PAUSE_BUTTON.x) <= PAUSE_BUTTON.width / 2
-    && Math.abs(y - PAUSE_BUTTON.y) <= PAUSE_BUTTON.height / 2;
+/** Shared with the UI scene, which draws the controls these rectangles describe. */
+function inButton(b: { x: number; y: number; width: number; height: number }, x: number, y: number): boolean {
+  return Math.abs(x - b.x) <= b.width / 2 && Math.abs(y - b.y) <= b.height / 2;
 }

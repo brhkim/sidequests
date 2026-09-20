@@ -1,5 +1,6 @@
 import { drawRoot, formatRoot, legibilityFor, roundSf } from './roots';
 import { judgmentWave } from '../systems/Mode';
+import { discreteAmount, MAX_SENSE } from '../systems/Progression';
 
 /**
  * Gates descend as an offer and the player drives through one of them. Every
@@ -9,7 +10,8 @@ import { judgmentWave } from '../systems/Mode';
  * judgment, and an effect worth whatever the next five seconds hold cannot be
  * reasoned about beforehand or scored afterwards.
  */
-export type BonusAxis = 'army' | 'rate' | 'damage' | 'guns' | 'pierce' | 'move' | 'time';
+export type BonusAxis =
+  | 'army' | 'rate' | 'damage' | 'guns' | 'pierce' | 'move' | 'time' | 'sense';
 
 /**
  * The central mechanic. `raw` feeds an additive pool, `mult` multiplies the
@@ -32,6 +34,11 @@ export interface OfferContext {
   readonly power: number;
   readonly damageBonus: number;
   readonly rateBonus: number;
+  /** Discrete axes scale with what is held past `GATES.scaleDiscreteFrom`. */
+  readonly guns: number;
+  readonly pierce: number;
+  /** `+SENSE` leaves the pool once the cap is held. */
+  readonly sense: number;
 }
 
 /**
@@ -72,6 +79,7 @@ export const AXIS_COLOR: Record<BonusAxis, number> = {
   pierce: 0x6be8d4,
   move: 0x4ea8ff,
   time: 0xff9fe0,
+  sense: 0xeaf2ff,
 };
 
 interface Candidate {
@@ -100,7 +108,13 @@ const CANDIDATES: readonly Candidate[] = [
   // `+TIME` only has something to undo once gates have begun speeding up, so
   // it arrives a couple of waves in rather than at the first offer.
   { axis: 'time',   form: 'raw',  weight: 42,  minWave: 3 },
+  // Judgment. No damage, no reach: a chance that future offers arrive with
+  // their best option marked. Capped, and filtered out of the pool once the
+  // cap is held rather than offered as a no-op - see `rollOffer`.
+  { axis: 'sense',  form: 'raw',  weight: 30,  minWave: 2 },
 ];
+
+export { CANDIDATES };
 
 function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): GateType {
   const color = AXIS_COLOR[c.axis];
@@ -128,10 +142,19 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
       const percent = Math.max(1, roundSf(rawShare(root, pool) * 100, sigFigs));
       return { axis: c.axis, form: 'raw', value: percent / 100, label: `+${percent}% ${word}`, color };
     }
-    case 'guns':
-      return { axis: 'guns', form: 'raw', value: 1, label: '+1 GUN', color };
-    case 'pierce':
-      return { axis: 'pierce', form: 'raw', value: 1, label: '+1 PIERCE', color };
+    case 'guns': {
+      // Whole numbers, sized from the draw once enough are held - a flat +1
+      // shrinks from +33% at three guns to nothing by twenty. Both discrete
+      // axes convert the same way raw ARMY does: a share of what you hold.
+      const n = discreteAmount('guns', ctx.guns, root);
+      return { axis: 'guns', form: 'raw', value: n, label: `+${n} GUN${n === 1 ? '' : 'S'}`, color };
+    }
+    case 'pierce': {
+      const n = discreteAmount('pierce', ctx.pierce, root);
+      return { axis: 'pierce', form: 'raw', value: n, label: `+${n} PIERCE`, color };
+    }
+    case 'sense':
+      return { axis: 'sense', form: 'raw', value: 1, label: '+SENSE', color };
     case 'move':
       return { axis: 'move', form: 'mult', value: root, label: `×${formatRoot(root)} MOVE`, color };
     case 'time': {
@@ -165,7 +188,11 @@ export function rollOffer(
   // offset: which bonuses exist is content, and unlocking late content early
   // would be a different game rather than a harder one.
   const legibility = legibilityFor(judgmentWave(wave));
-  const pool = CANDIDATES.filter((c) => c.minWave <= wave);
+  // Sense at its cap leaves the pool. A bonus that changes nothing is noise by
+  // the design's own rule, and offering one would make a third of that offer
+  // a formality.
+  const pool = CANDIDATES.filter((c) =>
+    c.minWave <= wave && !(c.axis === 'sense' && ctx.sense >= MAX_SENSE));
   const chosen: GateType[] = [];
   const taken = new Set<Candidate>();
 

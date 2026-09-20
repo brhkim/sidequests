@@ -72,8 +72,8 @@ if (!REF) {
  * is frozen before it is read and cannot be jittered by when the read happened.
  */
 const TERMINAL = [
-  'survived', 'wave', 'kills', 'decisions', 'optimal', 'breachLoss', 'fireLoss',
-  'traveled', 'dps', 'parDps',
+  'survived', 'wave', 'kills', 'decisions', 'optimal', 'contactLoss', 'breachLoss',
+  'fireLoss', 'traveled', 'dps', 'parDps',
 ];
 
 const { port: refPort, close: closeRef } = await serveDist(REF);

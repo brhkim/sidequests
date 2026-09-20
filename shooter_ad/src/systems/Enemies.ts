@@ -1,7 +1,8 @@
 import { ARENA, CAGE, ENEMY_FIRE, VIEW, WAVE } from '../config';
 import { ENEMY_BY_ID, poolAverageHp, rollEnemy, type EnemyType } from '../data/enemies';
+import { touching } from './Contact';
 import type { Difficulty } from './Difficulty';
-import type { EnemyBullets } from './EnemyBullets';
+import type { EnemyBullets, Hittable } from './EnemyBullets';
 import { applyMotion, armorAgainst, type Band } from './EnemyMotion';
 import { applyTraits, type TraitContext } from './EnemyTraits';
 
@@ -30,13 +31,28 @@ export interface Enemy {
   dir: number;
   gunCooldown: number;
   traitCooldown: number;
+  /** Fired a volley THIS step. Cleared every step before traits run; the
+   * renderer reads it off the Titan for its volley event. */
+  volleyed: boolean;
+  /** `timer` at the last hit that landed, -1 if none. Written here, read only
+   * by rendering (the hit flash); nothing in `systems/` branches on it. */
+  hitFlash: number;
   active: boolean;
 }
+
+/**
+ * A body that reached the army and was removed for it - not killed. What it
+ * costs is priced by `Contact.contactCost` against the squad's power, which
+ * this system does not hold, so the bodies come back rather than a sum.
+ */
+export interface Consumed { readonly type: EnemyType; readonly x: number; readonly y: number }
 
 /** A cage of allies: shoot it open before it leaves the screen to grow the army. */
 export interface Cage {
   x: number; y: number;
   hp: number; maxHp: number;
+  /** Simulated seconds at the last hit, -1 if none. Rendering only. */
+  hitFlash: number;
   active: boolean;
 }
 
@@ -126,6 +142,18 @@ export class Enemies {
   /** Where a Titan appears; `titanProgress` measures its descent from here. */
   static readonly titanSpawnY = ARENA.spawnY - 40;
 
+  /**
+   * The HP a Titan spawning NOW would have: the boss's own descent and armor
+   * through `Difficulty.titanHp`. The boss reads it on a boss wave; a rescue
+   * cage reads a fraction of it whenever it spawns, so the two scale together.
+   */
+  private titanBudget(): number {
+    const boss = ENEMY_BY_ID.get('titan');
+    if (!boss) return 1;
+    const travelSeconds = (ARENA.breachY - Enemies.titanSpawnY) / boss.speed;
+    return this.difficulty.titanHp(travelSeconds, boss.armor);
+  }
+
   /** The live Titan, if one is on the board. Instruments read it; nothing in
    * the shipped game does. */
   get titan(): Enemy | null {
@@ -135,7 +163,12 @@ export class Enemies {
   /** Fraction of the descent a Titan has covered, 0 at spawn and 1 at the
    * breach line - the axis the boss budget is written in. */
   static titanProgress(e: Enemy): number {
-    return (e.y - Enemies.titanSpawnY) / (ARENA.breachY - Enemies.titanSpawnY);
+    return Enemies.titanProgressAt(e.y);
+  }
+
+  /** The same axis for a bare y, for where a landed Titan was consumed. */
+  static titanProgressAt(y: number): number {
+    return (y - Enemies.titanSpawnY) / (ARENA.breachY - Enemies.titanSpawnY);
   }
 
   /**
@@ -154,6 +187,8 @@ export class Enemies {
       waypoint: null, leg: 0, cycle: -1, anchor: y, dir: 1,
       gunCooldown: ENEMY_FIRE.armDelay + phase * 0.12,
       traitCooldown: 0,
+      volleyed: false,
+      hitFlash: -1,
       active: true,
     };
     if (free) Object.assign(free, enemy);
@@ -183,10 +218,7 @@ export class Enemies {
         // scaled by - thousands of times, late - so no Titan past the first was
         // ever killable, and the constants that were supposed to size it did
         // not matter at all.
-        const spawnY = Enemies.titanSpawnY;
-        const travelSeconds = (ARENA.breachY - spawnY) / boss.speed;
-        const hp = this.difficulty.titanHp(travelSeconds, boss.armor);
-        this.spawn(boss, VIEW.width / 2, spawnY, 1, hp);
+        this.spawn(boss, VIEW.width / 2, Enemies.titanSpawnY, 1, this.titanBudget());
       }
     }
     return true;
@@ -213,6 +245,7 @@ export class Enemies {
     for (const e of this.items) {
       if (!e.active) continue;
       e.timer += dt;
+      e.volleyed = false;
       applyMotion(e, dt, this.band(e.radius));
       applyTraits(e, dt, this.traits);
     }
@@ -224,10 +257,14 @@ export class Enemies {
     this.cageAccum += dt;
     if (this.cageAccum > this.wave.duration && this.rng() < CAGE.chancePerWave) {
       this.cageAccum = 0;
-      const hp = CAGE.hp * this.hpMult;
+      // A fifth of a Titan, not a wave-scaled constant: the cage is priced off
+      // the same par budget the boss is, so opening one costs the same share
+      // of a run's fire at every stage. Par gets nothing for it (see
+      // Difficulty), which is what makes it a way back for a player behind.
+      const hp = Math.max(1, this.titanBudget() * CAGE.hpTitanFraction);
       const cage = this.cages.find((c) => !c.active);
       const fresh: Cage = {
-        x: this.spawnX(CAGE.radius), y: ARENA.spawnY, hp, maxHp: hp, active: true,
+        x: this.spawnX(CAGE.radius), y: ARENA.spawnY, hp, maxHp: hp, hitFlash: -1, active: true,
       };
       if (cage) Object.assign(cage, fresh);
       else this.cages.push(fresh);
@@ -246,6 +283,7 @@ export class Enemies {
    */
   damage(e: Enemy, amount: number, dx = 0, dy = -1): boolean {
     e.hp -= amount * (1 - armorAgainst(e, dx, dy));
+    e.hitFlash = e.timer;
     if (e.hp > 0) return false;
     e.active = false;
     const t = e.type;
@@ -262,24 +300,43 @@ export class Enemies {
   }
 
   /**
-   * Enemies past the breach line. Removes them and reports the power cost, plus
-   * whether a Titan got through.
+   * Bodies overlapping a unit. Removed - no kill, no split, no streak: a body
+   * that reached the army is a failure to kill, and crediting it would make
+   * standing in the stream a way to farm. A Splitter does not split either;
+   * three Grunts spawned inside the ring would each contact next step.
+   */
+  collectContacts(units: readonly Hittable[], unitRadius: number): { consumed: Consumed[]; titan: boolean } {
+    const out = { consumed: [] as Consumed[], titan: false };
+    for (const e of this.items) {
+      if (e.active && touching(e, units, unitRadius)) this.consume(e, out);
+    }
+    return out;
+  }
+
+  /**
+   * Bodies past the breach line that missed the army. Same removal, same
+   * price (`Contact.contactCost`): reaching you IS the failure, whichever
+   * line was crossed first.
    *
    * A Titan arriving is not damage, it is the end of the run. A boss that can be
    * absorbed like any other body is not a boss, and the whole point of sizing
    * its HP against par is that reaching you is supposed to be fatal - otherwise
    * the deadline it creates is a suggestion.
    */
-  collectBreaches(): { cost: number; titan: boolean } {
-    let cost = 0;
-    let titan = false;
+  collectBreaches(): { consumed: Consumed[]; titan: boolean } {
+    const out = { consumed: [] as Consumed[], titan: false };
     for (const e of this.items) {
-      if (!e.active || e.y < ARENA.breachY) continue;
-      if (e.type.id === 'titan') titan = true;
-      cost += e.type.damage;
-      e.active = false;
+      if (e.active && e.y >= ARENA.breachY) this.consume(e, out);
     }
-    return { cost, titan };
+    return out;
+  }
+
+  /** Removes a body without killing it: `active` off directly, never through
+   * `damage`, so nothing splits and no kill is counted. */
+  private consume(e: Enemy, out: { consumed: Consumed[]; titan: boolean }): void {
+    if (e.type.id === 'titan') out.titan = true;
+    out.consumed.push({ type: e.type, x: e.x, y: e.y });
+    e.active = false;
   }
 
   reset(): void {

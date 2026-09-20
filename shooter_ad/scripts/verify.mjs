@@ -120,6 +120,11 @@ const stats = await page.evaluate(
   () => window.game?.scene?.getScene('Game')?.registry?.get('stats') ?? null,
 );
 
+// Audio is raw WebAudio unlocked by the START MATCH click above; its stats
+// seam says whether a context exists, what state it reached headless, and
+// whether any WebAudio call threw (they are all caught and counted).
+const audio = await page.evaluate(() => window.__audio?.stats ?? null);
+
 const canvas = await page.evaluate(() => {
   const c = document.querySelector('canvas');
   return c ? { width: c.width, height: c.height } : null;
@@ -136,6 +141,7 @@ const blankish = size < 12_000;
 console.log(`canvas:     ${canvas ? `${canvas.width}x${canvas.height}` : 'MISSING'}`);
 console.log(`screenshot: ${OUT} (${size} bytes)${blankish ? '  <-- suspiciously small' : ''}`);
 console.log(`stats:      ${stats ? JSON.stringify(stats) : 'UNAVAILABLE'}`);
+console.log(`audio:      ${audio ? `state=${audio.state} cues=${audio.cues} voices<=${audio.peakVoices} bundled=${audio.bundled} refused=${audio.refused} failures=${audio.failures}` : 'UNAVAILABLE'}`);
 console.log(`errors:     ${errors.length}`);
 for (const e of errors) console.log(`  ${e}`);
 
@@ -146,4 +152,6 @@ if (!stats) { console.error('FAIL: no gameplay stats exposed'); process.exit(1);
 if (stats.kills === 0) { console.error('FAIL: no enemies killed in ' + SECONDS + 's'); process.exit(1); }
 if (stats.wave < 2) { console.error('FAIL: wave never advanced'); process.exit(1); }
 if (stats.units > 19) { console.error('FAIL: ring cap exceeded'); process.exit(1); }
+if (!audio) { console.error('FAIL: no window.__audio seam'); process.exit(1); }
+if (audio.failures > 0) { console.error('FAIL: WebAudio calls failed'); process.exit(1); }
 console.log('PASS');

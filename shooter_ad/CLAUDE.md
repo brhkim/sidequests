@@ -21,12 +21,14 @@ npm run repeat  # plays ONE seed several times; fails if the runs disagree
 npm run sweep   # every seed at every skill level; prints the table below
 npm run hud     # screenshots the HUD in early / mid / late upgrade states
 npm run endscreen  # screenshots the end, start and pause screens after real runs
+npm run moments    # forces every feedback moment and photographs it mid-animation
 npm run matchcode  # round-trips share codes; pure logic, fast
 npm run behaviour  # per-enemy movement signatures, shield taper, enemy fire
 npm run pressure   # sweeps the two knobs that set how hard ordinary enemies are
 npm run neutral    # proves a change was RENDERING-ONLY, against a reference build
 npm run from       # plays real runs from an INJECTED late-game state, par equal to it
 npm run titan      # parks a squad under the boss and reports where on its descent it died
+npm run roster     # photographs every enemy type, the cage, every gun's volley, hits and kills
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -99,13 +101,69 @@ shareable artefact - is never otherwise seen by any automated check, and it is
 the screen most likely to be wrong because it is the only one built from values
 that do not exist until a run ends.
 
+`npm run moments` photographs every feedback moment mid-animation - the pick
+wash at each grade, a MISS, a breach, a contact, a volley of fire, a rescue, a
+wave clear, the Titan's warning and its bar, and the death beat at 250ms and
+900ms. Each is FORCED (a body moved into the ring, a one-hit cage dropped into
+the column, the wave clock zeroed) rather than waited for, and it asserts the
+expected text is on screen and that the end screen is held back for the beat.
+Stills are not motion; look at them, and read `npm run neutral` beside them,
+because a feedback change that reached the simulation would pass this.
+
+**HUD and feedback, as built.** `UIScene` draws the rail, the strip, the
+pause button and the three screens, and dispatches the `moment` stream to
+`hud/EdgeFlash` (damage, at the screen edges, sized by `share`),
+`hud/BossBar` (the Titan's HP under the rail from `HudPayload.titan`) and
+`hud/WaveBanner`. Field-space feedback is `scenes/fx/FieldFx` inside
+`render/FieldRender`: the grade wash (`PERFECT` / `GOOD` / `BAD` in the
+card's own footprint, held then lifted - the one authored motion), `MISS`
+at the lane line, `+N ARMY` over a rescue, `-N` at a contact, and the death
+dim. The `toast` string event and the 420ms halo are gone. Gate labels and
+the SENSE tag sit at depth 15, above the squad's stream; `render/GateCards`
+owns the cards, and draws each label as two lines - the magnitude (`×1.05`,
+`+2`) at 26px over the axis word (`DMG`, `PIERCE`) at 14px, split at the
+label's last space (`+SENSE` is `+` over `SENSE`) - because from wave 5
+dead space narrows the card to as little as 100px. A magnitude wider than
+the card (`+1840%` is 121px at 26px) is scaled down to fit rather than the
+whole ladder being sized for the rare case. `type.label` is unchanged; the
+split is display only. Every tappable line on a screen has a Rectangle hit bar of
+at least 44px, and the end screen restarts only from `REPLAY_BUTTON`, which
+`GameScene.bindInput` hit-tests - a tap anywhere else leaves the shareable
+screenshot alone. The pause screen's SOUND line emits `mutetoggle` and
+follows the `muted` answer; it never asserts a state audio is not in.
+
+**Finish review** (impeccable, end of the 2026-09-19 session; rendering
+only, `npm run neutral` identical on 5/5 seeds). It changed: the rail
+backing and the pause button to 0.96 alpha, what the strip already used,
+because the stream and a Runner read through DPS and PAR; OVERRUN / THE
+TITAN LANDED to a 28px untracked heading, the step PAUSED uses, instead of
+a tracked kicker over the 112px number; the SENSE mark to an 8px bar with
+an alpha floor of 0.8, a 14px tag on a 64x22 backing and a white 2px
+stroke on the marked card (the targeted card keeps its brackets, so answer
+and target never look alike); the Grunt's legs, the Bomber's fuse and
+ember and the Spitter's tube and mouth, so those three read by silhouette
+at 50% (radii untouched, appendages within a quarter of r); the Lancer to
+indigo `0x6a5acd`, off the enemy-bullet magenta; pause notes to 13px with
+an alpha floor of 0.75 and the VALUE dimming on unheld rows; the coloured
+side stripes on strip cells and pause rows to 1px hairlines (the label is
+already in the axis colour); the boss bar to a 6px full-width bar directly
+under the standing bar with a small TITAN tag, off the offer at the head
+of its descent (the warning band keeps its row for 1.2s); one scale on the
+three screens (code 40, button 300x56, label 22, link 15); MISS 60px above
+the lane line, clear of the ring's heads; the end screen's two secondary
+captions to Small, untracked; the start version at 820; the DETAILS answer
+line as the one bright, bold line; ARMY-cell floats at 18px. The one
+review item NOT taken: the end screen keeps waves survived as its headline
+with the decision score beneath it, which is the author's intent in
+`notes.md` and is now recorded in `PRODUCT.md`.
+
 `npm run matchcode` round-trips share codes, including every 32-bit boundary and
 the ways a person mistypes one off a screenshot. A sharing code that loses a bit
 is worse than no sharing: two people compare scores on what they believe is one
 match, and nothing on screen says otherwise.
 
 `npm run behaviour` is the instrument for the enemy roster. `verify` proves the
-game boots and `balance` proves it is survivable; neither can see eight types
+game boots and `balance` proves it is survivable; neither can see nine types
 moving identically, which is a bug this project actually shipped. It spawns a
 cohort of each type directly - the bot does not reliably survive to wave 8 - and
 prints lateral path length, backward travel, direction changes, peak speed and
@@ -115,7 +173,15 @@ squad. It samples wall-clock frames, so figures wobble a few percent per run; it
 measures movement, not whether that movement is any fun.
 
 `npm run balance` plays several fixed seeds and prints the series. Use it before
-and after any balance change. `PROBE_SECONDS=240 PROBE_SEEDS=1,2,3
+and after any balance change. Its footer prints the three ways the army loses
+power per minute - `contactLoss`, `breachLoss`, `fireLoss` in the `stats`
+registry, which `verify`, `from`, `titan` and `neutral` also read - and, with
+every row of `npm run from`, the **pierce instrument**: `hitsPerLanding` (bodies met per shot that
+met anything, cumulative over the run) beside the multiplier the build is
+priced at, and `landed`, the share of the stream that met anything at all. A
+claim well above the measurement means par and the player are both being
+credited for damage that does not arrive; the linear price was checked against
+it the day it landed (see "Pierce is linear" below). `PROBE_SECONDS=240 PROBE_SEEDS=1,2,3
 PROBE_VERBOSE=1` for a longer, fuller run. `PROBE_DIST=/some/dist` points it,
 and every other probe, at a build other than the working one - the before half
 of a before/after pair is measured against a snapshot rather than rebuilt.
@@ -219,6 +285,10 @@ than dying - its survival is a FLOOR, and so is any median containing one:
 | 0.7 | 93.8s | 57% | 0.70 | 7 | 5/5 | 26.1 | 3445 |
 | 0.9 | 122.9s | 73% | 0.76 | 9 | 5/5 | 21.3 | 3307 |
 | 1.0 | 123.2s | 85% | 0.78 | 9 | 5/5 | 21.3 | 3307 |
+
+This table predates contact damage (see "Contact damage" below); the bot now
+walks into what it does not kill and every survival here is from a game that
+no longer ships.
 
 **Every run now dies inside the budget, so for once no median here is a floor.**
 That is a change from the table this replaced, which had 3 to 5 truncations per
@@ -349,6 +419,19 @@ src/
 syncs pooled sprites to that state once per frame. Gameplay is therefore
 readable and testable without touching Phaser.
 
+**Simulation events.** `systems/SimEvents.ts` is the one typed stream of what
+a step DID - `kill`, `contact`, `breach`, `fire`, `pick`, `miss`, `rescue`,
+`streak`, `wave`, `titan` (arrive / volley / down), `sense`, `over` - with
+positions, costs and the cost's share of the army before the charge.
+`GameScene` pushes into it only inside `step`, and the top of `render()`
+drains it and emits the whole array once per frame as the `moment` game
+event, so sprites, HUD feedback and audio all read one account of the same
+steps rather than each inferring its own from state. The rule that keeps it
+off the determinism surface: **nothing in `systems/` reads the queue**, and
+nothing that consumes `moment` may feed the simulation. `npm run repeat` and
+`npm run neutral` would both miss a consumer that did, because a game with a
+feedback loop in it is still deterministic.
+
 **Keep files small and split early.** Agents add features well and restructure
 large files badly. Past ~250 lines, split before adding.
 
@@ -460,6 +543,43 @@ Squad movement is rate-limited in `Squad.update`. Under a pointer it used to
 assign the finger's x directly, so the squad teleported, travel was free and the
 whole movement economy was inert. `SQUAD.moveSpeed` came down from 620 to 260
 when the movement bonuses landed; set it high again and `x MOVE` buys nothing.
+
+### Dead space is the fourth judgment lever
+
+From wave 5 (judgment wave) each gate is narrower than its lane, and the band
+between neighbours belongs to no option: `GATES.deadSpace` is `{ fromWave: 4,
+perWave: 6, max: 72 }`, read through `Progression.gateDeadSpace(wave)` beside
+`waveGateSpeedMult`, so a 180px lane holds a 174px gate at wave 5, 144px on
+the second Titan at wave 10, and 108px from wave 16 on - the leader must then
+be within ±54px of a card's centre. It keys off `judgmentWave` like speed and
+legibility, so hard mode starts at 12px and caps at real wave 11. The width
+IS the hit test (`checkGates` and `FieldRender.findTarget` both read
+`g.width`) and the card is drawn exactly as wide as it hits; `GATES.gap` is
+the drawn inset on top of that, so what the eye sees as a gap is dead space
+plus 8px. `GATES.minWidth` (100) floors the width whatever the config asks,
+and `npm run model` fails if `max` would ever breach it.
+
+Why it exists: past the point where the sum is hard and the time is short,
+the author wants the pick to also cost precision of movement through the
+noise of a late wave, and to be MISSABLE. That was once deliberately removed
+- a gap at wave 1 turned a missed offer into a geometry accident - and it
+returns as a curve rather than a constant for exactly that reason. `MISS` at
+the lane line is now reachable in play, and the word lands on the option the
+squad was nearest.
+
+It is NOT priced by `reach`, and that is acceptable: reach is lane widths of
+travel per descent, and dead space narrows the target inside the lane rather
+than moving it. Pricing the precision cost would mean pricing the player's
+hand, which `scoreOffer` cannot see - par is a little generous late in the
+same way it is about bullets the player has to dodge. The bot steers to a
+card's exact x, so `npm run balance` barely feels it; a human will.
+
+`GATES.height` grew from 64 to 88 with it, to hold the two-line label at the
+narrowest width. That widened the vertical hit window by 24px of descent
+(timing, not precision) and lengthened `gateDescentSeconds` by 24px worth,
+which `reach` reads - so par's access pricing moved by a hair and the change
+is NOT render-neutral; version 0.5. `npm run model` prints the whole curve
+per wave under "the judgment curve" for both modes, Titan waves marked.
 
 ### `Progression.ts` is the single definition of squad strength
 
@@ -629,9 +749,15 @@ not the problem; three things sat between them and the game:
   spawns inside `WEAPON.columnWidth`, the Titan's diameter: the unit's offset
   from the squad centre is scaled down from `FORMATION_HALF_WIDTH`, and the
   guns spread `WEAPON.gunSpread` inside that. `npm run model` fails if the
-  column is ever wider than the boss. This is a balance change everywhere,
-  not only against the boss - the stream is a beam rather than a curtain -
-  and `notes.md` records it as the intent.
+  column is ever wider than the boss's hit radius (`radius + bulletRadius`).
+  This is a balance change everywhere, not only against the boss - the stream
+  is a beam rather than a curtain - and `notes.md` records it as the intent.
+  It is **83px** now, 72 widened by 15% after play, and the Titan's radius went
+  36 to 38 so the invariant holds; and it is centred on the DRAWN leader
+  (`units[0].x`) rather than `squad.x`, because units ease toward their slots
+  and under a moving finger the ring trails the centre by ~18px, so the beam
+  left the air beside the character. Parked, the two are one point, and
+  `npm run titan` reads a median delivery of 1.00 either way.
 
 **A fourth was found by the instrument built to check the other three.** With
 the column, the armor and the `hpMult` fixed, `npm run titan` still reported a
@@ -661,12 +787,75 @@ of the parent commit and after with the guard and the 72px column:
 Three seeds moved under two seconds; two shortened by 16s and 31s. Read the
 direction and not the size, and note that the pair cannot separate the guard
 from the column, which landed in the same commit. The sweep table above
-predates this pair and is stale by that much.
+predates this pair and is stale by that much. This pair in turn predates
+contact damage, and so do the Titan deliveries in the paragraph above it.
 
 With those four gone, `bossKillDistance` is now the only thing the boss's
-difficulty is made of, and it came down from 0.75 to **0.3** as the author's
-next value to feel out. The distance is measured to `ARENA.breachY`, the line
+difficulty is made of. It came down from 0.75 to 0.3 as the author's value to
+feel out, and after play went to **0.36** - 20% more HP, linear in the
+distance. Rescue cages read the same budget (`CAGE.hpTitanFraction`). The distance is measured to `ARENA.breachY`, the line
 that actually ends the run, not to the lane line.
+
+### Pierce is linear, and the price is measured against the board
+
+`pierceMultiplier` is `1 + q x P`, q = 0.5. It was the geometric series
+`1 + q + ... + q^P`, which saturates at 2x and made pierce a dead axis by the
+third pick - no way of drawing `+N PIERCE` could revive it - so at the
+author's request the compounding was dropped: pierce 1 is still exactly 1.5x,
+and each level adds the same half a hit. `notes.md` carries the argument (a
+dense late column is the linear regime anyway). What made it safe to ship was
+building the instrument first: `GameScene.collide` counts shots charged
+against bodies and shots meeting their FIRST body (the top level of a
+bullet's bundle only ever loses shots), and publishes `hitsPerLanding` and
+`landed`. Read on the day: pierce-1 bots early measured 1.03 to 1.27 against
+1.5 (the board is sparse; the price is generous); from wave 18 on, 2.3 to 2.75
+against 2.0 to 2.5 (the price is under the truth). A price above the
+measurement late would have meant par budgeting enemies against damage nobody
+delivers, which is the failure `deliverableDps` once existed for.
+
+### `+SENSE` is a roll at spawn and a mark computed live
+
+`Gates.spawnOffer` draws ONE extra number from the seeded generator per offer,
+always, whatever sense is held, and compares it with `senseChance(sense)` -
+so the stream advances identically on every run of a seed and a player's
+sense level cannot shift the enemies and offers that follow. That decides
+whether the offer is *sensed*. Which of its three options wears the mark is
+NOT stored: `renderGates` asks `scoreLiveGates` every frame, and the option
+that is best against the player's state right now is the one ringed and
+captioned. If taking the previous gate changes the answer, the mark moves,
+and at arrival it is the option the `DecisionLog` will grade best - the two
+cannot disagree because they are one call. The pulse reads the simulated
+clock for its phase and touches nothing.
+
+Sense is priced in `progressValue` as `senseFactor` beside `accessFactor` -
+judgment beside access - and nowhere in the difficulty budget. It is capped
+by the length of `SENSE.chance`, filtered out of the candidate pool at the cap
+(`rollOffer`), and the rail draws it as pips. `Upgrades.sense` exists on par
+too; par sometimes takes it, exactly as it sometimes takes MOVE, and that
+softens the curve by the same small amount `npm run model` reports for
+access picks.
+
+### A match is re-seedable, and a restart replays it
+
+`GameScene.rng` is now one level of indirection over `rngImpl`. Every system
+holds `rng`; `reseed()` swaps `rngImpl` for `mulberry32(seed)` and rebuilds
+the squad (whose constructor draws the first unit's jitter, which must be the
+new stream's first draw). `restart()` calls it, so "tap to replay this match"
+replays the match - it used to let the stream carry on under the old code,
+and no code on screen could reproduce the run it produced. The start screen's
+"enter a code" and "new match" and the end screen's "start a new match" all
+go through `matchrequest` / `newmatchrequest` events into the same path. Those
+listeners are registered on EVERY page, `?seed=` instrument pages included;
+they were once behind the instrument early-return, so the end screen's new
+match did nothing on any page a script had opened, and `npm run endscreen`
+now presses all of them.
+
+Two Phaser facts this cost an hour: a tappable Text inside a Container was
+not reliably hit, so every tappable line now has a fixed Rectangle hit bar
+behind it (which also keeps the target still when the label changes length);
+and the same tap reaches both scenes' pointer handlers, so nothing may depend
+on which runs first - `newmatchrequest` is not gated on `over` for that
+reason.
 
 ### Legibility must stay difficulty-neutral, and once did not
 
@@ -701,10 +890,12 @@ tune balance around them — fix them first.
 Fixed: **enemy behaviour variety**. Movement is now a discriminated `motion`
 union in `data/enemies.ts`, one case each in `systems/EnemyMotion.ts`, and every
 kind is used by at least one type - a plain straight-down walker was deleted
-rather than left as another unused case. Non-movement behaviour (`gun`, `heal`,
+rather than left as another unused case. Non-movement behaviour (`gun`,
 `escort`, `splitInto`, `frontArmor`) is now plain optional fields read by
 `Enemies.applyTraits`, so combining them is data rather than a new case.
-`npm run behaviour` is what keeps this honest.
+`npm run behaviour` is what keeps this honest. The Healer and its `heal` trait
+are gone - the author's call, recorded in `notes.md` under "Enemies have a
+hurt box".
 
 Fixed, and worth knowing why they mattered: the rank ladder used to saturate at
 608 power, which turned every army bonus above it into a measured no-op and left
@@ -839,31 +1030,299 @@ matter and are in place:
   and movement is additionally split into substeps of at most
   `ENEMY_FIRE.maxStep`. The squad is a cluster of 8px units, which is the exact
   geometry an endpoint test slips between.
+- Enemy-vs-squad (contact) is an ENDPOINT circle test in `Contact.touching`,
+  deliberately not swept: the fastest body moves 3.2px a step (a Splitter's
+  dash) against a 34px overlap disc (Runner 9 + unit 8, doubled), the squad
+  centre adds at most 4.3px a step at x1 MOVE, and the ring's discs overlap
+  each other (spacing 24 < 34), so no body can cross the formation between
+  two steps. The sweep exists for 16px-per-step bullets. It is a direct loop
+  rather than the `Grid` - under 1,900 distance checks a step at a full ring
+  - with an early-out per body on the first unit touched.
 
-Squad damage now has two sources, and they are deliberately different: a breach
-costs `SQUAD.breachLoss * enemy.damage` and shakes the camera hard, while a
-bullet costs `SQUAD.fireLoss * gun.damage` and barely nudges it. A breach is a
-failure to kill; fire is a tax on standing still.
+Squad damage has three sources: **contact** (`contactLoss`, a body touching
+the ring), **breach** (`breachLoss`, a body past `ARENA.breachY` that missed
+the ring) and **fire** (`fireLoss`, `ENEMY_FIRE.powerShare` per landing
+bullet, 1% floor 1). Contact and breach are one price from one function -
+`Contact.contactCost` - and shake the camera hard; fire barely nudges it. A
+body reaching you is a failure to kill; fire is a tax on standing still.
+
+### Contact damage
+
+An enemy touching the army charges it and is destroyed doing so. The price is
+a SHARE of the army held before the step's charges, floored in whole power,
+by the body's `tier` (`CONTACT` in config; the roster names one per type):
+
+| tier | types | share | floor | at 19 | at 100 | at 640 | at 38,912 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| basic | Grunt, Runner | 2% | 1 | 1 | 2 | 12 | 778 |
+| medium | Shielder, Spitter, Splitter, Lancer | 4% | 2 | 2 | 4 | 25 | 1,556 |
+| large | Brute, Bomber | 6% | 3 | 3 | 6 | 38 | 2,334 |
+| titan | Titan | 100% | - | run ends | run ends | run ends | run ends |
+
+A bullet is 1% floor 1 for comparison, so a Basic contact is never cheaper
+than a bullet and a Large is three. The share overtakes the floor at 100 /
+75 / 67 power. `npm run model` asserts the floors, the shares at the old cap,
+the Titan as the whole army, monotonicity over the three ordinary tiers, and
+that the roster is nine types with no Healer. The flat table it replaces
+(1/1/3/2/2/5/1/2 per type, `EnemyType.damage`, now deleted rather than kept
+beside `tier`) went dead the way a flat bullet did: at 640 power a leak cost a
+sixth of a percent.
+
+Four rules, each with a reason:
+
+- **Breach costs the same, through the same function.** A body past the line
+  beside the ring is the same failure as one that walked into it, and
+  `SQUAD.breachLoss` is deleted rather than set to 1: a multiplier on one
+  contradicts that, on both is a no-op.
+- **Consumed, not killed.** `Enemies.consume` sets `active = false` directly,
+  never through `damage`, so a Splitter does not split (three Grunts inside
+  the ring would each contact next step), `onKill` is not called, so no
+  `kills++` and no streak - standing in the stream would otherwise farm both.
+  `Difficulty.observeSpawn` already credited par with the body at spawn.
+  Contact with a cage does nothing.
+- **Step order is `collide -> applyContacts -> checkGates -> applyBreaches ->
+  applyIncomingFire`.** Bullets first, so a body a shot kills on the same step
+  is a kill and never a contact; contacts before breaches, so a body that
+  satisfies both on one step (a Grunt at y 862 is 17px from the bottom rank at
+  845, inside the 19px it takes to touch) is charged as a contact once.
+- **A Titan reaching the army ends the run**, `cause: 'titan'`, on the
+  `titan` flag `collectContacts` returns - not on the power reaching zero,
+  which at 1 or 2 power the whole-army price would leave numerically below a
+  Large's floor. `titanChecks[].landedAt` records where on its descent it
+  was consumed, and `npm run titan` prints it: a boss that lands does so ON
+  THE SQUAD at roughly 85% of its descent, not at the line.
+
+Contact lands earlier than a breach did. A full ring's front rank sits at
+y ~755 and a lone leader at 800, so a Grunt (r 11) is consumed at y ~736 or
+~781 against 862 for the line - 81 to 126px sooner, which is 2.4-3.7s of a
+Grunt's descent, 1.5s of a Runner's, 4.7s of a Shielder's, 0.8s of a Bomber's
+sprint. Bodies the column used to kill in those seconds are charges now, so
+the floors do not make the early game the old game. The probe bot parks under
+the stream it is killing and does not step aside, so it pays this at the
+highest rate any player would. `npm run verify` passes untouched: wave 1 is
+Grunts only, the first spawns at ~0.9s and needs ~24s to reach y 781, so the
+first possible contact is at the 24s window's end - the verify stats line
+reads `contactLoss: 0, over: false` at 29s simulated, kills 10, wave 2.
+
+**Measured on the day it landed**, before on a snapshot of the parent commit
+(`e834edf`) and after, seeds 1-5, skill 0.7. `npm run repeat` reads 0.00%
+spread on both builds (seed 1: 44.1s, wave 3, 4 decisions, 86%, 14 kills).
+
+| | survival | median | optimal | standing | contact/min | breach/min | fire/min |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| before | 41.6 / 42.9 / 44.1 / 46.6 / 87.2s | 44.1s | 78% | 0.86 | 0.0 | 15.4 | 0.0 |
+| after | 41.6 / 42.9 / 44.1 / 46.6 / 87.2s | 44.1s | 78% | 0.86 | 2.6 | 15.4 | 0.0 |
+
+**Survival did not move on any seed, to the decimal**, and `npm run neutral`
+against the same snapshot says why while failing as a balance change must:
+on every seed `contactLoss + breachLoss` is identical before and after
+(10/10, 10/10, 15/15, 8/8, 35/35; seed 4 identical in every field) and only
+`kills` differs, by one on seeds 1 and 5. In the regime the probe reaches -
+under 75 power, where every price is its floor - a body that walks into the
+ring is a body that was going to cross the line two to four seconds later at
+the same price, and the bot was not going to kill it in between. Contact
+re-labels the failure; it does not yet add to it. That is a statement about
+the floors and the bot, not about the share: the probe has never held 100
+power, so nothing here has measured the 2% / 4% / 6% regime at all.
+
+`npm run from -- --dps=1e5` (wave 18, power 40, seeds 1-3) is the nearest
+instrument to it and still does not reach it - peak power after is 46 to 63,
+under every crossover - so what it measures is the floors at a wave-18 spawn
+rate, where the difference is how often bodies arrive, not what they cost:
+
+| | survival | contact/min | breach/min | fire/min | standing at end | died |
+| --- | --- | --- | --- | --- | --- | --- |
+| before | 100.7 / 36.7 / 52.9s | 0 / 0 / 0 | 37.5 / 34.3 / 22.7 | 98.3 / 75.2 / 82.8 | 0.04 / 0.09 / 0.12 | attrition x3 |
+| after | 62.4 / 55.9 / 52.0s | 14.4 / 5.4 / 21.9 | 16.3 / 15.0 / 19.6 | 60.6 / 83.7 / 75.0 | 0.10 / 0.06 / 0.06 | attrition x3 |
+
+Contact and breach together run 30 to 41 power a minute against 23 to 38 of
+breach alone before; the medians (52.9s to 55.9s) are within one seed's
+noise and no run meets a Titan either way. The bot does not step aside, so
+this is the highest rate a player would pay.
+
+`npm run titan` is unchanged in what it measures - median delivery **1.00**
+over six kills before and after (1.00 / 1.07 / 0.69 / 0.95 / 1.04 / 0.69
+before; 1.00 / 1.08 / 0.71 / 0.94 / 1.00 / 0.64 after), and the dps-30 state
+still dies to the escorts' fire before the boss arrives on all three seeds.
+What the parked squad now pays its escorts is visible: 12-17 power to
+contact at 1e5 and 55-131 at 1e8, where before it was 0 - the Runners the
+Titan spawns walk into the ring at 2% each instead of crossing the line for 1.
+No Titan landed in any instrumented run, so `landedAt` is reported but not
+yet observed.
+
+`npm run behaviour` needed one change to its tracker and none to its
+assertions: the brute cohort now reaches the parked squad inside the 6s window
+(300px of sprint at ~59px/s, where the line was ~7s away), the consumed slot
+is refilled at the top of the screen by the wave spawner, and a tracker that
+checked only `active` read the same object as an 800px retreat. It now keys
+each body on its per-enemy `seed` and stops on the first reused slot.
 
 ## Art
 
-Entirely procedural, generated in `BootScene` with `Graphics#generateTexture`.
-Everything is drawn white and tinted at runtime, so one texture serves every
-colour. No asset files, nothing to load at runtime — which is what keeps the
-build a static folder.
+Entirely procedural, generated in `BootScene` with `Graphics#generateTexture`
+from the modules in `scenes/art/` (`creatures`, `squad`, `projectiles`,
+`cage`, and `draw` for the helper). No asset files, nothing to load at
+runtime — which is what keeps the build a static folder.
+`TextureManager.generate` and the Create palettes were **removed in Phaser
+v4**; see `.claude/skills/phaser4-migration/`.
 
-`TextureManager.generate` and the Create palettes were **removed in Phaser v4**;
-see `.claude/skills/phaser4-migration/`.
+**White with black detail.** Every texture is drawn white with its details -
+eyes, seams, mouth slots, outlines - in pure black, at 2x, and shown at
+`setScale(0.5)`. Under the default multiply tint white takes the runtime
+colour and black stays black, so one texture serves every hue and a 3px seam
+stays crisp. Anything needing a SECOND hue (the Shielder's pale plate, the
+Bomber's ember, the Spitter's gun tube, the Lancer's trident, the Titan's
+eyes) is a separate overlay texture tinted `EnemyType.accent`, one depth
+above its body. `accent` is a rendering field and nothing in `systems/`
+reads it.
+
+**Radius is simulation; the sprite is fitted to it.** `EnemyType.radius` is
+the hit circle and never changes for a drawing. Each creature's box is
+`2 * (2r + margin)` with the circle centred; solid mass stays inside it and
+only thin appendages cross, by a quarter of r at most (the Runner's nose is
+the worst, ~4px). `CREATURE_ART` in `art/creatures.ts` is the table the
+renderer reads - body key, accent key, whether it rotates to its travel
+(walkers) or stays upright (gun types), whether it is drawn in the Titan
+pools, and its one authored motion (the Splitter swells, the Bomber's ember
+pulses; nothing else animates). `SpriteRender.renderEnemies` has no per-type
+branch; a new creature is a texture and a row.
+
+**Hit feedback is a flash and a bleach, never an alpha fade.** A wounded
+body used to fade toward the background and vanish. Now `Enemies.damage`
+stamps `hitFlash = e.timer` (its own clock) and `GameScene.collide` stamps
+`c.hitFlash = elapsed` on a cage; the renderer draws the body pure white for
+`RENDER.hitFlash` (0.07s) after the stamp and otherwise tints it
+`RENDER.bleach` (35%) of the way to white at zero HP. The stamp is written
+by the simulation and read only by rendering - `grep hitFlash src/systems`
+must show the field, the two `-1` initialisers and the one set, nothing
+else. Health bars stay for `radius >= 14`.
+
+**Death pops are a fixed budget.** `render/Shards.ts` keeps `RENDER.shardRing`
+(96) shard records and one sprite pool; a `kill` event throws
+`shardsPerKill` (3; 12 for a Titan) for `shardLife` (0.28s), a `contact`
+event throws two dull ones for 0.18s. Past the budget the oldest shard is
+overwritten, so a burst never allocates. Spoke angles are phased off the
+simulated clock, never the RNG.
+
+**Enemy bullets are darts, not small enemies.** `ebullet` is a black-outlined
+teardrop rotated along its velocity, in `COLORS.enemyBullet` (hot magenta -
+no body wears it), with a faint copy behind it (`RENDER.bulletTrail`). Squad
+bullets stay the cream pill on the tier ladder. `ENEMY_FIRE.radius` is
+unchanged; the dart is 8x16 on screen around a 5px hit circle.
+
+**Depth map** (UX and HUD layers omitted; see their sections):
+
+| depth | what |
+| --- | --- |
+| 8 / 9 | Titan body / accent (`bigPool`) |
+| 10 / 11 | enemy bodies / accents |
+| 12 / 13 | cage inmates / cage bars |
+| 12 | squad bullets |
+| 14 | shards |
+| 18 | enemy overlay (health bars) - above the bodies it annotates |
+| 20 / 21 | squad body / head (`head-lead` for slot 0, with a visor) |
+| 22 / 23 | enemy bullet trail / enemy bullets - above the squad they hit |
+
+**`npm run roster`** photographs the set: `roster.png` (one of each type in
+a row, the Titan, a cage, every gun's volley, the squad at `hud-mid`),
+`roster-hit.png` (bodies flashing, bodies bleached, two kills popping, a
+contact mark, a flashing cage) and `roster-late.png` (`hud-late`).
+`ROSTER_SCALE=3` adds `*-zoom.png` crops at 3x. It asserts only that nothing
+errored; the two questions to put to the stills are whether every type can
+be named from silhouette with colour ignored, and whether any enemy bullet
+could be taken for a Runner.
+
+### Audio
+
+Sound follows the art's rule: no files, everything synthesised. It is raw
+WebAudio in `src/audio/`, and Phaser's sound manager is switched off
+(`audio: { noAudio: true }` in `main.ts`, accepted by the 4.2.1 types and
+honoured at runtime) so there is exactly one context.
+
+```
+src/audio/
+  cues.ts         the palette: CueName -> recipe (parts, level, priority, cap, bundle rule)
+  synth.ts        recipe -> nodes on ANY BaseAudioContext; ADSR; fixed-seed noise; master chain
+  collapse.ts     the Bundler: N events in a window become ONE voice encoding N
+  Audio.ts        context lifecycle, unlock, buses -> duck -> master -> compressor, voice budget, mute
+  AudioEvents.ts  the game.events subscription, event -> cue mapping, Titan heartbeat, window.__audio
+```
+
+**It reads `game.events` and nothing else.** `installAudio(game.events,
+location.search)` is called once from `main.ts`; no scene file knows audio
+exists. It subscribes to `moment` (the `SimEvent[]` GameScene drains each
+frame), `hud` (its per-frame tick), `paused`, `restart`, `gameover`,
+`startmatch` and `mutetoggle`, and emits `muted, boolean` in answer to the
+last. Nothing in `systems/` imports `audio/`; `npm run audio` greps for that,
+for `Math.random` and for `Rng` in `src/audio/`. Variation (the kill's +-3%
+pitch jitter) comes from a hashed counter, so a replay sounds the same.
+The bundler's clock is `performance.now()`, which audio may read because
+nothing it does can reach the simulation - `npm run repeat` and `npm run
+neutral` are what keep that true.
+
+**Mapping.** `kill` -> `kill` (bundled; a Titan kill is `titan down` ->
+`titanKill`); `contact` / `breach` -> the same-named cues, level rising with
+`share`; `fire` with hits -> `fireHit`; `pick` -> `pickPerfect` / `pickGood`
+/ `pickBad` by grade; `miss`, `rescue`, `streak`, `wave`, `sense` -> the
+same names; `titan arrive` -> `titanArrive` and a heartbeat (`titanPulse`)
+that quickens over 20 s, since audio cannot see the descent; `titan volley`
+-> `titanVolley`, at most every 250 ms; `over` -> `playerDeath` or
+`titanLand` by cause; `startmatch` -> `start`; `paused` -> `pause` /
+`resume`. `mutetoggle` itself plays nothing.
+
+**The collapse.** Kills, contacts, breaches and fire hits go through the
+`Bundler`: a lone event plays at once; inside a 100 ms window (80 / 120 / 60
+for the others) further events are tallied and play as ONE voice when it
+closes, so the kill voice rate is at most 10/s. A bundle of `n` is one
+semitone lower per doubling, 1.5 dB quieter per doubling, and from four
+carries a partial an octave down - heavier, never louder. Under 600 kills
+2 ms apart the instrument measures 13 voices and 599 bundled.
+
+**Budget.** Twelve voices, per-cue caps (kill/contact/breach/fireHit 2, the
+rest 1), priorities `titanLand 100 > playerDeath 95 > titanKill 90 >
+titanArrive 85 > breach 70 > pick 65 > rescue 60 > wave 55 > streak 50 >
+contact 45 > sense 40 > titanVolley 35 > titanPulse 30 > miss 25 > fireHit
+20 > kill 10 > ui 5`. A full mix evicts the lowest priority below the
+newcomer or refuses it (`stats.refused`). Breach and the Titan cues duck the
+kill and hit buses 6 dB for 300 ms; the kill bus eases to -6 dB past 30
+kills/s. Voices are released by wall clock, not `onended`, so a context that
+never runs cannot leak them.
+
+**Unlock and safety.** The context is created inside the first pointerdown,
+touchend or keydown (capture listeners on `window`; the START MATCH tap is
+the usual one) and never before. `?seed=` pages - every instrument - create
+NO context unless they add `audio=1`; `?mute=1` starts muted; the mute
+choice persists in `localStorage['shooter_ad.audio.muted']`. Every WebAudio
+and storage call is in try/catch and counts into `stats.failures`; nothing
+in `src/audio/` logs. `npm run verify` prints
+`audio: state=running cues=N ... failures=0` and fails on any failure; the
+headless context does reach `running` after the real click.
+
+**`npm run audio`** is the instrument: it plays every cue live and asserts
+nodes were created, stresses the bundler, drains on `gameover`, then renders
+every cue offline through a clone of the master chain to
+`.verify/audio/<cue>.wav`, `palette.wav` and `kill-bundle-N.wav`, printing
+duration, peak, RMS, dominant frequency and the share of energy above 200 Hz
+(a power share: a 55 Hz cue reads ~0% even with its partials present). Every
+cue must peak between -40 and -1 dBFS. `window.__audio` on every page has
+`play` (the event path, with a synthetic clock `t`), `voice` (direct),
+`tick`, `render`, `cues`, `stats`, `setMuted`, `stopAll`, `voicesOf`.
 
 ## Extending content
 
-- **Enemy**: append to `ENEMIES` in `data/enemies.ts`. Only genuinely new
-  movement needs a case in `Enemies.applyBehaviour`. Note five of the eight
-  current types move identically because their cases fall through to `default`,
-  and `charger` is dead code — fixing that is on the roadmap.
+- **Enemy**: append to `ENEMIES` in `data/enemies.ts` with a `tier` (what it
+  costs on contact - see `CONTACT`). Movement is a `motion` union with one
+  case each in `systems/EnemyMotion.ts`; only genuinely new movement needs a
+  case there, and every case is used by at least one of the nine types.
 - **Bonus**: append to `CANDIDATES` in `data/gates.ts` plus one case in the
   progression model. Magnitudes are never hardcoded — every bonus draws from the
   root table in `data/roots.ts` and presents the draw according to its form.
+  The discrete axes do too: from `GATES.scaleDiscreteFrom` held, `+N GUNS` and
+  `+N PIERCE` are the whole number whose effect is nearest the draw
+  (`Progression.discreteAmount`), so `OfferContext` carries `guns`, `pierce`
+  and `sense` beside the pools. A bonus that changes no damage number - MOVE,
+  TIME, SENSE - must be priced in `progressValue` or the scoring calls every
+  one a mistake; `npm run model` asserts each beats a weak damage draw.
   Colour names the axis and both forms of an axis share it, so the player cannot
   read the raw-versus-multiplicative choice off the tint instead of doing the
   conversion.

@@ -20,6 +20,8 @@ export interface Decision {
   readonly best: number;
   /** 0 = took the best available, 1 = took the worst. */
   readonly rank: number;
+  /** The offer arrived with its best option marked (`+SENSE`). */
+  readonly sensed: boolean;
 }
 
 /**
@@ -40,7 +42,9 @@ export interface Decision {
 export class DecisionLog {
   private readonly decisions: Decision[] = [];
   /** Offers shown but not yet resolved, keyed by the gate system's pair id. */
-  private readonly open = new Map<number, { wave: number; time: number; offer: ScoredOffer }>();
+  private readonly open = new Map<number, {
+    wave: number; time: number; offer: ScoredOffer; sensed: boolean;
+  }>();
 
   get entries(): readonly Decision[] { return this.decisions; }
   get count(): number { return this.decisions.length; }
@@ -50,8 +54,11 @@ export class DecisionLog {
    * so the grade reflects the state the player was in while deciding, which is
    * the state they were reasoning about.
    */
-  open_(pair: number, from: Progress, gates: readonly GateType[], wave: number, time: number): void {
-    this.open.set(pair, { wave, time, offer: scoreOffer(from, gates, wave) });
+  open_(
+    pair: number, from: Progress, gates: readonly GateType[], wave: number, time: number,
+    sensed = false,
+  ): void {
+    this.open.set(pair, { wave, time, offer: scoreOffer(from, gates, wave), sensed });
   }
 
   /**
@@ -63,10 +70,11 @@ export class DecisionLog {
     const pending = this.open.get(pair);
     if (!pending) return null;
     this.open.delete(pair);
-    const { offer, wave, time } = pending;
+    const { offer, wave, time, sensed } = pending;
     this.decisions.push({
       wave,
       time,
+      sensed,
       options: offer.options.map((o) => ({
         label: o.gate.label, axis: o.gate.axis, form: o.gate.form, delta: o.delta,
       })),

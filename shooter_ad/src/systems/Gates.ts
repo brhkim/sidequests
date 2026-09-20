@@ -1,6 +1,6 @@
 import { ARENA, GATES, VIEW } from '../config';
 import { rollOffer, type GateType, type OfferContext } from '../data/gates';
-import { gateSpeed, type Upgrades } from './Progression';
+import { gateDeadSpace, gateSpeed, senseChance, type Upgrades } from './Progression';
 
 export interface Gate {
   x: number; y: number;
@@ -10,6 +10,14 @@ export interface Gate {
   pair: number;
   /** Position within its offer, so a pick can be graded against the others. */
   index: number;
+  /**
+   * Whether this offer arrived SENSED: the renderer marks whichever of its
+   * options is currently best. Rolled once per offer, at spawn, from the
+   * seeded generator - see `spawnOffer`. Which option is marked is not stored,
+   * because it is a live fact: the best option is priced against the state
+   * the player is in NOW, and that can change while the offer descends.
+   */
+  sensed: boolean;
   active: boolean;
 }
 
@@ -26,7 +34,7 @@ export class Gates {
    * Offers rolled but not yet credited to par. An offer is a promise the
    * player cannot act on until it arrives.
    */
-  private pending: { pair: number; types: GateType[] }[] = [];
+  private pending: { pair: number; types: GateType[]; sensed: boolean }[] = [];
   /** Offers the player has been shown but has not yet taken or missed. */
   private readonly unresolved = new Set<number>();
 
@@ -37,7 +45,9 @@ export class Gates {
      * to take it, so par can take the best of them. NOT called at spawn - see
      * `creditArrivedOffers`.
      */
-    private readonly onOffer: (pair: number, gates: readonly GateType[]) => void = () => {},
+    private readonly onOffer: (
+      pair: number, gates: readonly GateType[], sensed: boolean,
+    ) => void = () => {},
     /** Called when a whole offer left the screen without being taken. */
     private readonly onExpire: (pair: number) => void = () => {},
   ) {}
@@ -107,28 +117,39 @@ export class Gates {
     if (i === -1) return;
     const [offer] = this.pending.splice(i, 1);
     this.unresolved.add(pair);
-    this.onOffer(pair, offer.types);
+    this.onOffer(pair, offer.types, offer.sensed);
   }
 
   private spawnOffer(wave: number, ctx: OfferContext): void {
     const offer = rollOffer(GATES.perOffer, wave, ctx, this.rng);
     if (offer.length === 0) return;
     const pair = this.nextPair++;
-    this.pending.push({ pair, types: offer });
-    // Lanes tile the full width with NO gap between them, so every x position
-    // is inside exactly one option. The gap used to be real: a player could
-    // slide between two blocks and take nothing, which turns a missed offer
-    // from a decision into a geometry accident. The separation is drawn as an
-    // inset on the rectangle instead - visual, never in the hit test.
+    // The sense roll. ALWAYS drawn, whatever sense is held, so the generator
+    // advances identically on every run of a seed and a player's sense level
+    // cannot shift the enemies and offers that follow.
+    const sensed = this.rng() < senseChance(ctx.sense);
+    this.pending.push({ pair, types: offer, sensed });
+    // Lanes tile the full width; each gate sits centred in its lane and is
+    // `gateDeadSpace` narrower than it, so from wave 4 (judgment wave) a band
+    // between neighbours belongs to NO option and an offer can be MISSED.
+    // Early on that band is zero and every x is inside exactly one option -
+    // a gap at wave 1 turned a missed offer into a geometry accident, which is
+    // why it was once removed; it returns as a difficulty lever, growing with
+    // the wave, because precision of movement under fire is part of the
+    // judgment the late game is meant to test. `width` IS the hit test
+    // (`checkGates`, `findTarget`), and the card is drawn to it.
     const lane = VIEW.width / offer.length;
+    const width = Math.max(GATES.minWidth, lane - gateDeadSpace(wave));
     for (let i = 0; i < offer.length; i++) {
       const x = i * lane + lane / 2;
-      this.push({ x, width: lane, type: offer[i], pair, index: i });
+      this.push({ x, width, type: offer[i], pair, index: i, sensed });
     }
   }
 
   private push(
-    spec: { x: number; width: number; type: GateType; pair: number; index: number },
+    spec: {
+      x: number; width: number; type: GateType; pair: number; index: number; sensed: boolean;
+    },
   ): void {
     const gate: Gate = { ...spec, y: -GATES.height, active: true };
     const free = this.items.find((g) => !g.active);

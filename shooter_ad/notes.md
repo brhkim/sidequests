@@ -160,8 +160,9 @@ form signal:
 | Army | `+120 ARMY` | `×1.2 ARMY` |
 | Damage | `+20% DMG` | `×1.2 DMG` |
 | Fire rate | `+20% RATE` | `×1.2 RATE` |
-| Guns | `+1 GUN` | — |
-| Pierce | `+1 PIERCE` | — |
+| Guns | `+1 GUN`, `+N GUNS` | — |
+| Pierce | `+N PIERCE` | — |
+| Sense | `+SENSE` | — |
 
 #### Rounding is part of the legibility axis
 
@@ -181,9 +182,40 @@ dial for free.
 | Army size | `+N`, `×N` | Drives both unit count (to the ring cap) and rank. |
 | Fire rate | `+N% `, `×N` | |
 | Damage | `+N%`, `×N` | |
-| Guns | `+1 GUN` | Large, discrete, obvious — include sparingly as a baseline to judge others against. |
-| Pierce | `+1 PIERCE` | Value depends on enemy density. See below. |
+| Guns | `+N GUN` | Large, discrete, obvious — include sparingly as a baseline to judge others against. **Scales past 3 held**: see below. |
+| Pierce | `+N PIERCE` | Each level is worth a fixed share of a hit. **Scales past 3 held.** See below. |
 | Move speed | `×1.2 MOVE` | **No direct DPS.** Buys access to future bonuses. |
+| Sense | `+SENSE` | **No direct DPS.** A chance that future offers arrive with their best option marked. Capped at 3. See below. |
+
+### The discrete axes scale, from three held
+
+A flat `+1 GUN` is +100% at one gun, +33% at three and +5% at twenty — the
+axis dies by attrition while RATE and DMG keep drawing from `[1.05, 1.50]`.
+So from `GATES.scaleDiscreteFrom` (3) held, a GUN or PIERCE offer draws a root
+like everything else and presents the **whole number whose effect is nearest
+it**: `+2 GUNS` at three guns for a draw of 1.5, `+5 GUNS` at ten, `+13 GUNS`
+at fifty. It is the rule raw ARMY already follows — a share of what you hold —
+applied to an integer. Below three held the rule would round to `+1` anyway,
+and the threshold makes that explicit rather than incidental.
+
+### `+SENSE`: a bonus about the player
+
+The one bonus that changes neither damage nor reach. Each level raises the
+chance that an offer arrives **sensed** — with its best option marked on
+screen — to 25%, 40% and 50%, and it stops being offered once three are held.
+The roll is made when the offer is rolled, from the seeded generator, so a
+match code reproduces which offers were sensed; *which* option is marked is
+recomputed live against the state the player is in now, by the same
+`scoreOffer` par and the death screen use, so if taking the previous gate
+changes the answer the mark moves with it.
+
+It has to be priced or the scoring calls every one a mistake, exactly the
+trap MOVE and TIME fell into. It is priced as **judgment**: value carries a
+factor `1 + 0.4 × chance`, so the first is worth about a tenth of a state's
+value, the second half that, the third less — a weak-to-middling damage draw.
+Difficulty ignores it entirely, as it ignores access: a hint kills nothing.
+`npm run model` asserts it beats a `×1.05 DMG`, loses to a `×1.25 DMG`, and
+leaves the pool at the cap.
 
 ### Move speed is the deliberate oddity
 
@@ -205,29 +237,56 @@ A `−10% GATE SPEED` bonus buys thinking time for the rest of the run. Same
 family as move speed: no DPS, real value. Wording needs care — "slower gates"
 sounds like a downside and is not. Candidate label: **`+TIME`**.
 
+### Dead space between gates
+
+**Built.** As the waves go on, the bonus gates stop tiling the width: a band
+of dead space opens between them and grows, so players not only need to make
+the decision, but need increasing precision in movement to do so despite the
+noise of everything going on - and so they can fully miss a bonus. This was a
+bug fixed a while ago (a gap at wave 1 let a player slide between two blocks
+by accident) and is now part of the design instead: zero until wave 4, 6px a
+wave from wave 5, capped at 72px from wave 16, where a 180px lane holds a
+108px gate. Hard mode starts it five waves in like the other judgment levers.
+A missed offer shows `MISS` at the lane line and is graded as the worst pick.
+
+To keep every label legible at the narrowest width the cards became taller
+and the label two-line - magnitude over axis - rather than the numbers
+smaller. A late `+1840% DMG` still reads.
+
 ---
 
 ## Pierce: what is it actually worth?
 
-Not 2×, and the reason matters.
-
-A piercing bullet only hits a second enemy if one happens to be behind the
-first, in the bullet's path, before it leaves the screen. So:
+Each level is worth a fixed share of an extra hit:
 
 ```
-expected hits = 1 + q + q² + ... + q^P        (P = pierce level)
+expected hits = 1 + q × P        (P = pierce level, q = 0.5)
 ```
 
-where `q` is the chance of encountering another enemy after a hit. Three things
-push `q` below 1:
+so pierce 1 → 1.5×, 2 → 2×, 3 → 2.5×, 10 → 6×. Three things keep `q` below 1:
 
 1. **Path occupancy** — the bullet must actually meet another body.
 2. **Overkill** — damage past a kill is wasted, so a weak straggler behind a
    brute absorbs a hit worth far more.
 3. **Screen exit** — bullets die at the top.
 
-This gives natural diminishing returns: at `q = 0.5`, pierce 1 → 1.5×, pierce 2
-→ 1.75×, pierce 3 → 1.875×.
+**This used to compound**, `1 + q + q² + … + q^P`, which is the sparse-field
+model (to meet a third body you must have met a second) and at `q = 0.5` it
+saturates at 2×: pierce 3 was 1.875× and no fourth level could ever be worth
+more than a few percent, so the axis was dead by the third pick and no way of
+drawing `+N PIERCE` could revive it. The author's read of the late game is the
+other regime — seven bodies a second into a 400px lane is a dense column,
+where nearly every level finds a body and the series is close to linear
+anyway. So the compounding was dropped, pierce 1 stayed at exactly 1.5×, and
+the axis scales with what you hold the way GUNS does.
+
+**Measured, not assumed.** The stats now carry `hitsPerLanding` — bodies met
+per shot that met anything — beside the multiplier the build is priced at.
+Early, with the board sparse, a pierce-1 bot measured 1.03 to 1.27 against a
+claim of 1.5, so the price is generous there; from wave 18 on it measured 2.3
+to 2.75 against claims of 2.0 to 2.5, so late the price is *under* the truth.
+The linear rule is honest where it matters most and kind where the board is
+empty. `npm run balance` and `npm run from` print both numbers.
 
 ### Use a fixed `q`, not live density
 
@@ -237,9 +296,10 @@ at the instant of a decision is not representative of the run the bonus actually
 lives through. Scoring a pick against a number that was true for one second is
 worse than scoring it against a stable approximation.
 
-So `q` is a tuned constant (start at **0.5**, giving 1.5× / 1.75× / 1.875× for
-pierce 1/2/3). Pierce becomes a clean diminishing-returns axis: strong as a
-first pick, weak as a fourth.
+So `q` is a tuned constant (**0.5**, giving 1.5× / 2× / 2.5× for pierce 1/2/3).
+Pierce is worth the same share of a hit per level all run; the *relative*
+gain of `+1` still falls as levels stack, which is what the scaled `+N PIERCE`
+offers exist to compensate.
 
 This is an admitted approximation — real pierce value does vary with the board.
 The properties that matter more:
@@ -318,6 +378,20 @@ mechanic changes — only how hard the arithmetic is.
 
 This is the axis that scales furthest, because it never stops being interesting.
 
+**When the decimals appear today.** Three tiers: waves 1-5 draw six round
+values (`1.05, 1.15, 1.25, 1.3, 1.4, 1.5`, two significant figures on raw
+numbers); wave 6 every `.05`; wave 11 every `.01` with three significant
+figures, which is when `×1.07` and `+1840%` start showing up. Hard mode is
+five waves ahead: every `.05` from wave 1, every `.01` from wave 6. The
+author's proposed schedule - three values for 1-5, tenths for 6-10 (1.1 to
+1.5, dropping 1.25), every `.05` for 11-15, every hundredth from 16 - is
+**pending**: the tiers must share a mean, arithmetic and geometric, or the
+legibility axis is a power axis in disguise (see below), and "tenths" cannot
+be mean-neutral inside the fixed [1.05, 1.5] range. Waiting on the author's
+choice between accepting that drift and a neutral variant; the tables are
+unchanged until then. `npm run model` prints the whole curve per wave under
+"the judgment curve".
+
 **"No mechanic changes" is a constraint on the tables' MEAN, not only on their
 range, and the first draft broke it.** The original coarse table bunched low -
 1.32% less per draw than the ladders, about 48% less power over thirty offers -
@@ -327,15 +401,56 @@ model` fails otherwise.
 
 ## Instant feedback on every pick
 
-A halo flash on the gate the moment you take it:
+A wash over the gate the moment you take it, with the word on it:
 
-- **green** — optimal
-- **yellow** — middle
-- **red** — worst of the three
+- **green PERFECT** — optimal
+- **yellow GOOD** — middle
+- **red BAD** — worst of the three
+
+and a red **MISS** at the lane line if an offer passes untaken (DDR-style; a
+missed offer is graded as a BAD pick in the tally). With dead space between
+gates from wave 5, MISS is now reachable in play, and lands over the option
+the squad was nearest. The halo it replaced was a
+circle the size of a unit on a card three times wider, and read as a hit
+rather than a verdict.
 
 The death screen teaches after the fact; this teaches *during*, which is what
 actually makes players improve. Both read the same `DecisionLog` scoring, so they
 can never disagree.
+
+## Sound
+
+Minimal, procedural, and on the same collapse rule as the rings and the
+bullets: more of a thing past the point it carries information is folded
+into one sound that says how much, not played more times. No music, no
+files, no asset loading; the palette is a table of recipes.
+
+What sounds, and why:
+
+- **Every pick has a grade you can hear.** PERFECT is a rising major triad,
+  GOOD is one flat note twice, BAD is a falling minor second. The halo says
+  it in colour; the sound says it before your eyes have left the gate.
+  A passed offer is a MISS: a quiet whiff, on, at -20 dB.
+- **Kills are a texture, not a count.** One kill is a grain at 1.4 kHz. A
+  burst of them inside 100 ms is ONE grain, a semitone lower per doubling
+  and a little quieter, with a sub-partial from four - so a shredded wave
+  reads as heavier, never as louder, and ten voices a second is the cap.
+- **Damage to the army is felt, not announced.** Contact is a dull thud,
+  breach a heavier one with a sweep that ducks everything else, enemy fire
+  a tick. Each scales with the share of the army it cost.
+- **The Titan has a heartbeat.** A swell and three warning pulses when it
+  arrives, then a low pulse that quickens over its descent; a crunch and a
+  released chord when it dies; a drop and a door closing when it lands on
+  you. Its volleys pop, quietly.
+- **Rescue, streak, wave, sense** are each a short distinct figure, and the
+  SENSE chime fires when a sensed offer SPAWNS, which is when it matters.
+- **Start is one soft tone**: it is also the proof the browser unlocked.
+
+Sound is on by default, toggled from the pause screen (SOUND ON / OFF) and
+remembered. Muting plays nothing. Ducking, the twelve-voice budget and the
+priority order in `CLAUDE.md` exist so a Titan landing is never lost under
+a stack of kills. Nothing here touches the simulation: audio reads the
+event stream and a match code sounds the same on every replay.
 
 ## Seeds are shareable
 
@@ -498,21 +613,41 @@ Consider surfacing a single headline number: **"you played at 82% of optimal."**
 
 ## HUD and layout — decided
 
-**Top rail** carries the numbers, par always visible:
+**Top rail** is *the run*, par always visible:
 
-- **soldiers** — visible count, capped at the ring
-- **your DPS**
+- **wave**, with kills beneath
+- **your DPS**, with standing against par beneath
 - **par DPS**
+- **SENSE** — three pips that fill, and the chance they buy
 
 Par is permanently on screen, not saved for the death readout. Seeing yourself
 fall behind in real time is the feedback that makes the next decision mean
-something.
+something. The standing bar under the rail flashes ONCE when the run crosses
+the curve's target line in either direction and never pulses otherwise; a
+streak track under KILLS fills toward the next streak bonus.
 
-**Directly beneath the red line** sits the active-bonus readout. The player's
-eye is already there — it is where the threat resolves — so it costs no extra
-attention. Chosen over a right rail because the game is 540×960 portrait and
-widening the canvas shrinks the playfield badly under `Scale.FIT` on a phone,
-which is the device this genre is played on.
+**The field says what is about to hit you.** The bottom of the lane is a
+ground band, not a line, from where a full ring's front rank sits down to the
+breach horizon; every body inside it puts a red tick on the horizon that
+brightens as it nears. Gate cards wear a solid roof bar in their axis colour
+and their labels sit above the bullet stream, so an offer stays readable
+mid-wave; the card the centre unit is lined up on brightens and its siblings
+fade. Damage flashes the screen's edges (sized by how much of the army went),
+never the play space. Everything else - the grade wash, MISS, rescue and
+contact labels, the wave banner, the Titan bar, the death beat - is a typed
+`moment` from the simulation, so audio and rendering read one account.
+
+**Directly beneath the red line** is *the squad*: every input to the DPS
+product and nothing else — **ARMY** (power and rank), DMG pool and mult, RATE
+pool and mult, GUNS, PIERCE — in the order the pause screen's DETAILS page
+multiplies them. ARMY moved down from the rail because it is a conversion
+input exactly as the pools are, and it was the one term of the product living
+at the other end of the screen; SENSE took its place because it is the one
+bonus that is not a DPS input. The player's eye is already at the red line —
+it is where the threat resolves — so the strip costs no extra attention.
+Chosen over a right rail because the game is 540×960 portrait and widening the
+canvas shrinks the playfield badly under `Scale.FIT` on a phone, which is the
+device this genre is played on.
 
 That placement buys space at a cost: the strip is **wide and short**, so the
 readout has to be genuinely parsimonious. This is real design work, not a
@@ -598,9 +733,14 @@ Carried over from the earlier backlog, reprioritised against the thesis.
    GUNS go dead late. Modelled honestly for now; the alternative is to collapse
    the stream in the simulation the way the renderer already does. **This is the
    only thing on this list that is blocked on a design decision.**
-15. **Help / pause screen** — resume, restart, options, and a full explanation of
-   every bonus type. Must teach the additive-vs-multiplicative distinction, or
-   the core mechanic is hidden.
+15. **Help / pause screen** — *done*, two pages. BONUSES teaches the
+   conversion on the player's own pools and lists every held bonus with a
+   one-line account of what it does to the sum, MOVE, TIME and SENSE
+   included. DETAILS derives the rail's DPS step by step — bodies and rank,
+   damage per shot, shots per second, the ring, guns, pierce, total, and the
+   same total against one body — from the functions the squad fires with, so
+   the last line is the rail's number by construction. `npm run endscreen`
+   asserts that equality.
 16. **Prestige ranks past red** — metallic / prismatic / glowing, with texture
     and particle treatment, so long runs keep a visible chase.
 17. **Enemy behaviour variety** — *done*, with one thing deliberately left
@@ -608,7 +748,8 @@ Carried over from the earlier backlog, reprioritised against the thesis.
     `EnemyMotion.ts`: zigzag, charger, waypoint, harass (bounded retreat), dash
     (diagonal), drift. Two new types shoot back — Spitter leads the squad,
     Lancer hangs back and shells the lane — and bullets cost power through
-    `SQUAD.fireLoss`, which is the second damage source the design wanted.
+    `ENEMY_FIRE.powerShare`, which is the second damage source the design
+    wanted (contact, below, is the third).
 
     The Shielder was kept and made genuinely directional rather than renamed:
     its `frontArmor` only applies inside the cone it is walking into, so its
@@ -620,6 +761,78 @@ Carried over from the earlier backlog, reprioritised against the thesis.
     it; `npm run behaviour` can only confirm the taper exists.
 
 ---
+
+## The start screen says what the game is
+
+The pitch is the author's: *Pick the best bonuses, avoid damage, and kill the
+Titan before it reaches the end — or you lose. Oh, and sub-optimal play is
+SEVERELY punished. The math only gets harder. The bonuses only scroll at you
+faster. Have fun!* It sits above the match code, because a player who does not
+know they are being tested on arithmetic reads every offer as noise.
+
+Beneath the code: **enter a code** (a native prompt — the medium is a
+screenshot, and a code you can read off a photo but cannot type in anywhere is
+decoration) and **new match**. Both re-seed every consumer of the generator at
+once. A restart now replays the *same* match from its first draw; it used to
+carry the stream on under the old code, so the "same match" on the end screen
+was one nobody could reproduce. The end screen offers both: tap to replay, or
+start a new match.
+
+## Rescue cages are the catch-up, and they cost something
+
+A cage is worth **+5 army until you hold 100, then +5%**, whole — the same
+bite of a run at 20 power and at 20,000. **Par does not collect it.** It is
+the one source of army meant for a player behind the curve, and crediting the
+shadow player too would move the curve by exactly what the cage gave back.
+
+Its HP is **a fifth of the Titan that would spawn now** (the boss's own
+budget, so it scales with par the way the boss does): about 2.65 seconds of
+par's single-target fire, at every stage of a run. That is the cost — a cage
+stops every shot that hits it, so opening one is fire the wave is not taking.
+Measured on the probe bot, which never aims at a cage and so pays the block
+without collecting: median survival at skill 0.7 fell from 78s to 44s, and
+recovered to 83s on the same seeds with cages at a fiftieth of a Titan. Read
+that as the bot's floor, not the design's verdict — a human who targets the
+cage is buying +60% army for three seconds early, and +5% for three seconds
+late — but it is the number to watch if real play says cages feel like walls.
+`CAGE.hpTitanFraction` is the lever.
+
+## Enemy fire scales with the army
+
+A landing bullet costs **1% of the army you hold, rounded down, never less
+than one power** (times the gun's damage). A flat half-power tax went dead
+once armies reached the hundreds, so enemy fire stopped being a reason to move
+exactly when there was the most of it. It is still well under a contact, which
+is 2% to 6% by body size (below): a body reaching you is a failure to kill,
+fire is a tax on standing still.
+
+The floor doubles the early tax (a bullet was 0.5), and the share quadruples
+it at 270 power. On a bot that never dodges this is now the late game's main
+killer: from injected 1e5 and 1e8 builds the runs end by attrition with
+standing near zero, where before they ended at a Titan near par. That is the
+designed consequence for a player who does not move; whether it is right for
+one who does is a question for the author under fire.
+
+## Enemies have a hurt box
+
+An enemy touching the army damages it and is destroyed doing so. The army
+cannot hide inside the mob any more: reaching you IS the failure, not walking
+a further sixty pixels to a line. Contact and breach cost the same, because
+they are the same failure - a body you did not kill. The cost is a share of
+the army by body size - 2% for a Grunt or Runner, 4% for the middle weights,
+6% for a Brute or Bomber, floored at 1 / 2 / 3 so the first minutes play as
+they did - so a leak never goes dead late the way a flat charge did at a
+thousand power; the Titan is 100%, and reaching you ends the run whichever
+line it crossed. The Healer is gone: a body that undid your work in the mob
+made the Titan feel unfair rather than hard, and the boss check is the thing
+the damage economy is for.
+
+Two things the floors do not hide, both measured in `CLAUDE.md` under
+"Contact damage": contact lands two to five seconds of descent before a
+breach did, so bodies the column used to finish in those seconds are charges
+now; and the Bomber's early price fell from 5 to 3 at the floor, which the
+author accepted. A contact is not a kill - no streak, no kill count, no split
+- because standing in the stream must never be a way to farm.
 
 ## What one session of real play found
 
@@ -736,7 +949,12 @@ is a tuning value:
   shots, and the budget assumed all of them. **Design: the player's damage is
   focused in a column the Titan's own width.** `WEAPON.columnWidth` is that
   number, the ring is scaled into it, and `npm run model` fails if the column
-  ever grows wider than the boss. It is a real change to how the game feels
+  ever grows wider than the boss's hit radius. It is 83px now — 72 read as too
+  narrow in play, and the Titan grew two pixels in radius to keep the
+  invariant — and it is centred on the *drawn* leader rather than the squad's
+  logical centre, because under a moving finger the ring trails that centre by
+  ~18px and the beam visibly left the air beside the character. It is a real
+  change to how the game feels
   against ordinary enemies too - the stream is a beam now, not a curtain - and
   that is accepted: the boss check is the thing the damage economy is FOR.
 - **Two multipliers were hiding inside the HP.** The boss took the wave's
@@ -748,8 +966,9 @@ is a tuning value:
   `bossKillPar` and `bossKillDistance` mean what they say.
 - **75% of the descent at full single-target DPS is too much to ask** of a
   player who also has to dodge, grab bonuses and miss a little. Difficulty is
-  the point, but the slack has to be real. **It is 30% now, to feel out.** The
-  rest of the descent is what real play spends.
+  the point, but the slack has to be real. It was 30% to feel out; after
+  playing it the author asked for 20% more HP, so it is **36%** now (HP is
+  linear in the distance). The rest of the descent is what real play spends.
 
 The instrument built to check those three found a fourth on its first run: a
 piercing bullet was charged against the boss on every step it spent inside it,
@@ -772,9 +991,10 @@ thing to a played run.
   too?** The full argument is under "What one session of real play found". This
   is the one open question that changes what the game IS rather than how it
   reads.
-- How is pierce shown to the player? Its value swings with the board, so a
-  static label undersells it. A live "≈1.6×" readout might be better — or might
-  give away too much of the judgment.
+- How is pierce shown to the player? The strip shows the priced multiplier
+  (`×2.50` at pierce 3). Its real value swings with the board — `hitsPerLanding`
+  in the stats is the measurement — and a live readout might be better, or
+  might give away too much of the judgment.
 - **Settled: the root table's range does not widen with difficulty.** It stays
   fixed at `[1.05, 1.50]` at every legibility tier; only granularity and
   significant-figure rounding escalate. Widening it would make picks swingier,
