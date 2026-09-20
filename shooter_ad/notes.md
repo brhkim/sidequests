@@ -901,10 +901,12 @@ against a `×ARMY` card is only decidable if you know what you hold, and a
 gift arriving mid-decision changes the answer), and the streak in particular
 removed agency - power that arrives for standing in the stream is not
 power that was chosen. Every unit the player holds now came through a gate
-or out of a cage. The one number that had to move with it: the army starts
-at **5** rather than 1, because with wave-clear army gone a start of 1 made
-the first leaked Grunt at ~30s the end of the run on three seeds in five, and
-5 is what a player held through wave 2 before.
+or out of a cage. The army started at **5** for a session on the argument
+that a start of 1 made the first leaked Grunt at ~30s the end of the run
+for the bot on three seeds in five; the author took the harder open anyway
+(2026-09-20, 0.9): **it starts at 1**. Measured, seeds 1-5 at skill 0.7:
+median survival 50.0s at 5, 34.9s at 1; standing 1.00 either way. The one
+body you start with is the run until the first gate.
 
 Its HP is **a fifth of the Titan that would spawn now** (the boss's own
 budget, so it scales with par the way the boss does): about 2.65 seconds of

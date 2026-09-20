@@ -108,10 +108,20 @@ await page.mouse.down();
 
 const SECONDS = Number(process.env.VERIFY_SECONDS ?? 24);
 for (let t = 0; t < SECONDS * 10; t++) {
-  // Sweep across the lane so the squad meets enemies and drives through gates.
-  const phase = (t / 10) * 0.9;
-  const x = box.x + box.width * (0.5 + 0.42 * Math.sin(phase));
-  await page.mouse.move(x, laneY);
+  // Stand under the lowest live enemy, the way a player does, through the
+  // real pointer. A sine sweep across the lane was enough while the army
+  // started at 5; at startPower 1 (0.9) a lone unit needs ~2.3s lined up
+  // on a Grunt to kill it and dies to the first body that reaches it, so a
+  // sweep killed nothing and the check could not tell a broken collision
+  // step from the harder open. With no enemy on the board, sweep.
+  const target = await page.evaluate(() => {
+    const g = window.game?.scene?.getScene('Game');
+    const live = (g?.enemies?.items ?? []).filter((e) => e.active && e.y < 840);
+    if (live.length === 0) return null;
+    return live.reduce((a, b) => (b.y > a.y ? b : a)).x;
+  });
+  const gx = target ?? 270 + 226 * Math.sin((t / 10) * 0.9);
+  await page.mouse.move(box.x + (gx / 540) * box.width, laneY);
   await page.waitForTimeout(100);
 }
 await page.mouse.up();

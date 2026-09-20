@@ -515,7 +515,7 @@ for (const shot of [
   console.log(`start-guide: visible ${guide.visible} page ${guide.page} heading ${guideTexts.includes('HOW TO PLAY')} topics ${guideTexts.includes('THE GOAL')} details ${detailTexts.find((t) => /^1  ARMY/.test(t)) ?? 'MISSING'} -> back: guide ${backVisible}, waiting ${back.waiting}, code ${back.code}`);
   if (!guide.visible || guide.page !== 'guide') { console.log('  ERROR HOW TO PLAY did not open on the guide page'); errors++; }
   if (!guideTexts.includes('THE GOAL') || !guideTexts.includes('BACK')) { console.log('  ERROR the guide is missing its topics or BACK'); errors++; }
-  if (!detailTexts.some((t) => /^1  ARMY 5 power/.test(t))) { console.log('  ERROR the guide DETAILS page is not the start state'); errors++; }
+  if (!detailTexts.some((t) => /^1  ARMY 1 power/.test(t))) { console.log('  ERROR the guide DETAILS page is not the start state'); errors++; }
   if (backVisible || !back.waiting || back.code !== fresh.code) { console.log('  ERROR BACK did not return to the same start screen'); errors++; }
 
   await tap('START MATCH');

@@ -7,8 +7,8 @@ Paste everything below the line into a fresh session.
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo,
 on branch `claude/laughing-feynman-ghh9r3` (no PR open; the branch is ahead
 of `main` by two sessions' work, the last three commits being this
-session: `816586e`, `2a35cbc`, `99368ee`). The version tag is **0.8**; a seed only
-compares with another 0.8 run. Nothing is blocked. §4 is what the author
+session: `816586e`, `2a35cbc`, `99368ee`, then the start-power commit). The
+version tag is **0.9**; a seed only compares with another 0.9 run. Nothing is blocked. §4 is what the author
 still has to do or decide, §5 what nobody has verified.
 
 ## 1. Orient before touching anything
@@ -115,6 +115,7 @@ of the 0.7 build (`dc4c59a`) and after:
 | --- | --- | --- | --- | --- | --- |
 | 0.7 | 37.3 / 43.7 / 50.2 / 52.9 / 58.3s | 50.2s | 90% | 1.00 | one per wave, every seed |
 | 0.8 | 34.6 / 39.5 / 50.0 / 50.2 / 53.4s | 50.0s | 93% | 1.00 | 1 / 1 / 1 / 1 / 2 per run (1.52/min) |
+| 0.9 (startPower 1) | 34.3 / 34.3 / 34.9 / 39.8 / 57.5s | 34.9s | 73% | 1.00 | 1 / 1 / 2 / 1 / 0 per run (1.72/min) |
 
 The 0.7 cage column is from a scratch page script that watched
 `enemies.cages` (the 0.7 build has no `cages` stat, so `PROBE_DIST` against
@@ -137,7 +138,10 @@ extra ones. `npm run repeat` reads 0.00%. `npm run neutral` against the
   +47%` and `25 / 50 / 75%` in the topic copy are today's config, typed by
   hand; a config change will silently date them.
 - **Deploy and look at the GoatCounter dashboard** (still unobserved).
-- **`startPower` 5.** Still my number from last session.
+- **`startPower` is 1 again** (your ask, 0.9). The bot's median survival
+  went 50.0s to 34.9s with it; the open is a lone unit until the first
+  gate. `npm run verify` now stands under the lowest enemy instead of
+  sweeping, because a sweep killed nothing at power 1.
 
 ## 5. Known gaps — name these as unverified if you report on them
 

@@ -1418,4 +1418,7 @@ bug lived two versions because there was none.
   at the author's request on 2026-09-20, on both the player's side and par's
   (`Difficulty.observeSpawn` credits par with the kill and nothing else) -
   see `notes.md`, "No automatic army". `SQUAD.startPower` went 1 to 5 with
-  it. Any new source must be a choice the player makes.
+  it and back to **1** at the author's ask (0.9): a lone unit, the first
+  leak ends the run, and `npm run verify` had to stop sweeping and stand
+  under the lowest enemy to kill anything. Any new source must be a choice
+  the player makes.

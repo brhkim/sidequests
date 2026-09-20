@@ -484,3 +484,14 @@ first row; the guide's and BONUSES' explanation text up to 17px working
 white; "OF THE BEST PICKS" contradicted the tally on a poor run ("OF THE
 GROWTH ON OFFER"); DETAILS glosses PAR under its answer line; the BONUSES
 header stated the conversion four times (now twice).
+
+## 5. Later (verbatim)
+
+> OH yes, please change start power to 1 btw
+
+Status: `landed`, version 0.9. `SQUAD.startPower` 5 → 1. Balance, seeds 1-5
+at skill 0.7: median survival 50.0s → 34.9s, optimal 93% → 73% (shorter
+runs, fewer decisions), standing 1.00, cages 1.72/min. `npm run verify`'s
+sine sweep killed nothing at power 1 and the run ended at the first leak,
+so its pointer now stands under the lowest live enemy (still real mouse
+input); three runs: 18 / 20 / 14 kills, wave 3, alive.

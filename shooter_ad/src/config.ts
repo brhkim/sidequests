@@ -70,14 +70,14 @@ export const SQUAD = {
    */
   moveSpeed: 260,
   /**
-   * Five, not one. The army used to start at 1 and take +4 for clearing
-   * wave 1 at 16s; with wave-clear army gone (the author's call - every unit
-   * held is chosen at a gate or shot out of a cage) a start of 1 made the
-   * first leaked Grunt at ~30s the end of the run on three seeds in five.
-   * Five is what a player held through wave 2 before, so the early game is
-   * as durable as it was, and par starts here too.
+   * One: the author's call (2026-09-20, 0.9). It went 1 to 5 for a
+   * session when wave-clear army was removed, on the argument that a start
+   * of 1 made the first leaked Grunt at ~30s the end of the run for the
+   * probe bot on three seeds in five; the author took the harder open.
+   * Every unit past the first is chosen at a gate or shot out of a cage,
+   * and par starts here too.
    */
-  startPower: 5,
+  startPower: 1,
   /**
    * OVERFLOW GUARD, not a balance constant. The rank ladder has no last row
    * (see data/tiers.ts), so there is no power at which an army bonus stops
