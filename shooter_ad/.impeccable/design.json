@@ -1,64 +1,488 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-19T18:09:00Z",
+  "generatedAt": "2026-09-20T17:30:00Z",
   "title": "Design System: shooter_ad (DPS Golf)",
   "extensions": {
     "colorMeta": {
-      "ground": { "role": "neutral", "displayName": "Night Navy", "canonical": "#0a0c14", "tonalRamp": ["#05070f", "#0a0c14", "#151a2b", "#232b40", "#2a3350", "#4d5670", "#6f7b99", "#8f9ab5"] },
-      "panel": { "role": "neutral", "displayName": "Panel Navy", "canonical": "#0b0f1c", "tonalRamp": ["#05070f", "#0b0f1c", "#171d2e", "#1b2236", "#232b40", "#2a3350", "#4d5670", "#6f7b99"] },
-      "text": { "role": "neutral", "displayName": "Cool White", "canonical": "#e8ecf8", "tonalRamp": ["#4d5670", "#6f7b99", "#8b99bb", "#8f9ab5", "#c9d2ea", "#e8ecf8", "#f2f6ff", "#ffffff"] },
-      "axis-army": { "role": "primary", "displayName": "Army Green", "canonical": "#3ecf7a", "tonalRamp": ["#0d2a19", "#1a5432", "#2c8a4e", "#3ecf7a", "#6ee7a0", "#9af0bd", "#c4f7d9", "#e6fcef"] },
-      "axis-rate": { "role": "primary", "displayName": "Rate Amber", "canonical": "#ffc93c", "tonalRamp": ["#33280b", "#66501a", "#bf8f10", "#ffc93c", "#ffd166", "#ffde8c", "#ffebb8", "#fff6e0"] },
-      "axis-damage": { "role": "primary", "displayName": "Damage Coral", "canonical": "#ff6b4a", "tonalRamp": ["#33150e", "#662b1e", "#b34a33", "#ff6b4a", "#ff8a5c", "#ffa88a", "#ffc9b8", "#ffe8e0"] },
-      "axis-guns": { "role": "primary", "displayName": "Guns Violet", "canonical": "#b56bff", "tonalRamp": ["#241533", "#482b66", "#7a47b3", "#b56bff", "#c58aff", "#d5a9ff", "#e5c9ff", "#f4e8ff"] },
-      "axis-pierce": { "role": "primary", "displayName": "Pierce Mint", "canonical": "#6be8d4", "tonalRamp": ["#152e2a", "#2a5c55", "#4aa495", "#6be8d4", "#8aeddc", "#a9f2e5", "#c9f7ee", "#e8fcf8"] },
-      "axis-move": { "role": "primary", "displayName": "Move Sky", "canonical": "#4ea8ff", "tonalRamp": ["#102133", "#1f4366", "#3676b3", "#4ea8ff", "#71baff", "#95ccff", "#b8ddff", "#dceeff"] },
-      "axis-time": { "role": "primary", "displayName": "Time Pink", "canonical": "#ff9fe0", "tonalRamp": ["#33202d", "#66405a", "#b3709d", "#ff9fe0", "#ffb2e6", "#ffc5ec", "#ffd8f3", "#ffecf9"] },
-      "axis-sense": { "role": "primary", "displayName": "Sense White", "canonical": "#eaf2ff", "tonalRamp": ["#2f3033", "#5e6166", "#a4a9b3", "#eaf2ff", "#eef4ff", "#f2f7ff", "#f6f9ff", "#fbfcff"] },
-      "grade-bad": { "role": "secondary", "displayName": "Bad Red", "canonical": "#ff4757", "tonalRamp": ["#330e11", "#661c23", "#b2323d", "#ff4757", "#ff6c79", "#ff919b", "#ffb5bc", "#ffdade"] },
-      "breach": { "role": "secondary", "displayName": "Breach Red", "canonical": "#ff4d5e", "tonalRamp": ["#330f13", "#661f26", "#b23642", "#ff4d5e", "#ff717e", "#ff949e", "#ffb8bf", "#ffdbdf"] },
-      "loss": { "role": "secondary", "displayName": "Loss Red", "canonical": "#ff5566", "tonalRamp": ["#331114", "#662229", "#b23b47", "#ff5566", "#ff7785", "#ff99a3", "#ffbbc2", "#ffdde0"] },
-      "fire": { "role": "secondary", "displayName": "Fire Orange", "canonical": "#ff8a5c", "tonalRamp": ["#331c12", "#663725", "#b36040", "#ff8a5c", "#ffa17d", "#ffb99d", "#ffd0be", "#ffe8de"] },
-      "cage": { "role": "secondary", "displayName": "Cage Tan", "canonical": "#b9a06a", "tonalRamp": ["#252015", "#4a402a", "#8a774f", "#b9a06a", "#c7b388", "#d5c6a6", "#e3d9c3", "#f1ece1"] },
-      "titan": { "role": "secondary", "displayName": "Titan Purple", "canonical": "#6b2b8c", "tonalRamp": ["#150919", "#2b1138", "#4b1e62", "#6b2b8c", "#8f55ab", "#bf8fdc", "#d9b8f0", "#e9d5ff"] },
-      "enemy-bullet": { "role": "secondary", "displayName": "Dart Magenta", "canonical": "#ff2fa6", "tonalRamp": ["#330921", "#661342", "#b22174", "#ff2fa6", "#ff59b8", "#ff82ca", "#ffacdb", "#ffd5ed"] },
-      "bullet": { "role": "secondary", "displayName": "Cream Pill", "canonical": "#fff3b0", "tonalRamp": ["#333023", "#666146", "#b3aa7b", "#fff3b0", "#fff5c0", "#fff8d0", "#fffae0", "#fffdf0"] },
-      "code": { "role": "tertiary", "displayName": "Code Cyan", "canonical": "#9fe8ff", "tonalRamp": ["#202e33", "#405d66", "#6fa2b3", "#9fe8ff", "#b2edff", "#c5f1ff", "#d9f6ff", "#ecfaff"] },
-      "link": { "role": "tertiary", "displayName": "Link Teal", "canonical": "#6be8d4", "tonalRamp": ["#152e2a", "#2a5c55", "#4aa495", "#6be8d4", "#8aeddc", "#a9f2e5", "#c9f7ee", "#e8fcf8"] }
+      "ground": {
+        "role": "neutral",
+        "displayName": "Night Navy",
+        "canonical": "#0a0c14",
+        "tonalRamp": [
+          "#05070f",
+          "#0a0c14",
+          "#151a2b",
+          "#232b40",
+          "#2a3350",
+          "#4d5670",
+          "#6f7b99",
+          "#8f9ab5"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel Navy",
+        "canonical": "#0b0f1c",
+        "tonalRamp": [
+          "#05070f",
+          "#0b0f1c",
+          "#171d2e",
+          "#1b2236",
+          "#232b40",
+          "#2a3350",
+          "#4d5670",
+          "#6f7b99"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Cool White",
+        "canonical": "#e8ecf8",
+        "tonalRamp": [
+          "#4d5670",
+          "#6f7b99",
+          "#8b99bb",
+          "#8f9ab5",
+          "#c9d2ea",
+          "#e8ecf8",
+          "#f2f6ff",
+          "#ffffff"
+        ]
+      },
+      "axis-army": {
+        "role": "primary",
+        "displayName": "Army Green",
+        "canonical": "#3ecf7a",
+        "tonalRamp": [
+          "#0d2a19",
+          "#1a5432",
+          "#2c8a4e",
+          "#3ecf7a",
+          "#6ee7a0",
+          "#9af0bd",
+          "#c4f7d9",
+          "#e6fcef"
+        ]
+      },
+      "axis-rate": {
+        "role": "primary",
+        "displayName": "Rate Amber",
+        "canonical": "#ffc93c",
+        "tonalRamp": [
+          "#33280b",
+          "#66501a",
+          "#bf8f10",
+          "#ffc93c",
+          "#ffd166",
+          "#ffde8c",
+          "#ffebb8",
+          "#fff6e0"
+        ]
+      },
+      "axis-damage": {
+        "role": "primary",
+        "displayName": "Damage Coral",
+        "canonical": "#ff6b4a",
+        "tonalRamp": [
+          "#33150e",
+          "#662b1e",
+          "#b34a33",
+          "#ff6b4a",
+          "#ff8a5c",
+          "#ffa88a",
+          "#ffc9b8",
+          "#ffe8e0"
+        ]
+      },
+      "axis-guns": {
+        "role": "primary",
+        "displayName": "Guns Violet",
+        "canonical": "#b56bff",
+        "tonalRamp": [
+          "#241533",
+          "#482b66",
+          "#7a47b3",
+          "#b56bff",
+          "#c58aff",
+          "#d5a9ff",
+          "#e5c9ff",
+          "#f4e8ff"
+        ]
+      },
+      "axis-pierce": {
+        "role": "primary",
+        "displayName": "Pierce Mint",
+        "canonical": "#6be8d4",
+        "tonalRamp": [
+          "#152e2a",
+          "#2a5c55",
+          "#4aa495",
+          "#6be8d4",
+          "#8aeddc",
+          "#a9f2e5",
+          "#c9f7ee",
+          "#e8fcf8"
+        ]
+      },
+      "axis-move": {
+        "role": "primary",
+        "displayName": "Move Sky",
+        "canonical": "#4ea8ff",
+        "tonalRamp": [
+          "#102133",
+          "#1f4366",
+          "#3676b3",
+          "#4ea8ff",
+          "#71baff",
+          "#95ccff",
+          "#b8ddff",
+          "#dceeff"
+        ]
+      },
+      "axis-time": {
+        "role": "primary",
+        "displayName": "Time Pink",
+        "canonical": "#ff9fe0",
+        "tonalRamp": [
+          "#33202d",
+          "#66405a",
+          "#b3709d",
+          "#ff9fe0",
+          "#ffb2e6",
+          "#ffc5ec",
+          "#ffd8f3",
+          "#ffecf9"
+        ]
+      },
+      "axis-sense": {
+        "role": "primary",
+        "displayName": "Sense White",
+        "canonical": "#eaf2ff",
+        "tonalRamp": [
+          "#2f3033",
+          "#5e6166",
+          "#a4a9b3",
+          "#eaf2ff",
+          "#eef4ff",
+          "#f2f7ff",
+          "#f6f9ff",
+          "#fbfcff"
+        ]
+      },
+      "grade-bad": {
+        "role": "secondary",
+        "displayName": "Bad Red",
+        "canonical": "#ff4757",
+        "tonalRamp": [
+          "#330e11",
+          "#661c23",
+          "#b2323d",
+          "#ff4757",
+          "#ff6c79",
+          "#ff919b",
+          "#ffb5bc",
+          "#ffdade"
+        ]
+      },
+      "breach": {
+        "role": "secondary",
+        "displayName": "Breach Red",
+        "canonical": "#ff4d5e",
+        "tonalRamp": [
+          "#330f13",
+          "#661f26",
+          "#b23642",
+          "#ff4d5e",
+          "#ff717e",
+          "#ff949e",
+          "#ffb8bf",
+          "#ffdbdf"
+        ]
+      },
+      "loss": {
+        "role": "secondary",
+        "displayName": "Loss Red",
+        "canonical": "#ff5566",
+        "tonalRamp": [
+          "#331114",
+          "#662229",
+          "#b23b47",
+          "#ff5566",
+          "#ff7785",
+          "#ff99a3",
+          "#ffbbc2",
+          "#ffdde0"
+        ]
+      },
+      "fire": {
+        "role": "secondary",
+        "displayName": "Fire Orange",
+        "canonical": "#ff8a5c",
+        "tonalRamp": [
+          "#331c12",
+          "#663725",
+          "#b36040",
+          "#ff8a5c",
+          "#ffa17d",
+          "#ffb99d",
+          "#ffd0be",
+          "#ffe8de"
+        ]
+      },
+      "cage": {
+        "role": "secondary",
+        "displayName": "Cage Tan",
+        "canonical": "#b9a06a",
+        "tonalRamp": [
+          "#252015",
+          "#4a402a",
+          "#8a774f",
+          "#b9a06a",
+          "#c7b388",
+          "#d5c6a6",
+          "#e3d9c3",
+          "#f1ece1"
+        ]
+      },
+      "titan": {
+        "role": "secondary",
+        "displayName": "Titan Purple",
+        "canonical": "#6b2b8c",
+        "tonalRamp": [
+          "#150919",
+          "#2b1138",
+          "#4b1e62",
+          "#6b2b8c",
+          "#8f55ab",
+          "#bf8fdc",
+          "#d9b8f0",
+          "#e9d5ff"
+        ]
+      },
+      "enemy-bullet": {
+        "role": "secondary",
+        "displayName": "Dart Magenta",
+        "canonical": "#ff2fa6",
+        "tonalRamp": [
+          "#330921",
+          "#661342",
+          "#b22174",
+          "#ff2fa6",
+          "#ff59b8",
+          "#ff82ca",
+          "#ffacdb",
+          "#ffd5ed"
+        ]
+      },
+      "bullet": {
+        "role": "secondary",
+        "displayName": "Cream Pill",
+        "canonical": "#fff3b0",
+        "tonalRamp": [
+          "#333023",
+          "#666146",
+          "#b3aa7b",
+          "#fff3b0",
+          "#fff5c0",
+          "#fff8d0",
+          "#fffae0",
+          "#fffdf0"
+        ]
+      },
+      "code": {
+        "role": "tertiary",
+        "displayName": "Code Cyan",
+        "canonical": "#9fe8ff",
+        "tonalRamp": [
+          "#202e33",
+          "#405d66",
+          "#6fa2b3",
+          "#9fe8ff",
+          "#b2edff",
+          "#c5f1ff",
+          "#d9f6ff",
+          "#ecfaff"
+        ]
+      },
+      "link": {
+        "role": "tertiary",
+        "displayName": "Link Teal",
+        "canonical": "#6be8d4",
+        "tonalRamp": [
+          "#152e2a",
+          "#2a5c55",
+          "#4aa495",
+          "#6be8d4",
+          "#8aeddc",
+          "#a9f2e5",
+          "#c9f7ee",
+          "#e8fcf8"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "The DPS GOLF title on the start screen only." },
-      "headline-number": { "displayName": "Headline Number", "purpose": "Waves survived on the end screen." },
-      "heading": { "displayName": "Heading", "purpose": "PAUSED, OVERRUN, THE TITAN LANDED; untracked." },
-      "magnitude": { "displayName": "Magnitude", "purpose": "Gate card top line and strip cell main; shrinks to the card when wider." },
-      "value": { "displayName": "Rail Value", "purpose": "The four rail figures." },
-      "button": { "displayName": "Button", "purpose": "The one filled button per screen." },
-      "body": { "displayName": "Body", "purpose": "Start-screen copy; regular weight, line spacing 5." },
-      "link": { "displayName": "Link", "purpose": "Text links and tappable lines on a 44px hit bar." },
-      "caption": { "displayName": "Caption", "purpose": "Sits under the value it names." },
-      "label": { "displayName": "Label", "purpose": "Uppercase tracked data labels on rail, strip, pause lists." },
-      "code": { "displayName": "Match Code", "purpose": "Monospace so characters can be counted off a screenshot." },
-      "working": { "displayName": "Working", "purpose": "The DETAILS tab's DPS arithmetic; one bold white answer line." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "The DPS GOLF title on the start screen only."
+      },
+      "headline-number": {
+        "displayName": "Headline Number",
+        "purpose": "Waves survived on the end screen."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "PAUSED, OVERRUN, THE TITAN LANDED; untracked."
+      },
+      "magnitude": {
+        "displayName": "Magnitude",
+        "purpose": "Gate card top line and strip cell main; shrinks to the card when wider."
+      },
+      "value": {
+        "displayName": "Rail Value",
+        "purpose": "The four rail figures."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "The one filled button per screen."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Start-screen copy; regular weight, line spacing 5."
+      },
+      "note": {
+        "displayName": "Note",
+        "purpose": "The 16px step: the pause page's wrapped axis note, the end screen's detail line and score captions; bold for ruler heads and the DPS · PAR line."
+      },
+      "link": {
+        "displayName": "Link",
+        "purpose": "Text links and tappable lines on a 44px hit bar (17px on the start screen and pause tabs; 16px and 15px on the end screen)."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Sits under the value it names; 15px after the Phone Floor (2026-09-20)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase tracked data labels on rail, strip, pause heads and the card tile's axis word (14px, tracking 1.4-2; never scaled)."
+      },
+      "code": {
+        "displayName": "Match Code",
+        "purpose": "Monospace so characters can be counted off a screenshot."
+      },
+      "working": {
+        "displayName": "Working",
+        "purpose": "The DETAILS tab's DPS arithmetic at 16px; one bold white answer line."
+      }
     },
     "shadows": [],
     "motion": [
-      { "name": "pick-hold", "value": "240ms", "purpose": "The pick wash holds in the card's footprint so the grade can be read." },
-      { "name": "pick-fade", "value": "480ms Quad.easeOut, y -24px, alpha 0", "purpose": "The wash lifts and fades; the one authored motion moment." },
-      { "name": "death-beat", "value": "480ms", "purpose": "Field dims to 0.7 and the end screen is held back for the beat." },
-      { "name": "edge-fade", "value": "360ms Quad.easeOut", "purpose": "Breach edge flash; fire uses 280ms." },
-      { "name": "float", "value": "700ms Quad.easeOut, rise 26-40px", "purpose": "-N, +N ARMY floats; MISS is 800ms with a 200ms hold." },
-      { "name": "cell-flash", "value": "500ms from scale 1.25", "purpose": "A strip cell's main when its value changes." },
-      { "name": "banner", "value": "180ms in, 600ms hold (1200 Titan), 240ms out", "purpose": "WAVE N and TITAN DOWN bands." },
-      { "name": "hit-flash", "value": "0.07s simulated", "purpose": "A struck body is drawn pure white." },
-      { "name": "shard-life", "value": "0.28s (0.18s contact)", "purpose": "Death pops; fixed 96-shard ring." },
-      { "name": "sense-pulse", "value": "alpha 0.8-1.0 on the simulated clock", "purpose": "The SENSE bar over the marked card." }
+      {
+        "name": "pick-hold",
+        "value": "240ms",
+        "purpose": "The pick wash holds in the card's footprint so the grade can be read."
+      },
+      {
+        "name": "pick-fade",
+        "value": "480ms Quad.easeOut, y -24px, alpha 0",
+        "purpose": "The wash lifts and fades; the field's authored motion."
+      },
+      {
+        "name": "demo-descent",
+        "value": "2600ms Linear loop, y 214 to 330, alpha in over 12% / out over 15%",
+        "purpose": "The start screen's authored motion: three demo card tiles descend toward the squad at ~45px/s."
+      },
+      {
+        "name": "end-count-up",
+        "value": "min(900, 240 + 60N) ms Quad.easeOut, delay 120ms",
+        "purpose": "The end screen's authored motion: the waves headline counts 0 to N."
+      },
+      {
+        "name": "screen-enter",
+        "value": "200ms Quad.easeOut, alpha 0 to 1",
+        "purpose": "The end screen enters after the death beat rather than cutting."
+      },
+      {
+        "name": "death-beat",
+        "value": "480ms",
+        "purpose": "Field dims to 0.7 and the end screen is held back for the beat."
+      },
+      {
+        "name": "edge-fade",
+        "value": "360ms Quad.easeOut",
+        "purpose": "Breach edge flash; fire uses 280ms."
+      },
+      {
+        "name": "float",
+        "value": "700ms Quad.easeOut, rise 26-40px",
+        "purpose": "-N, +N ARMY floats; MISS is 800ms with a 200ms hold."
+      },
+      {
+        "name": "cell-flash",
+        "value": "500ms from scale 1.25",
+        "purpose": "A strip cell's main when its value changes."
+      },
+      {
+        "name": "banner",
+        "value": "180ms in, 600ms hold (1200 Titan), 240ms out",
+        "purpose": "WAVE N and TITAN DOWN bands."
+      },
+      {
+        "name": "hit-flash",
+        "value": "0.07s simulated",
+        "purpose": "A struck body is drawn pure white."
+      },
+      {
+        "name": "shard-life",
+        "value": "0.28s (0.18s contact)",
+        "purpose": "Death pops; fixed 96-shard ring."
+      },
+      {
+        "name": "sense-pulse",
+        "value": "alpha 0.8-1.0 on the simulated clock",
+        "purpose": "The SENSE bar over the marked card."
+      },
+      {
+        "name": "bar-swell",
+        "value": "300ms Quad.easeOut yoyo, 6px to 10px",
+        "purpose": "The standing bar's one-shot flash on crossing the target line; a state flash, not an authored motion."
+      }
     ],
     "breakpoints": [
-      { "name": "canvas", "value": "540x960 under Scale.FIT; no responsive layout" }
+      {
+        "name": "canvas",
+        "value": "540x960 under Scale.FIT; no responsive layout"
+      }
     ],
     "depthMap": {
-      "field": { "ground": 0, "ground-band": 1, "gate-card": 4, "overlay": 6, "titan": "8/9", "enemy": "10/11", "cage-inmates+bullets": 12, "cage": 13, "shards": 14, "gate-label": 15, "health-bars": 18, "squad": "20/21", "enemy-bullets": "22/23", "brackets": 25, "field-fx": 27, "horizon": 28, "death-dim": 29, "rail-backing": 30 },
-      "hud": { "pause-button": 40, "boss-bar": 42, "wave-band": 44, "edge-flash": 45, "end-screen": 50, "pause-screen": 55, "start-screen": 60 }
+      "field": {
+        "ground": 0,
+        "ground-band": 1,
+        "gate-card": 4,
+        "overlay": 6,
+        "titan": "8/9",
+        "enemy": "10/11",
+        "cage-inmates+bullets": 12,
+        "cage": 13,
+        "shards": 14,
+        "gate-label": 15,
+        "health-bars": 18,
+        "squad": "20/21",
+        "enemy-bullets": "22/23",
+        "brackets": 25,
+        "field-fx": 27,
+        "horizon": 28,
+        "death-dim": 29,
+        "rail-backing": 30
+      },
+      "hud": {
+        "pause-button": 40,
+        "boss-bar": 42,
+        "wave-band": 44,
+        "edge-flash": 45,
+        "end-screen": 50,
+        "pause-screen": 55,
+        "start-screen": 60
+      }
     }
   },
   "components": [
@@ -66,9 +490,17 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one filled button per screen: START MATCH, RESUME, REPLAY THIS MATCH.",
+      "description": "The one filled button per screen, in the card's shape: START MATCH (380x64), RESUME, REPLAY THIS MATCH (300x56).",
       "html": "<button class=\"ds-btn-primary\">START MATCH</button>",
-      "css": ".ds-btn-primary { width: 300px; height: 56px; background: rgba(62,207,122,0.2); color: #3ecf7a; border: 2px solid rgba(62,207,122,0.9); border-radius: 0; font: 700 22px system-ui, sans-serif; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; } .ds-btn-primary:hover, .ds-btn-primary:focus-visible { background: rgba(62,207,122,0.3); outline: none; } .ds-btn-primary:active { background: rgba(62,207,122,0.4); }"
+      "css": ".ds-btn-primary { position: relative; width: 300px; height: 56px; background: rgba(62,207,122,0.2); color: #3ecf7a; border: 2px solid rgba(62,207,122,0.9); border-top: 4px solid #3ecf7a; border-radius: 0; font: 700 22px system-ui, sans-serif; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; } .ds-btn-primary:hover, .ds-btn-primary:focus-visible { background: rgba(62,207,122,0.3); outline: none; } .ds-btn-primary:active { background: rgba(62,207,122,0.4); }"
+    },
+    {
+      "name": "Card Tile",
+      "kind": "card",
+      "refersTo": "card-tile",
+      "description": "A gate card off the field: 4px roof, body tinted 0.18 held / 0.06 unheld, 2px stroke at 0.8 / 0.45, magnitude over a 14px tracked axis word; selection is two white L-brackets at the bottom corners.",
+      "html": "<div class=\"ds-tiles\"><div class=\"ds-tile ds-tile-selected\"><div class=\"ds-tile-mag\">48</div><div class=\"ds-tile-axis\">ARMY</div></div><div class=\"ds-tile ds-tile-unheld\" style=\"--tile: 181,107,255\"><div class=\"ds-tile-mag\">1</div><div class=\"ds-tile-axis\">GUNS</div></div></div>",
+      "css": ".ds-tiles { display: flex; gap: 8px; } .ds-tile { --tile: 62,207,122; position: relative; width: 120px; height: 88px; box-sizing: border-box; background: rgba(var(--tile),0.18); border: 2px solid rgba(var(--tile),0.8); border-top: 4px solid rgb(var(--tile)); border-radius: 0; color: #e8ecf8; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: system-ui, sans-serif; font-weight: 700; cursor: pointer; } .ds-tile-mag { font-size: 26px; line-height: 1; } .ds-tile-axis { font-size: 14px; letter-spacing: 2px; margin-top: 9px; } .ds-tile-unheld { background: rgba(var(--tile),0.06); border-color: rgba(var(--tile),0.45); border-top-color: rgba(var(--tile),0.55); } .ds-tile-unheld .ds-tile-mag { opacity: 0.6; } .ds-tile-unheld .ds-tile-axis { opacity: 0.8; } .ds-tile-selected::before, .ds-tile-selected::after { content: ''; position: absolute; bottom: -1px; width: 14px; height: 14px; border: 3px solid rgba(255,255,255,0.95); border-top: none; } .ds-tile-selected::before { left: -1px; border-right: none; } .ds-tile-selected::after { right: -1px; border-left: none; } .ds-tile:hover { background: rgba(var(--tile),0.3); }"
     },
     {
       "name": "Pause Button",
@@ -137,35 +569,60 @@
   ],
   "narrative": {
     "northStar": "The Instrument Panel",
-    "overview": "There was no direction contract for this world. It is code-led, with no comp: the system below is read off the shipped build (.verify/*.png, 2026-09-19) and the modules that draw it, not off a plan. Where this record and the code disagree, the code is stale or this record is; re-scan rather than defend.\n\nThe game is a dark navy field with a data rail above and a data strip below, and every colour on it is a word: an axis, a rank, a grade, a threat. The squad is human (skin head, rank-coloured shirt); everything it fights is a creature drawn white-with-black-detail and tinted at runtime, because the build ships no asset files at all. Type is the system sans everywhere and the system monospace for match codes and the DPS working, because nothing may be fetched. The one rule under all of it: rendering is a photograph of the simulation and never feeds it.",
+    "overview": "There was no direction contract for this world. It is code-led, with no comp: the system below is read off the shipped build (.verify/*.png, 2026-09-19) and the modules that draw it, not off a plan. Where this record and the code disagree, the code is stale or this record is; re-scan rather than defend.\n\nThe game is a dark navy field with a data rail and a data strip stacked above it, and every colour on it is a word: an axis, a rank, a grade, a threat. The three screens are built from the field's one recognisable object, the gate card: a stat tile on pause, a scorecard footprint on the end screen, and the shape of every primary button (2026-09-20; hud/CardTile). The squad is human (skin head, rank-coloured shirt); everything it fights is a creature drawn white-with-black-detail and tinted at runtime, because the build ships no asset files at all. Type is the system sans everywhere and the system monospace for match codes and the DPS working, because nothing may be fetched. The one rule under all of it: rendering is a photograph of the simulation and never feeds it.",
     "keyCharacteristics": [
       "Flat, opaque, unrounded. Depth is a Phaser depth number, never a shadow.",
       "One colour per bonus axis; both forms of an axis share it.",
       "Text on the field is bold and never dimmer than {colors.small}.",
-      "One authored motion moment (the pick wash); everything else is a state flash of a fixed duration from RENDER.moments.",
+      "Three authored motions, one per place (the pick wash on the field, the demo offer's descent on the start screen, the end screen's count-up); everything else is a state flash of a fixed duration from RENDER.moments.",
       "Procedural everything: textures, audio, labels."
     ],
     "rules": [
-      { "name": "The One Word Rule", "body": "A vocabulary colour (axis, rank, creature) names one thing and is never reused for feedback; feedback colours (grade, breach, loss, fire, Titan) are never used to label a bonus.", "section": "colors" },
-      { "name": "The Floor Rule", "body": "Nothing is drawn as text dimmer than {colors.small}; unheld strip cells dim by alpha (0.55), not by a darker colour.", "section": "colors" },
-      { "name": "The Neutral Rule", "body": "No colour choice may change a simulation outcome; npm run neutral must read identical on every seed after any change here.", "section": "colors" },
-      { "name": "The Two-Line Card Rule", "body": "A gate label is always magnitude over axis word, split at the last space; +SENSE is + over SENSE. type.label is not changed for display.", "section": "typography" },
-      { "name": "The Stroke Rule", "body": "Text that floats over the field wears a 3px {colors.screen} stroke (4px for rescues); text on a panel wears none.", "section": "typography" },
-      { "name": "The Panel Alpha Rule", "body": "Backings the stream can cross (rail, strip, pause button, SENSE tag) sit at 0.96; the wave band at 0.75; the Titan warning at 0.35; nothing else is translucent at rest.", "section": "elevation" }
+      {
+        "name": "The One Word Rule",
+        "body": "A vocabulary colour (axis, rank, creature) names one thing and is never reused for feedback; feedback colours (grade, breach, loss, fire, Titan) are never used to label a bonus.",
+        "section": "colors"
+      },
+      {
+        "name": "The Floor Rule",
+        "body": "Nothing is drawn as text dimmer than {colors.small}; unheld strip cells dim by alpha (0.55), not by a darker colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Neutral Rule",
+        "body": "No colour choice may change a simulation outcome; npm run neutral must read identical on every seed after any change here.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Line Card Rule",
+        "body": "A gate label is always magnitude over axis word, split at the last space; +SENSE is + over SENSE. type.label is not changed for display.",
+        "section": "typography"
+      },
+      {
+        "name": "The Stroke Rule",
+        "body": "Text that floats over the field wears a 3px {colors.screen} stroke (4px for rescues); text on a panel wears none.",
+        "section": "typography"
+      },
+      {
+        "name": "The Panel Alpha Rule",
+        "body": "Backings the stream can cross (rail, strip, pause button, SENSE tag) sit at 0.96; the wave band at 0.75; the Titan warning at 0.35; nothing else is translucent at rest.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do keep rendering read-only: sprites, HUD, FX and audio consume SimEvents and HudPayload; nothing they do reaches systems/.",
       "Do phase every visual pulse off the simulated clock or a Bresenham stride; never the seeded RNG and never Math.random().",
       "Do prove any visual change with npm run neutral identical on five seeds, and look at the stills from hud, moments, roster, endscreen.",
       "Do add a creature as one white-with-black texture at 2x plus a row in CREATURE_ART; fit the drawing to radius, never the reverse.",
-      "Do give every tappable line a fixed 44px hit bar and every screen exactly one filled button.",
+      "Do give every tappable line a fixed 44px hit bar and every screen exactly one filled button, in the card's shape (roof, 0.2 fill, 2px stroke).",
+      "Do build a screen's stat or score out of card tiles (hud/CardTile) rather than text rows, held and unheld by alpha as the strip does.",
       "Do keep the three type roles: system sans for everything, monospace for codes and working, and {colors.small} as the dimmest text."
     ],
     "donts": [
       "Don't reuse an axis, rank or creature colour for feedback, or a feedback colour to label a bonus.",
       "Don't add shadows, gradients, rounded corners or a loaded font or image; the build ships no assets and draws flat rectangles.",
       "Don't fade a wounded body by alpha; flash white and bleach.",
-      "Don't add a second authored motion; new feedback is a fixed-duration state flash keyed from RENDER.moments.",
+      "Don't add a fourth authored motion. Three exist by the author's decision (2026-09-20): the pick wash on the field, the demo offer's descent on the start screen, the end screen's count-up. New feedback is a fixed-duration state flash keyed from RENDER.moments.",
       "Don't draw landing dashes or anything else that tells the player where to stand (RENDER.landingDashes stays off).",
       "Don't put coloured side stripes on cells or rows; the label already carries the axis colour and dividers are 1px hairlines."
     ]

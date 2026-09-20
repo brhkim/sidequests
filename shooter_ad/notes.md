@@ -670,6 +670,16 @@ bonus that is not a DPS input. Chosen over a right rail because the game is
 540×960 portrait and widening the canvas shrinks the playfield badly under
 `Scale.FIT` on a phone, which is the device this genre is played on.
 
+**The three screens are built from the gate card** (2026-09-20, the
+author's four decisions): the card is the one object a player recognises,
+so it is the stat tile on the pause page, the shape of every primary button,
+and the demo offer on the start screen, which is a first wave rather than a
+menu - three real cards descending toward the squad on its ground band.
+The pause page keeps the ruler (the lesson) and says one thing at a time: a
+tapped tile's line, not ten rows. Two authored motions were allowed on
+screens and both are spent: the demo offer's descent and the end screen's
+waves number counting up.
+
 **The strip sat beneath the red line until 2026-09-20 and the author moved
 it.** The argument for the bottom was that the eye is already at the line;
 the phone refuted it: the thumb steering the squad covers the strip, and every

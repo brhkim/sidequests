@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, VIEW } from '../../config';
+import { CardTile, cardButton } from './CardTile';
 import { CAPTION, compact, FONT, GRADE_COLOR, hex, MONO, SMALL } from './types';
 import type { MatchMode } from '../../systems/MatchCode';
 
@@ -51,13 +52,14 @@ export class EndScreen {
   private readonly wave: Phaser.GameObjects.Text;
   private readonly optimal: Phaser.GameObjects.Text;
   private readonly peak: Phaser.GameObjects.Text;
-  private readonly tally: Phaser.GameObjects.Text[] = [];
+  private readonly tally: CardTile[] = [];
   private readonly detail: Phaser.GameObjects.Text;
   private readonly code: Phaser.GameObjects.Text;
   private readonly codeCaption: Phaser.GameObjects.Text;
   private readonly copyLabel: Phaser.GameObjects.Text;
   private readonly version: Phaser.GameObjects.Text;
   private link = '';
+  private countTween: Phaser.Tweens.Tween | null = null;
 
   constructor(private readonly scene: Phaser.Scene, onNewMatch: () => void) {
     const cx = VIEW.width / 2;
@@ -97,20 +99,18 @@ export class EndScreen {
       fontFamily: FONT, fontSize: '16px', color: SMALL,
     }).setOrigin(0.5));
 
-    // The scorecard in miniature, each count in its grade's colour: what makes
-    // two runs on one seed worth arguing about. RISK and MISS have their own
-    // columns - a gamble and a gate driven past are not a wrong sum.
-    for (const dx of [-168, -84, 0, 84, 168]) {
-      this.tally.push(add(scene.add.text(cx + dx, 440, '', {
-        fontFamily: FONT, fontSize: '26px', fontStyle: 'bold',
-      }).setOrigin(0.5)));
-    }
-    for (const dx of [-126, -42, 42, 126]) {
-      add(scene.add.text(cx + dx, 440, '·', {
-        fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: SMALL,
-      }).setOrigin(0.5));
-    }
-    text(474, 14, SMALL, false).setText('PERFECT  ·  GOOD  ·  BAD  ·  RISK  ·  MISS');
+    // The scorecard: five card footprints in the grade colours, the pick
+    // wash's own vocabulary, each with its count over its word, so the row
+    // reads off a photo. RISK and MISS have their own footprints - a gamble
+    // and a gate driven past are not a wrong sum. A count of zero sits dim.
+    const words = ['PERFECT', 'GOOD', 'BAD', 'RISK', 'MISS'] as const;
+    const colors = [GRADE_COLOR.perfect, GRADE_COLOR.good, GRADE_COLOR.bad, GRADE_COLOR.risk, 0x8f9ab5];
+    [-192, -96, 0, 96, 192].forEach((dx, i) => {
+      const tile = new CardTile(scene, cx + dx, 446, colors[i], 88, 64);
+      tile.set('0', words[i]);
+      for (const p of tile.parts) add(p);
+      this.tally.push(tile);
+    });
 
     this.detail = text(520, 16, CAPTION, false);
 
@@ -140,13 +140,11 @@ export class EndScreen {
     // from different games and conclude the leaderboard is broken.
     this.version = text(756, 12, SMALL, false);
 
-    // Replay, as a BUTTON rather than a tap anywhere. Not interactive here:
-    // GameScene owns the hit test (see REPLAY_BUTTON) and SPACE still works.
-    add(scene.add.rectangle(cx, REPLAY_BUTTON.y, REPLAY_BUTTON.width, REPLAY_BUTTON.height, 0x3ecf7a, 0.2)
-      .setStrokeStyle(2, 0x3ecf7a, 0.9));
-    add(scene.add.text(cx, REPLAY_BUTTON.y, 'REPLAY THIS MATCH', {
-      fontFamily: FONT, fontSize: '22px', color: '#3ecf7a', fontStyle: 'bold',
-    }).setOrigin(0.5).setLetterSpacing(1));
+    // Replay, as a BUTTON rather than a tap anywhere, in the card's shape
+    // like every primary action. Not interactive here: GameScene owns the hit
+    // test (see REPLAY_BUTTON) and SPACE still works.
+    for (const p of cardButton(scene, cx, REPLAY_BUTTON.y, REPLAY_BUTTON.width, REPLAY_BUTTON.height,
+      0x3ecf7a, 'REPLAY THIS MATCH').parts) add(p);
     text(900, 15, LINK, false).setText('or start a new match');
     const freshHit = add(scene.add.rectangle(cx, 900, 300, 44, 0xffffff, 0.001)
       .setInteractive({ useHandCursor: true }));
@@ -179,7 +177,17 @@ export class EndScreen {
     this.link = link;
     this.copyLabel.setText('tap here to copy link');
     this.title.setText(p.cause === 'titan' ? 'THE TITAN LANDED' : 'OVERRUN');
-    this.wave.setText(String(p.wave));
+    // The headline counts up to its number: the screen's one authored
+    // motion (the author's call, 2026-09-20). Scene clock, wall time, and
+    // nothing the simulation touches - the run is already over.
+    this.countTween?.remove();
+    const counter = { n: 0 };
+    this.wave.setText('0');
+    this.countTween = this.scene.tweens.add({
+      targets: counter, n: p.wave, duration: Math.min(900, 240 + p.wave * 60), ease: 'Quad.easeOut', delay: 120,
+      onUpdate: () => this.wave.setText(String(Math.round(counter.n))),
+      onComplete: () => { this.wave.setText(String(p.wave)); this.countTween = null; },
+    });
 
     const pct = Math.round(p.optimal * 100);
     const grade = pct >= 90 ? GRADE_COLOR.perfect : pct >= 70 ? GRADE_COLOR.good : GRADE_COLOR.bad;
@@ -188,11 +196,8 @@ export class EndScreen {
     this.peak.setText(compact(p.peakDps));
 
     const { top, mid, low, risk, miss } = p.tally;
-    this.tally[0].setText(String(top)).setColor(hex(GRADE_COLOR.perfect));
-    this.tally[1].setText(String(mid)).setColor(hex(GRADE_COLOR.good));
-    this.tally[2].setText(String(low)).setColor(hex(GRADE_COLOR.bad));
-    this.tally[3].setText(String(risk)).setColor(hex(GRADE_COLOR.risk));
-    this.tally[4].setText(String(miss)).setColor(CAPTION);
+    const words = ['PERFECT', 'GOOD', 'BAD', 'RISK', 'MISS'];
+    [top, mid, low, risk, miss].forEach((n, i) => this.tally[i].set(String(n), words[i]).setHeld(n > 0));
 
     this.detail.setText(
       p.decisions > 0
@@ -213,6 +218,8 @@ export class EndScreen {
 
   hide(): void {
     this.scene.tweens.killTweensOf(this.root);
+    this.countTween?.remove();
+    this.countTween = null;
     this.root.setVisible(false).setAlpha(1);
   }
 }

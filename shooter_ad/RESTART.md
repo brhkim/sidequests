@@ -94,6 +94,13 @@ All of it is the author's decision, recorded verbatim in `ASKS.md`.
 8. **(0.7) SENSE marks 25 / 50 / 75%** of offers at one, two, three held.
 9. **(0.7) Anonymous analytics** (`src/analytics/Analytics.ts`, GoatCounter)
    ships OFF: `ANALYTICS.site` is empty until the author creates the site.
+10. **The UI pass** (impeccable, code-led; rendering only). The screens are
+    built from the gate card: `hud/CardTile.ts` is the tile and the button
+    shape; the start screen is a first wave (a demo offer descending on a
+    loop, the squad on the real ground band, START MATCH as a card); the
+    pause BONUSES page is eight tiles plus one tap-to-read line under the
+    ruler; the end screen's waves number counts up. The direction contract
+    is `.impeccable/surfaces/src-scenes-hud-startscreen-ts.md`; ASKS §4.
 
 **Measured**, `npm run balance` seeds 1-5, skill 0.7, before on a snapshot of
 `36c65ca` and after with everything above:
@@ -119,10 +126,6 @@ and passed on the rerun; read that check as flaky, not the beat.
 
 - **The GoatCounter site code.** The hook is built and off; the author
   creates the site and puts its code in `ANALYTICS.site`.
-- **The UI design pass.** The author's ask #2 (screens are barebones and
-  text-heavy) is open by agreement. It needs a comp-first pass with the
-  impeccable skill on the three screens, not more polish of the current
-  layout.
 - **`startPower` 5.** My number; revert to 1 for the harder open.
 
 ## 5. Known gaps — name these as unverified if you report on them

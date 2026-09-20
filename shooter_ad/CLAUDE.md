@@ -137,6 +137,26 @@ at least 44px, and the end screen restarts only from `REPLAY_BUTTON`, which
 screenshot alone. The pause screen's SOUND line emits `mutetoggle` and
 follows the `muted` answer; it never asserts a state audio is not in.
 
+**The three screens are built from the gate card** (impeccable, 2026-09-20,
+code-led; rendering only, no `systems/` change). `hud/CardTile.ts` is the
+gate card off the field - roof, tinted body, stroke, magnitude over axis
+word, the field's white L-brackets as the selection mark, drawn pips for
+SENSE - and `cardButton` is the same shape as every primary action (START
+MATCH, RESUME, REPLAY THIS MATCH). `StartScreen` is a first wave: a demo
+offer of three real cards descends on a 2.6s loop (a scene tween, never the
+simulation), the squad stands on the field's own ground band at the lane
+from the real textures, and the pitch is the author's verbatim.
+`PauseBonuses` keeps the ruler and shows eight tiles in DPS order then the
+RISK three with one tap-to-read line beneath (it opens on ARMY); the DPS ·
+PAR line takes `standingColor`, exported from `TopRail`. `EndScreen`'s
+tally is five card footprints in the grade colours and the waves headline
+counts up (a tween on the UI scene's clock, after the run is over). The
+direction contract is `.impeccable/surfaces/src-scenes-hud-startscreen-ts.md`;
+the finish review's verdict was ship after one fix round. The instrument
+anchors (`START MATCH`, `enter a code`, `new match`, `tap to change
+difficulty`, `RESUME`, `RESTART`, `DETAILS`, `REPLAY THIS MATCH`, `or start
+a new match`) are unchanged; `npm run endscreen` presses them all.
+
 **Finish review** (impeccable, end of the 2026-09-19 session; rendering
 only, `npm run neutral` identical on 5/5 seeds). It changed: the rail
 backing and the pause button to 0.96 alpha, what the strip already used,

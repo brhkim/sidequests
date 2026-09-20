@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { VIEW } from '../../config';
+import { cardButton } from './CardTile';
 import { PauseBonuses } from './PauseBonuses';
 import { PauseDetails } from './PauseDetails';
 import { CAPTION, FONT, SMALL, type HudPayload } from './types';
@@ -82,13 +83,11 @@ export class PauseScreen {
     this.details = new PauseDetails(scene);
     parts.push(this.details.root);
 
-    // The one button.
-    const resume = add(scene.add.rectangle(cx, 740, 300, 56, 0x3ecf7a, 0.2)
-      .setStrokeStyle(2, 0x3ecf7a, 0.9).setInteractive({ useHandCursor: true }));
-    resume.on('pointerdown', (p: Phaser.Input.Pointer) => { p.event.stopPropagation(); onResume(); });
-    add(scene.add.text(cx, 740, 'RESUME', {
-      fontFamily: FONT, fontSize: '22px', color: '#3ecf7a', fontStyle: 'bold',
-    }).setOrigin(0.5).setLetterSpacing(1));
+    // The one button, in the card's shape like every primary action.
+    const resume = cardButton(scene, cx, 740, 300, 56, 0x3ecf7a, 'RESUME');
+    for (const p of resume.parts) add(p);
+    resume.hit.setInteractive({ useHandCursor: true });
+    resume.hit.on('pointerdown', (p: Phaser.Input.Pointer) => { p.event.stopPropagation(); onResume(); });
 
     this.sound = add(scene.add.text(cx, 800, 'SOUND ON — tap to mute', {
       fontFamily: FONT, fontSize: '15px', color: CAPTION,

@@ -343,4 +343,31 @@ Status: `landed`, v0.7. `SENSE.chance` is `[0, 0.25, 0.5, 0.75]`.
 
 > And yes, let's start talking about the UI decisions please
 
-Status: `open` - discussion opened in the session summary; nothing built.
+> Yeah those sound fine to me, please proceed!
+
+Status: `landed` (see §4). The four decisions the author approved: the
+screens borrow the gate card; the pause rows become card tiles with one
+tap-to-read line; the start screen is a first wave, not a menu; two more
+authored motions at most, both on screens.
+
+## 4. The UI pass (impeccable, code-led)
+
+No image generation in this session, so the pass ran code-led with the
+game's own stills as the comp; the direction contract is in
+`.impeccable/surfaces/src-scenes-hud-startscreen-ts.md`. Built:
+
+- `hud/CardTile.ts`: the gate card off the field (roof, tinted body, stroke,
+  magnitude over axis word) as a stat tile and as the shape of every primary
+  button (START MATCH, RESUME, REPLAY THIS MATCH).
+- Start screen: the first wave. A demo offer of three real cards (`+25%
+  DMG`, `×1.25 DMG`, `+2 GUNS`) descends on a 6s loop below the author's
+  verbatim first pitch beat; the squad stands on the real ground band at the
+  real line; START MATCH is a card. Every instrument anchor kept.
+- Pause BONUSES: the ruler stays; the ten rows are eight card tiles in DPS
+  order then the RISK three, held tiles lit and unheld dim as strip cells
+  are, with one tap-to-read line beneath (opens on ARMY).
+- End screen: the waves number counts up (the second new motion); REPLAY is
+  a card.
+Verified: `npm run endscreen` and `npm run verify` pass; stills in
+`.impeccable/review/`. The finish review's verdict is in the session summary.
+

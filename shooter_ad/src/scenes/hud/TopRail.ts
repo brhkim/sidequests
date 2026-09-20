@@ -126,7 +126,7 @@ export function sensePips(sense: number): string {
   return s;
 }
 
-function standingColor(ratio: number): string {
+export function standingColor(ratio: number): string {
   if (ratio >= 1) return '#6ee7a0';
   if (ratio >= DIFFICULTY.targetFraction) return '#ffd166';
   if (ratio >= DIFFICULTY.targetFraction * 0.65) return '#ff9f4a';
