@@ -90,6 +90,7 @@ export class PauseDetails {
       `   = ${num(total)} /s`,
       '',
       `=  ${compact(total)} DPS      par ${compact(h.parDps)}  →  ${standing}%`,
+      '   PAR: the best card taken, every time',
       '',
       'against one body (the Titan), pierce adds nothing:',
       `   ${compact(withGuns)} /s`,

@@ -12,7 +12,7 @@ const SAMPLE_ROOTS = [1.1, 1.25, 1.4] as const;
 /** Every axis, in the order the DETAILS page multiplies them, then the RISK three. */
 const AXES: readonly BonusAxis[] = ['army', 'damage', 'rate', 'guns', 'pierce', 'move', 'time', 'sense'];
 const GRID_X = 18;
-const GRID_Y = 318;
+const GRID_Y = 298;
 const GRID_GAP = 8;
 
 interface Ruler {
@@ -60,9 +60,6 @@ export class PauseBonuses {
     add(scene.add.text(cx, 104, 'a +% card adds to a pool you keep  ·  a × card multiplies', {
       fontFamily: FONT, fontSize: '15px', color: '#9fe8ff', align: 'center',
     }).setOrigin(0.5, 0));
-    add(scene.add.text(cx, 124, 'each stat  =  base × (1 + pool) × mult', {
-      fontFamily: FONT, fontSize: '14px', color: SMALL,
-    }).setOrigin(0.5, 0));
 
     // Two rulers side by side, because damage and rate are separate pools and
     // a player deep in one is often empty in the other - seeing the same
@@ -70,26 +67,23 @@ export class PauseBonuses {
     for (const [i, axis] of (['damage', 'rate'] as const).entries()) {
       const x = 26 + i * 254;
       const color = AXIS_COLOR[axis];
-      const head = add(scene.add.text(x, 150, '', {
+      const head = add(scene.add.text(x, 134, '', {
         fontFamily: FONT, fontSize: '16px', color: hex(color), fontStyle: 'bold',
       }).setOrigin(0, 0));
-      const divide = add(scene.add.text(x, 170, '', {
+      const divide = add(scene.add.text(x, 154, '', {
         fontFamily: FONT, fontSize: '14px', color: CAPTION,
       }).setOrigin(0, 0));
-      const lines = SAMPLE_ROOTS.map((_, r) => add(scene.add.text(x, 192 + r * 22, '', {
+      const lines = SAMPLE_ROOTS.map((_, r) => add(scene.add.text(x, 176 + r * 22, '', {
         fontFamily: MONO, fontSize: '17px', color: '#e8ecf8', fontStyle: 'bold',
       }).setOrigin(0, 0)));
       this.rulers.push({ head, divide, lines });
     }
 
-    add(scene.add.text(cx, 262, 'Neither kind is better. Convert, then take the bigger one.', {
+    add(scene.add.text(cx, 246, 'Neither kind is better. Convert, then take the bigger one.', {
       fontFamily: FONT, fontSize: '15px', color: '#9fe8ff', align: 'center',
     }).setOrigin(0.5, 0));
-    add(scene.add.text(cx, 282, 'the bigger your pool, the more a +% card needs to say to match a × card', {
-      fontFamily: FONT, fontSize: '13px', color: SMALL, align: 'center',
-    }).setOrigin(0.5, 0));
 
-    add(scene.add.rectangle(cx, 304, VIEW.width - 52, 1, 0x2a3350));
+    add(scene.add.rectangle(cx, 284, VIEW.width - 52, 1, 0x2a3350));
 
     // The grid: four tiles a row, two rows, in DPS order then the RISK three.
     AXES.forEach((axis, i) => {
@@ -115,14 +109,14 @@ export class PauseBonuses {
       fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(0, 0).setLetterSpacing(1.5));
     this.note = add(scene.add.text(26, noteY + 22, '', {
-      fontFamily: FONT, fontSize: '16px', color: CAPTION, wordWrap: { width: VIEW.width - 52 },
+      fontFamily: FONT, fontSize: '17px', color: '#c9d2ea', wordWrap: { width: VIEW.width - 52 },
     }).setOrigin(0, 0).setLineSpacing(4));
 
     // Your DPS against par, in the standing colour the rail uses for it.
-    add(scene.add.text(cx, 660, 'your damage per second  ·  the shadow player\'s', {
+    add(scene.add.text(cx, 664, 'your damage per second  ·  the shadow player\'s', {
       fontFamily: FONT, fontSize: '13px', color: SMALL,
     }).setOrigin(0.5, 0));
-    this.standing = add(scene.add.text(cx, 678, '', {
+    this.standing = add(scene.add.text(cx, 682, '', {
       fontFamily: FONT, fontSize: '16px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(0.5, 0));
 
@@ -170,7 +164,7 @@ export class PauseBonuses {
 
     const mult12 = Math.max(1, Math.round(h.power * 0.2));
     this.setTile(0, compact(h.power), 'ARMY', true,
-      `Your soldiers. ${h.units} of ${SQUAD.ringCap} are on screen at rank ${h.tierName}; power past that makes each one stronger. An ARMY card adds soldiers as a share of what you hold, so ×1.2 ARMY right now = +${compact(mult12)}.`);
+      `Your soldiers. ${h.units} of ${SQUAD.ringCap} are on screen; power past that makes each one stronger. An ARMY card adds soldiers as a share of what you hold, so ×1.2 ARMY right now = +${compact(mult12)}.`);
     this.setTile(1, `+${Math.round(h.damageBonus * 100)}%`,
       h.damageMult > 1 ? `DMG ${formatMult(h.damageMult)}` : 'DMG',
       h.damageBonus > 0 || h.damageMult > 1,

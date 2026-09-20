@@ -462,3 +462,25 @@ Status: `landed`, with one judgment call to check. Speed: the same
 The late slope is shallower than the first because 6px/wave for ten more
 waves leaves a 48px card that cannot hold its axis word. If you want the
 full 6px/wave, the label has to shrink or go one-line; say so.
+
+## 3. Later (verbatim)
+
+> Can you get rid of the color note under ARMY? It stopped being relevant a
+> long time ago
+
+Status: `landed`. The rank word under the ARMY cell in the strip is gone
+(the shirts on the field say it); the BONUSES note no longer names the
+rank either. DETAILS keeps "rank" because it is a term in the sum it
+derives.
+
+## 4. The finish review (impeccable reviewer, end of session)
+
+Verdict "fix then ship", eight fixes, all taken: START MATCH and HOW TO
+PLAY were 4px apart (now 12); the NORMAL segment wore ARMY green beside
+START MATCH (now code cyan, so START is the one green card); the guide's
+tab said HOW TO PLAY under a heading that said HOW TO PLAY (the tab is
+BASICS); a hairline under the tab row so it does not read as the grid's
+first row; the guide's and BONUSES' explanation text up to 17px working
+white; "OF THE BEST PICKS" contradicted the tally on a poor run ("OF THE
+GROWTH ON OFFER"); DETAILS glosses PAR under its answer line; the BONUSES
+header stated the conversion four times (now twice).

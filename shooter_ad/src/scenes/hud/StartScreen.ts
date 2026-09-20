@@ -148,34 +148,36 @@ export class StartScreen {
     // ways to change it. Both controls go through GameScene, which owns the
     // seed, and the screen redraws from the `showstart` that comes back.
     add(scene.add.rectangle(cx, 484, 380, 1, 0x2a3350));
-    add(scene.add.rectangle(cx, 630, 380, 1, 0x2a3350));
+    add(scene.add.rectangle(cx, 624, 380, 1, 0x2a3350));
     this.code = add(scene.add.text(cx, 520, '', {
       fontFamily: MONO, fontSize: '40px', color: '#9fe8ff', fontStyle: 'bold',
     }).setOrigin(0.5));
     this.caption = add(scene.add.text(cx, 553, 'match code', {
       fontFamily: FONT, fontSize: '15px', color: CAPTION,
     }).setOrigin(0.5));
-    this.enter = cardButton(scene, cx - 96, 596, 184, 44, LINK, 'ENTER A CODE', 15, 'secondary')
+    this.enter = cardButton(scene, cx - 96, 592, 184, 44, LINK, 'ENTER A CODE', 15, 'secondary')
       .bind(() => this.promptForCode(onMatchRequest));
     addAll(this.enter.parts);
-    addAll(cardButton(scene, cx + 96, 596, 184, 44, LINK, 'NEW MATCH', 15, 'secondary')
+    addAll(cardButton(scene, cx + 96, 592, 184, 44, LINK, 'NEW MATCH', 15, 'secondary')
       .bind(() => onMatchRequest(null)).parts);
 
     // Difficulty, above the button, as two segments with the chosen one lit
     // (HARD in the warning colour). `endscreen.mjs` finds the segments by
     // their words and the hint beneath them.
-    this.modeControl = segmented<MatchMode>(scene, cx, 662, 184, 44, 8, [
-      { key: 'normal', label: 'NORMAL', color: 0x3ecf7a },
+    this.modeControl = segmented<MatchMode>(scene, cx, 654, 184, 44, 8, [
+      // Code cyan, not ARMY green: START MATCH is the one green card on
+      // the screen (the finish review, 2026-09-20).
+      { key: 'normal', label: 'NORMAL', color: 0x9fe8ff },
       { key: 'hard', label: 'HARD', color: 0xff7b54 },
     ], 15, (mode) => { if (mode !== this.current) onModeChange(mode); });
     addAll(this.modeControl.parts);
-    this.modeHint = add(scene.add.text(cx, 697, 'tap to change difficulty', {
+    this.modeHint = add(scene.add.text(cx, 688, 'tap to change difficulty', {
       fontFamily: FONT, fontSize: '14px', color: SMALL,
     }).setOrigin(0.5));
 
     // The one filled button, in the card's shape: the primary action is
     // itself an offer. HOW TO PLAY beneath it opens the explainers.
-    addAll(cardButton(scene, cx, 740, 380, 64, 0x3ecf7a, 'START MATCH').bind(onStart).parts);
+    addAll(cardButton(scene, cx, 732, 380, 64, 0x3ecf7a, 'START MATCH').bind(onStart).parts);
     addAll(cardButton(scene, cx, 798, 380, 44, LINK, 'HOW TO PLAY', 15, 'secondary').bind(onGuide).parts);
 
     this.version = add(scene.add.text(cx, 842, '', {

@@ -93,7 +93,7 @@ export class EndScreen {
     this.optimal = add(scene.add.text(cx - 110, 346, '', {
       fontFamily: FONT, fontSize: '44px', color: COLORS.text, fontStyle: 'bold',
     }).setOrigin(0.5));
-    add(scene.add.text(cx - 110, 384, 'OF THE BEST PICKS', {
+    add(scene.add.text(cx - 110, 384, 'OF THE GROWTH ON OFFER', {
       fontFamily: FONT, fontSize: '15px', color: SMALL,
     }).setOrigin(0.5));
     this.peak = add(scene.add.text(cx + 110, 346, '', {

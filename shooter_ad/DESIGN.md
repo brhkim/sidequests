@@ -452,8 +452,8 @@ rotated along velocity with a fainter copy (0.45 alpha, 0.35 scale) behind.
   their own colours), body 0.07, 1.5px stroke 0.5, roof at 0.6, 14-15px
   bold tracking 1.2.
 - **Danger (RESTART 184x44):** the secondary weight in `{colors.grade-bad}`.
-- **Segmented (`segmented`; NORMAL / HARD 184x44 in ARMY green and
-  `{colors.warning-text}`; HOW TO PLAY / BONUSES / DETAILS 164x40 in
+- **Segmented (`segmented`; NORMAL / HARD 184x44 in `{colors.code}` and
+  `{colors.warning-text}`; BASICS / BONUSES / DETAILS (the first tab is BASICS; the button that opens the screen is HOW TO PLAY) 164x40 in
   `{colors.code}`):** a row of secondary buttons where the chosen one wears
   the primary weight and its word turns `{colors.text}`.
 - **Pause:** 68x44, the secondary weight in `{colors.caption}` on a panel

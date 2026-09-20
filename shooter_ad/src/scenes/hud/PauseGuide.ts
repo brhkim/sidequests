@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { VIEW } from '../../config';
 import { cardButton, type CardButton } from './CardTile';
-import { CAPTION, FONT, SMALL, hex } from './types';
+import { FONT, SMALL, hex } from './types';
 
 interface Topic { key: string; label: string; color: number; text: string }
 
@@ -44,7 +44,7 @@ const TOPICS: readonly Topic[] = [
     'Hard starts the run five waves in: cards fall faster from the first offer, the numbers are harder to compare (×1.35 against +47%), and the cards narrow sooner. Enemies are no tougher - only the decision is.' },
 ];
 
-const GRID_TOP = 106;
+const GRID_TOP = 114;
 const COLS = 2;
 const BUTTON_W = 240;
 const BUTTON_H = 40;
@@ -76,8 +76,9 @@ export class PauseGuide {
     this.head = scene.add.text(26, gridBottom + 34, '', {
       fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(0, 0).setLetterSpacing(1.5);
+    // The page's only content: the working-text step, a shade above caption.
     this.body = scene.add.text(26, gridBottom + 56, '', {
-      fontFamily: FONT, fontSize: '16px', color: CAPTION, wordWrap: { width: VIEW.width - 52 },
+      fontFamily: FONT, fontSize: '17px', color: '#c9d2ea', wordWrap: { width: VIEW.width - 52 },
     }).setOrigin(0, 0).setLineSpacing(4);
     parts.push(this.head, this.body);
     this.root = scene.add.container(0, 0, parts).setVisible(false);

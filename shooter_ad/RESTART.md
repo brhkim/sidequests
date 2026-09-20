@@ -82,7 +82,7 @@ Every item is the author's ask, recorded verbatim in `ASKS.md`.
 4. **The UX round** (impeccable context loaded; rendering only): every
    control is a `cardButton` (primary / secondary / danger, hover and
    pressed fills); difficulty and pause tabs are `segmented`; the pause
-   screen is HOW TO PLAY / BONUSES / DETAILS, with `hud/PauseGuide` (twelve
+   screen is BASICS / BONUSES / DETAILS (the first tab is BASICS; the button that opens the screen is HOW TO PLAY), with `hud/PauseGuide` (twelve
    tappable topics in plain words); the start screen's HOW TO PLAY opens
    that screen before a run (GameScene publishes a start-state HUD frame in
    `announceMatch`); the demo offer deals six offers in rotation; every

@@ -77,11 +77,14 @@ export class PauseScreen {
 
     // Three tabs as a segmented row: the lit card is the page.
     this.tabs = segmented<Page>(scene, cx, 74, 164, 40, 4, [
-      { key: 'guide', label: 'HOW TO PLAY', color: 0x9fe8ff },
+      { key: 'guide', label: 'BASICS', color: 0x9fe8ff },
       { key: 'bonuses', label: 'BONUSES', color: 0x9fe8ff },
       { key: 'details', label: 'DETAILS', color: 0x9fe8ff },
     ], 14, (page) => this.showPage(page));
     addAll(this.tabs.parts);
+    // The hairline every page hangs from, so the tab row does not read as
+    // the first row of the guide's grid.
+    add(scene.add.rectangle(cx, 100, VIEW.width - 52, 1, 0x2a3350));
 
     this.guide = new PauseGuide(scene);
     parts.push(this.guide.root);
