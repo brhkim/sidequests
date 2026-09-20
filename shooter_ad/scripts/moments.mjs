@@ -92,7 +92,7 @@ for (const [rank, name] of [[0, 'perfect'], [1, 'good'], [2, 'bad']]) {
   // Any grade word proves the wash; the WORD depends on the offer's spread
   // (three near-identical options grade every pick PERFECT), so it is
   // reported rather than asserted.
-  expect(`moment-pick-${name}`, await shownTexts(), ['PERFECT', 'GOOD', 'BAD']);
+  expect(`moment-pick-${name}`, await shownTexts(), ['PERFECT', 'GOOD', 'BAD', 'RISK']);
 }
 
 // --- a missed offer: its gates are dropped untaken, which the log grades ----
@@ -119,6 +119,16 @@ const withEnemy = (place) => page.evaluate((fn) => {
   new Function('e', 'g', fn)(e, g);
   return true;
 }, place);
+// The forced charges below land on an army that starts at 5 and, since the
+// wave-clear army went, is never topped up by the game: on 5 power the
+// contact, the breach, the fire and the Titan's Runners took the run to zero
+// before the dead-space frame. Hold 24 through the damage frames.
+const holdPower = (n) => page.evaluate((p) => {
+  const g = window.game.scene.getScene('Game');
+  g.squad.progress.power = p;
+  g.squad.rebuild();
+}, n);
+await holdPower(24);
 {
   const ok = await withEnemy('e.x = Math.min(470, g.squad.x + 160); e.y = 870; e.hp = e.maxHp = 1e9;');
   if (!ok) errors.push('breach: no live enemy to move');
@@ -156,6 +166,7 @@ const withEnemy = (place) => page.evaluate((fn) => {
 
 // --- wave clear, then the Titan (wave 5): the warning, then its bar --------
 {
+  await holdPower(24);
   await page.evaluate(() => { window.game.scene.getScene('Game').enemies.wave.timeLeft = 0.01; });
   await page.waitForTimeout(300);
   await shoot('moment-wave');

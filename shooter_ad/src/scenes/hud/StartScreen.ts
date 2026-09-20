@@ -87,14 +87,14 @@ export class StartScreen {
       fontFamily: MONO, fontSize: '40px', color: '#9fe8ff', fontStyle: 'bold',
     }).setOrigin(0.5));
     this.caption = add(scene.add.text(cx, 474, 'match code', {
-      fontFamily: FONT, fontSize: '13px', color: CAPTION,
+      fontFamily: FONT, fontSize: '15px', color: CAPTION,
     }).setOrigin(0.5));
     this.enterHint = add(scene.add.text(cx - 80, 520, 'enter a code', {
-      fontFamily: FONT, fontSize: '15px', color: LINK,
+      fontFamily: FONT, fontSize: '17px', color: LINK,
     }).setOrigin(0.5));
     tap(cx - 80, 520, 150, 44, () => this.promptForCode(onMatchRequest));
     add(scene.add.text(cx + 80, 520, 'new match', {
-      fontFamily: FONT, fontSize: '15px', color: LINK,
+      fontFamily: FONT, fontSize: '17px', color: LINK,
     }).setOrigin(0.5));
     tap(cx + 80, 520, 150, 44, () => onMatchRequest(null));
 
@@ -106,7 +106,7 @@ export class StartScreen {
     // at all. Switching REWRITES the code above it, because a hard run is not
     // the same match as a normal one on the same seed.
     this.mode = add(scene.add.text(cx, 594, '', {
-      fontFamily: FONT, fontSize: '15px', color: CAPTION, fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '17px', color: CAPTION, fontStyle: 'bold',
     }).setOrigin(0.5));
     // The hit area is a fixed bar rather than the text's own bounds: the label
     // changes length when the mode does, so a text-sized target would move out
@@ -114,7 +114,7 @@ export class StartScreen {
     tap(cx, 594, 480, 48, () => onModeChange(this.current === 'hard' ? 'normal' : 'hard'));
     // 28px under the label: `endscreen.mjs` finds the toggle from this hint.
     add(scene.add.text(cx, 622, 'tap to change difficulty', {
-      fontFamily: FONT, fontSize: '12px', color: SMALL,
+      fontFamily: FONT, fontSize: '14px', color: SMALL,
     }).setOrigin(0.5));
 
     // One scale across the three screens: code 40, button 300x56, label 22.
@@ -130,13 +130,13 @@ export class StartScreen {
     });
 
     add(scene.add.text(cx, 760, 'pause the run for how every bonus works', {
-      fontFamily: FONT, fontSize: '13px', color: SMALL,
+      fontFamily: FONT, fontSize: '15px', color: SMALL,
     }).setOrigin(0.5));
 
     // Close under the hint rather than at the foot: 140px of nothing between
     // them read as a missing element.
     this.version = add(scene.add.text(cx, 820, '', {
-      fontFamily: FONT, fontSize: '12px', color: SMALL,
+      fontFamily: FONT, fontSize: '14px', color: SMALL,
     }).setOrigin(0.5));
 
     // Hidden until `show`. A container is visible by default, and an opaque

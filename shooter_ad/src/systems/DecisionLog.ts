@@ -1,5 +1,5 @@
 import type { GateType } from '../data/gates';
-import { scoreOffer, pickRank, type ScoredOffer } from './Scoring';
+import { scoreOffer, pickRank, isRiskPick, type ScoredOffer } from './Scoring';
 import type { Progress } from './Progression';
 
 export interface LoggedOption {
@@ -20,6 +20,12 @@ export interface Decision {
   readonly best: number;
   /** 0 = took the best available, 1 = took the worst. */
   readonly rank: number;
+  /**
+   * The pick was a MOVE / TIME / SENSE gate: worth zero DPS, so it ranks
+   * last beside any damage option and is told RISK rather than graded. It
+   * still counts as no growth in `fractionOfOptimal` - the gamble is real.
+   */
+  readonly risk: boolean;
   /** The offer arrived with its best option marked (`+SENSE`). */
   readonly sensed: boolean;
 }
@@ -62,11 +68,12 @@ export class DecisionLog {
   }
 
   /**
-   * Resolves an offer. `taken` is -1 when it was allowed to pass. Returns where
-   * the pick ranked (0 best, 1 worst), or null if there was nothing to resolve,
-   * so the halo flash can colour from the same grade the death screen will show.
+   * Resolves an offer. `taken` is -1 when it was allowed to pass. Returns the
+   * decision as logged (its rank, and whether it was a risk pick), or null if
+   * there was nothing to resolve, so the wash colours from the same grade the
+   * death screen will show.
    */
-  resolve(pair: number, taken: number): number | null {
+  resolve(pair: number, taken: number): Decision | null {
     const pending = this.open.get(pair);
     if (!pending) return null;
     this.open.delete(pair);
@@ -81,8 +88,9 @@ export class DecisionLog {
       taken,
       best: offer.best,
       rank: pickRank(offer, taken),
+      risk: isRiskPick(offer, taken),
     });
-    return this.decisions[this.decisions.length - 1].rank;
+    return this.decisions[this.decisions.length - 1];
   }
 
   /**
@@ -106,15 +114,22 @@ export class DecisionLog {
     return Math.exp(taken) / Math.exp(best);
   }
 
-  /** Counts of top / middle / bottom picks, for the shareable summary line. */
-  get tally(): { top: number; mid: number; low: number } {
-    let top = 0, mid = 0, low = 0;
+  /**
+   * Counts for the shareable summary line: PERFECT / GOOD / BAD picks, then
+   * RISK picks and missed offers, each in its own column rather than folded
+   * into BAD - a gamble and a gate driven past are different lessons from a
+   * wrong sum.
+   */
+  get tally(): { top: number; mid: number; low: number; risk: number; miss: number } {
+    let top = 0, mid = 0, low = 0, risk = 0, miss = 0;
     for (const d of this.decisions) {
-      if (d.rank <= 0.001) top++;
+      if (d.taken < 0) miss++;
+      else if (d.risk) risk++;
+      else if (d.rank <= 0.001) top++;
       else if (d.rank >= 0.999) low++;
       else mid++;
     }
-    return { top, mid, low };
+    return { top, mid, low, risk, miss };
   }
 
   reset(): void {

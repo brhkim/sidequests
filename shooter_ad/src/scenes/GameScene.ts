@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, STREAK, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, VIEW, WAVE, WEAPON,
 } from '../config';
 import { tierRow } from '../data/tiers';
 import { Squad } from '../systems/Squad';
@@ -128,6 +128,8 @@ export class GameScene extends Phaser.Scene {
   /** Highest power the run reached. The sweep reports it; a run's peak is what
    * says whether the old ceilings were ever within reach of real play. */
   private peakPower = 0;
+  /** Highest damage output the run reached; the end screen's second score. */
+  private peakDps = 0;
   /**
    * Shots charged against enemy bodies this run. Divided by the shots fired
    * (`Bullets.shotsSpawned`) it is the measured hits per shot - what pierce is
@@ -149,7 +151,6 @@ export class GameScene extends Phaser.Scene {
    */
   private titanChecks: { standing: number; killedAt: number | null; landedAt: number | null }[] = [];
   private lastX = VIEW.width / 2;
-  private streak = 0;
   private over = false;
   /** Why the run ended, for the instruments: a Titan landing and attrition are
    * different failures and the runner has to tell them apart. */
@@ -343,7 +344,6 @@ export class GameScene extends Phaser.Scene {
     this.over = false;
     this.cause = null;
     this.kills = 0;
-    this.streak = 0;
     this.titanChecks = [];
     this.targetX = VIEW.width / 2;
     // The same match again, from its first draw. "Tap to play again" used to
@@ -369,6 +369,7 @@ export class GameScene extends Phaser.Scene {
     this.pendingDamage = 0;
     this.traveled = 0;
     this.peakPower = 0;
+    this.peakDps = 0;
     this.shotHits = 0;
     this.shotLandings = 0;
     this.lastX = VIEW.width / 2;
@@ -425,6 +426,7 @@ export class GameScene extends Phaser.Scene {
     this.traveled += Math.abs(this.squad.x - this.lastX);
     this.lastX = this.squad.x;
     if (this.squad.power > this.peakPower) this.peakPower = this.squad.power;
+    if (this.squad.dps > this.peakDps) this.peakDps = this.squad.dps;
     this.enemies.playerDps = this.squad.dps;
     this.enemies.targetX = this.squad.x;
     this.enemies.targetY = this.squad.y;
@@ -442,10 +444,12 @@ export class GameScene extends Phaser.Scene {
     }, this.squad.upgrades);
 
     if (newWave) {
-      this.squad.addPower(WAVE.clearBonus);
-      this.difficulty.awardWaveClear();
+      // No army for surviving a wave, and none for kill streaks: every unit
+      // the player holds was chosen at a gate or shot out of a cage. The
+      // author's call - automatic power made the sum at the next offer
+      // unreadable. Par is not credited either (see Difficulty).
       const boss = this.enemies.wave.index % WAVE.bossEvery === 0;
-      this.sim.push({ kind: 'wave', index: this.enemies.wave.index, bonus: WAVE.clearBonus, titan: boss });
+      this.sim.push({ kind: 'wave', index: this.enemies.wave.index, titan: boss });
       if (boss) {
         this.titanChecks.push({
           standing: Number(this.difficulty.singleTargetStanding(this.squad.progress).toFixed(3)),
@@ -500,6 +504,7 @@ export class GameScene extends Phaser.Scene {
     this.difficulty.seedPar(this.squad.progress);
     this.enemies.startAt(o.wave);
     this.peakPower = this.squad.power;
+    this.peakDps = this.squad.dps;
   }
 
   /**
@@ -685,7 +690,7 @@ export class GameScene extends Phaser.Scene {
           this.sim.push({
             kind: 'kill', x: e.x, y: e.y, radius: e.radius, color: e.type.color, titan: titan >= 0,
           });
-          this.onKill(e.x, e.y);
+          this.onKill();
           if (titan >= 0) {
             this.sim.push({ kind: 'titan', phase: 'down' });
             const check = this.titanChecks[this.titanChecks.length - 1];
@@ -721,14 +726,8 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private onKill(x: number, y: number): void {
+  private onKill(): void {
     this.kills++;
-    this.streak++;
-    if (this.streak >= STREAK.killsPerBonus) {
-      this.streak = 0;
-      this.squad.addPower(STREAK.bonus);
-      this.sim.push({ kind: 'streak', x, y, amount: STREAK.bonus });
-    }
   }
 
   private checkGates(): void {
@@ -743,11 +742,11 @@ export class GameScene extends Phaser.Scene {
       // before applyGate, so the options are priced from the state the player
       // was actually deciding in.
       this.gates.consumePair(g.pair);
-      const rank = this.log.resolve(g.pair, g.index);
-      if (rank !== null) {
+      const d = this.log.resolve(g.pair, g.index);
+      if (d !== null) {
         this.sim.push({
           kind: 'pick', x: g.x, y: g.y, width: g.width, axis: g.type.axis, label: g.type.label,
-          grade: rank <= 0.001 ? 'perfect' : rank >= 0.999 ? 'bad' : 'good',
+          grade: d.risk ? 'risk' : d.rank <= 0.001 ? 'perfect' : d.rank >= 0.999 ? 'bad' : 'good',
         });
       }
       this.squad.applyGate(g.type);
@@ -840,6 +839,7 @@ export class GameScene extends Phaser.Scene {
       wave: this.enemies.wave.index,
       kills: this.kills,
       optimal: this.log.fractionOfOptimal,
+      peakDps: Math.round(this.peakDps),
       tally: this.log.tally,
       contactLoss: Math.round(this.contactLoss),
       breachLoss: Math.round(this.breachLoss),
@@ -929,6 +929,7 @@ export class GameScene extends Phaser.Scene {
       fireLoss: Math.round(this.fireLoss),
       traveled: Math.round(this.traveled),
       peakPower: Math.floor(this.peakPower),
+      peakDps: Math.round(this.peakDps),
       // The pierce claim against the pierce measurement, both in bodies hit
       // per shot that lands. Cumulative over the run, so it lags a pierce pick
       // by the shots already counted; read it over a long window. `landed` is
@@ -973,7 +974,6 @@ export class GameScene extends Phaser.Scene {
       gateSpeedMult: u.gateSpeedMult,
       sense: u.sense,
       senseChance: senseChance(u.sense),
-      streak: this.streak,
       titan: (() => { const t = this.enemies.titan; return t ? { hpFrac: t.hp / t.maxHp, progress: Enemies.titanProgress(t) } : null; })(),
     };
     this.game.events.emit('hud', hud);

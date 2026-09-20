@@ -1,21 +1,30 @@
 import Phaser from 'phaser';
-import { ARENA, VIEW } from '../../config';
+import { VIEW } from '../../config';
+import { RAIL_HEIGHT } from './TopRail';
 import { AXIS_COLOR } from '../../data/gates';
 import { compact, FONT, formatMult, hex, type HudPayload } from './types';
 
+/** The strip's height; the field begins beneath the rail and the strip. */
+export const STRIP_HEIGHT = 94;
+
 /**
- * The active-bonus readout, directly beneath the breach line: every input to
+ * The active-bonus readout, directly beneath the top rail: every input to
  * the DPS product, and nothing else.
+ *
+ * It sat beneath the breach line until the author played on a phone: the
+ * thumb steering the squad covered it, and every conversion meant a glance
+ * from the bottom of the screen to the top and back. Under the rail the two
+ * readouts are one glance - the run above, the squad below it - and the
+ * thumb covers nothing but ground. The cost is 94px of the descent hidden
+ * behind the panel at the top, where an offer is furthest from mattering.
  *
  * Why it has to exist: a raw bonus draws `a = (root - 1) * (1 + pool)`, so
  * `+31% DMG` against `×1.25 DMG` is only decidable if you know your damage pool
  * is 210%. Without the pool on screen the central judgement of the game is a
  * coin flip.
  *
- * Why it is here and not in a rail: the game is 540x960 portrait, and widening
- * the canvas shrinks the playfield badly under Scale.FIT on a phone. The eye is
- * already at the red line because that is where the threat resolves, so this
- * costs no extra attention.
+ * Why it is a strip and not a wider rail: the game is 540x960 portrait, and
+ * widening the canvas shrinks the playfield badly under Scale.FIT on a phone.
  *
  * ARMY moved down here from the top rail. It is a conversion input exactly as
  * the pools are - `+120 ARMY` means nothing until you know you hold 504 - and
@@ -38,7 +47,7 @@ import { compact, FONT, formatMult, hex, type HudPayload } from './types';
  * the pick, green for army gained, red for army lost. `prime` sets that
  * colour from the event; the next change spends it.
  */
-const TOP = ARENA.breachY + 2;
+const TOP = RAIL_HEIGHT;
 const CELLS = [
   { axis: 'army' as const, label: 'ARMY', width: 100 },
   { axis: 'damage' as const, label: 'DMG', width: 128 },
@@ -61,8 +70,9 @@ export class BonusStrip {
   private pending: number | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {
-    scene.add.rectangle(0, TOP, VIEW.width, VIEW.height - TOP, 0x0b0f1c, 0.96)
+    scene.add.rectangle(0, TOP, VIEW.width, STRIP_HEIGHT, 0x0b0f1c, 0.96)
       .setOrigin(0, 0);
+    scene.add.rectangle(0, TOP + STRIP_HEIGHT, VIEW.width, 1, 0x2a3350, 1).setOrigin(0, 0);
 
     let x = 0;
     for (const spec of CELLS) {
@@ -71,13 +81,13 @@ export class BonusStrip {
       if (x > 0) scene.add.rectangle(x, TOP + 12, 1, 70, 0x2a3350, 1).setOrigin(0, 0);
       this.cells.push({
         label: scene.add.text(textX, TOP + 10, spec.label, {
-          fontFamily: FONT, fontSize: '12px', color: hex(color), fontStyle: 'bold',
+          fontFamily: FONT, fontSize: '14px', color: hex(color), fontStyle: 'bold',
         }).setOrigin(0, 0).setLetterSpacing(1.2),
         main: scene.add.text(textX, TOP + 24, '', {
           fontFamily: FONT, fontSize: '26px', color: MAIN, fontStyle: 'bold',
         }).setOrigin(0, 0),
         sub: scene.add.text(textX, TOP + 61, '', {
-          fontFamily: FONT, fontSize: '15px', color: '#8b99bb', fontStyle: 'bold',
+          fontFamily: FONT, fontSize: '17px', color: '#8b99bb', fontStyle: 'bold',
         }).setOrigin(0, 0),
         last: '',
       });

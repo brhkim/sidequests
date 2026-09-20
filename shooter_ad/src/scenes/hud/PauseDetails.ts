@@ -22,11 +22,11 @@ export class PauseDetails {
   constructor(scene: Phaser.Scene) {
     const parts: Phaser.GameObjects.GameObject[] = [];
     parts.push(scene.add.text(26, 100, 'YOUR DPS, STEP BY STEP', {
-      fontFamily: FONT, fontSize: '12px', color: SMALL, fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(0, 0).setLetterSpacing(1.5));
     for (let i = 0; i < 26; i++) {
       const t = scene.add.text(26, 124 + i * 22, '', {
-        fontFamily: MONO, fontSize: '14px', color: WORKING,
+        fontFamily: MONO, fontSize: '16px', color: WORKING,
       }).setOrigin(0, 0);
       parts.push(t);
       this.lines.push(t);
@@ -93,7 +93,7 @@ export class PauseDetails {
       '',
       'against ONE body (the Titan) pierce is worth nothing:',
       `   ${compact(withGuns)} /s`,
-      `MOVE ×${h.moveMult.toFixed(2)}, TIME, SENSE are not in this sum`,
+      `MOVE ×${h.moveMult.toFixed(2)}, TIME, SENSE are not in this sum: taking one is a RISK`,
     ];
     // The answer is the one bright, bold line; the working stays quieter.
     this.lines.forEach((t, i) => {

@@ -16,11 +16,10 @@ export type SimEvent =
   | { kind: 'contact'; x: number; y: number; cost: number; share: number; tier: EnemyTier; titan: boolean }
   | { kind: 'breach'; x: number; y: number; cost: number; share: number; tier: EnemyTier; titan: boolean }
   | { kind: 'fire'; cost: number; share: number; hits: number }
-  | { kind: 'pick'; x: number; y: number; width: number; axis: BonusAxis; label: string; grade: 'perfect' | 'good' | 'bad' }
+  | { kind: 'pick'; x: number; y: number; width: number; axis: BonusAxis; label: string; grade: 'perfect' | 'good' | 'bad' | 'risk' }
   | { kind: 'miss'; x: number; y: number; pair: number }
   | { kind: 'rescue'; x: number; y: number; amount: number }
-  | { kind: 'streak'; x: number; y: number; amount: number }
-  | { kind: 'wave'; index: number; bonus: number; titan: boolean }
+  | { kind: 'wave'; index: number; titan: boolean }
   | { kind: 'titan'; phase: 'arrive' | 'volley' | 'down' }
   | { kind: 'sense'; pair: number }
   | { kind: 'over'; cause: 'overrun' | 'titan' };

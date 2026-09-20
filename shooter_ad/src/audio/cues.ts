@@ -95,6 +95,11 @@ const TABLE = {
     parts: [0, 90].map((at): Part => ({ src: 'triangle', freq: 659, at, dur: 80, env: [4, 0, 1, 30], db: 0 })),
     db: -10, category: 'event', priority: 65, cap: 1,
   },
+  /** A RISK pick: a rising tritone, unresolved - neither a reward nor a wrong. */
+  pickRisk: {
+    parts: [[523, 0], [740, 90]].map(([freq, at]): Part => ({ src: 'triangle', freq, at, dur: 140, env: [4, 40, 0.5, 110], db: 0 })),
+    db: -10, category: 'event', priority: 65, cap: 1,
+  },
   pickBad: {
     parts: [
       { src: 'square', freq: 659, dur: 100, db: 0, filter: { type: 'lowpass', freq: 1200 }, env: [4, 0, 1, 20] },
@@ -112,10 +117,6 @@ const TABLE = {
       { src: 'sine', freq: 196, dur: 300, db: -18, env: [10, 0, 1, 80] },
     ],
     db: -11, category: 'event', priority: 60, cap: 1,
-  },
-  streak: {
-    parts: [[880, 0], [1319, 80]].map(([freq, at]): Part => ({ src: 'triangle', freq, at, dur: 70, env: [3, 0, 1, 30], db: 0 })),
-    db: -12, category: 'event', priority: 50, cap: 1,
   },
   wave: {
     parts: [...sineSquare(523, 0, 120), ...sineSquare(784, 90, 120), ...sineSquare(1047, 180, 220)],

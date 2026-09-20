@@ -35,7 +35,7 @@ export class FieldFx {
         rect: scene.add.rectangle(0, 0, 10, GATES.height, 0xffffff, 0.55)
           .setDepth(27).setVisible(false),
         word: scene.add.text(0, 0, '', {
-          fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#05070f',
+          fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#05070f',
         }).setOrigin(0.5).setLetterSpacing(3).setDepth(27).setVisible(false),
       });
     }
@@ -57,9 +57,6 @@ export class FieldFx {
           break;
         case 'rescue':
           this.labels.spawn(e.x, e.y - 20, `+${e.amount} ARMY`, AXIS_COLOR.army, { size: 20, stroke: 4, rise: 40, duration: 800 });
-          break;
-        case 'streak':
-          this.labels.spawn(e.x, e.y - 24, `+${e.amount} ARMY`, AXIS_COLOR.army, { size: 16, rise: 30, duration: 700 });
           break;
         case 'contact':
           if (!e.titan) this.labels.spawn(e.x, e.y - 12, `-${e.cost}`, RED, { size: 16, rise: 26, duration: 700 });

@@ -1,4 +1,5 @@
 import type { GateType } from '../data/gates';
+import { RISK_AXES } from '../config';
 import {
   applyGate, cloneProgress, progressValue, squadDps, type Progress,
 } from './Progression';
@@ -11,11 +12,8 @@ export interface ScoredOption {
   /** Damage output this option would leave the squad with. */
   readonly dps: number;
   /**
-   * Fractional change in the option's VALUE: 0.2 means a fifth better off.
-   *
-   * For every damage-bearing bonus this is the change in DPS. For `x MOVE` and
-   * `+TIME` it is the change in access, which is worth nothing in DPS and
-   * everything in what you get to pick next - see `progressValue`.
+   * Fractional change in the option's DPS: 0.2 means a fifth better off. For
+   * `x MOVE`, `+TIME` and `+SENSE` it is exactly zero - see `RISK_AXES`.
    */
   readonly delta: number;
   /** Army power this option would leave, used only to break ties. */
@@ -42,18 +40,12 @@ export interface ScoredOffer {
  * would otherwise always beat a damage bonus no matter how many units are
  * already on the field.
  *
- * Value is `squadDps x accessFactor(reach)`, not DPS alone, and the difference
- * is the whole reason this function takes a `wave`. Priced by DPS, `x MOVE` and
- * `+TIME` move nothing: they would score a flat zero, be marked the worst
- * option in every offer that contained one, flash red on pickup, be called a
- * mistake by the death screen, and never once be taken by par. That would not
- * be the game judging them harshly, it would be the scoring failing to see a
- * cost the game already charges - you only get the bonus you can reach, and at
- * PROBE_SKILL 1.0 the bot reaching for the best option every time still lands
- * a median 88% of optimal, the gap being gates it chose and could not get to.
- *
- * The difficulty model deliberately does NOT use this. It budgets enemies
- * against raw `squadDps`, because access kills nothing; see Progression.
+ * Value IS DPS. `x MOVE`, `+TIME` and `+SENSE` move no damage number, so
+ * they score a flat zero, are never taken by par, and a player who takes one
+ * is told RISK rather than graded - see `RISK_AXES` in config and
+ * `isRiskPick` below. For a while they were priced through an access factor
+ * so par would sometimes take them; the author's call is that they are the
+ * player's gamble and never par's.
  */
 export function scoreOffer(
   from: Progress, gates: readonly GateType[], wave: number,
@@ -91,6 +83,12 @@ function bestIndex(options: readonly ScoredOption[]): number {
     if (tied ? o.power > b.power : o.delta > b.delta) best = i;
   }
   return best;
+}
+
+/** Whether a taken option is one of the zero-DPS axes the player gambles on. */
+export function isRiskPick(offer: ScoredOffer, taken: number): boolean {
+  if (taken < 0) return false;
+  return (RISK_AXES as readonly string[]).includes(offer.options[taken].gate.axis);
 }
 
 /**

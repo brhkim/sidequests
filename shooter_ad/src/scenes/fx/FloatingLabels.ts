@@ -31,7 +31,7 @@ export class FloatingLabels {
   constructor(private readonly scene: Phaser.Scene, size: number, depth: number) {
     for (let i = 0; i < size; i++) {
       this.items.push(scene.add.text(0, 0, '', {
-        fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#ffffff',
+        fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#ffffff',
       }).setOrigin(0.5).setDepth(depth).setVisible(false));
     }
   }

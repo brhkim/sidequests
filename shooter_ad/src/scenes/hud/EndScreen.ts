@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, VIEW } from '../../config';
-import { CAPTION, FONT, GRADE_COLOR, hex, MONO, SMALL } from './types';
+import { CAPTION, compact, FONT, GRADE_COLOR, hex, MONO, SMALL } from './types';
 import type { MatchMode } from '../../systems/MatchCode';
 
 export interface EndPayload {
@@ -9,8 +9,10 @@ export interface EndPayload {
   readonly wave: number;
   readonly kills: number;
   readonly optimal: number;
-  /** Picks by grade. A missed offer is graded as a BAD pick and counted there. */
-  readonly tally: { top: number; mid: number; low: number };
+  /** Highest damage output the run reached. */
+  readonly peakDps: number;
+  /** Picks by grade, then RISK picks and missed offers in their own columns. */
+  readonly tally: { top: number; mid: number; low: number; risk: number; miss: number };
   readonly decisions: number;
   readonly code: string;
   readonly version: string;
@@ -48,6 +50,7 @@ export class EndScreen {
   private readonly title: Phaser.GameObjects.Text;
   private readonly wave: Phaser.GameObjects.Text;
   private readonly optimal: Phaser.GameObjects.Text;
+  private readonly peak: Phaser.GameObjects.Text;
   private readonly tally: Phaser.GameObjects.Text[] = [];
   private readonly detail: Phaser.GameObjects.Text;
   private readonly code: Phaser.GameObjects.Text;
@@ -78,23 +81,36 @@ export class EndScreen {
     // The two secondary captions sit at Small, untracked: one tracked label
     // marks the lead, three identical ones mark nothing.
 
-    // The purest measure of the skill the game actually tests.
-    this.optimal = text(346, 44, COLORS.text);
-    text(384, 12, SMALL, false).setText('OF OPTIMAL PLAY');
+    // Two scores side by side: the purest measure of the skill the game
+    // tests, and the number the skill was for. Peak DPS is the author's
+    // ask - the sum is only worth doing if the answer is on the board.
+    this.optimal = add(scene.add.text(cx - 110, 346, '', {
+      fontFamily: FONT, fontSize: '44px', color: COLORS.text, fontStyle: 'bold',
+    }).setOrigin(0.5));
+    add(scene.add.text(cx - 110, 384, 'OF OPTIMAL PLAY', {
+      fontFamily: FONT, fontSize: '16px', color: SMALL,
+    }).setOrigin(0.5));
+    this.peak = add(scene.add.text(cx + 110, 346, '', {
+      fontFamily: FONT, fontSize: '44px', color: COLORS.text, fontStyle: 'bold',
+    }).setOrigin(0.5));
+    add(scene.add.text(cx + 110, 384, 'PEAK DPS', {
+      fontFamily: FONT, fontSize: '16px', color: SMALL,
+    }).setOrigin(0.5));
 
     // The scorecard in miniature, each count in its grade's colour: what makes
-    // two runs on one seed worth arguing about.
-    for (const dx of [-90, 0, 90]) {
+    // two runs on one seed worth arguing about. RISK and MISS have their own
+    // columns - a gamble and a gate driven past are not a wrong sum.
+    for (const dx of [-168, -84, 0, 84, 168]) {
       this.tally.push(add(scene.add.text(cx + dx, 440, '', {
-        fontFamily: FONT, fontSize: '28px', fontStyle: 'bold',
+        fontFamily: FONT, fontSize: '26px', fontStyle: 'bold',
       }).setOrigin(0.5)));
     }
-    for (const dx of [-45, 45]) {
+    for (const dx of [-126, -42, 42, 126]) {
       add(scene.add.text(cx + dx, 440, '·', {
-        fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: SMALL,
+        fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: SMALL,
       }).setOrigin(0.5));
     }
-    text(474, 12, SMALL, false).setText('PERFECT  ·  GOOD  ·  BAD PICKS');
+    text(474, 14, SMALL, false).setText('PERFECT  ·  GOOD  ·  BAD  ·  RISK  ·  MISS');
 
     this.detail = text(520, 16, CAPTION, false);
 
@@ -169,10 +185,14 @@ export class EndScreen {
     const grade = pct >= 90 ? GRADE_COLOR.perfect : pct >= 70 ? GRADE_COLOR.good : GRADE_COLOR.bad;
     this.optimal.setText(`${pct}%`).setColor(hex(grade));
 
-    const { top, mid, low } = p.tally;
+    this.peak.setText(compact(p.peakDps));
+
+    const { top, mid, low, risk, miss } = p.tally;
     this.tally[0].setText(String(top)).setColor(hex(GRADE_COLOR.perfect));
     this.tally[1].setText(String(mid)).setColor(hex(GRADE_COLOR.good));
     this.tally[2].setText(String(low)).setColor(hex(GRADE_COLOR.bad));
+    this.tally[3].setText(String(risk)).setColor(hex(GRADE_COLOR.risk));
+    this.tally[4].setText(String(miss)).setColor(CAPTION);
 
     this.detail.setText(
       p.decisions > 0

@@ -60,11 +60,14 @@ export const SQUAD = {
    */
   moveSpeed: 260,
   /**
-   * One body. Every army bonus is a share of what you hold, so starting at 1
-   * makes the first few picks feel like the largest they will ever be, and
-   * gives the rank ladder somewhere to climb from.
+   * Five, not one. The army used to start at 1 and take +4 for clearing
+   * wave 1 at 16s; with wave-clear army gone (the author's call - every unit
+   * held is chosen at a gate or shot out of a cage) a start of 1 made the
+   * first leaked Grunt at ~30s the end of the run on three seeds in five.
+   * Five is what a player held through wave 2 before, so the early game is
+   * as durable as it was, and par starts here too.
    */
-  startPower: 1,
+  startPower: 5,
   /**
    * OVERFLOW GUARD, not a balance constant. The rank ladder has no last row
    * (see data/tiers.ts), so there is no power at which an army bonus stops
@@ -278,8 +281,6 @@ export const WAVE = {
   hpGrowth: 0.19,
   /** A boss arrives on every Nth wave. */
   bossEvery: 5,
-  /** Power awarded for surviving a wave. */
-  clearBonus: 4,
 } as const;
 
 /**
@@ -520,48 +521,19 @@ export const GATES = {
 } as const;
 
 /**
- * How a decision is PRICED, as distinct from what it kills.
+ * How a decision is PRICED: by the damage output it leaves, and nothing else.
  *
- * `x MOVE` and `+TIME` change no damage number at all, so scored by resulting
- * DPS they are worth exactly zero - the halo would flash them red, the death
- * screen would call them mistakes, and par would never take one. That is not a
- * judgement about them, it is the scoring failing to see what the game already
- * charges for: you only get the bonus you can reach.
- *
- * So scoring values a state as `squadDps * accessFactor(reach)` - see
- * Progression.progressValue. Difficulty keeps budgeting against raw `squadDps`,
- * because access does not kill anything.
+ * `x MOVE`, `+TIME` and `+SENSE` change no damage number, so `scoreOffer`
+ * prices each at exactly zero. Par therefore never takes one, the sense mark
+ * never lands on one, and a player who does take one is not graded PERFECT /
+ * GOOD / BAD but told RISK: they spent a pick on access or judgment that the
+ * DPS ladder will not repay, and the optimal-percentage counts it as no
+ * growth. For a while these were priced by an access factor so that par
+ * would sometimes take them; the author's call is that a shadow player who
+ * only ever needs DPS should only ever take DPS, and the three are the
+ * player's gamble alone.
  */
-export const SCORING = {
-  /**
-   * Share of a gate's descent the squad can actually spend repositioning.
-   *
-   * The rest goes on dodging fire and staying over the column it is killing, so
-   * the full descent is not a travel budget. A tuned constant, for exactly the
-   * reason `WEAPON.pierceQ` is one: the true figure swings second to second
-   * with the board, and a value measured at the instant of a decision scores
-   * the pick against a truth that lasted one second. Stable and identical for
-   * par and player beats precise and unrepeatable.
-   */
-  reachShare: 0.15,
-  /**
-   * How much of a state's value is access rather than raw damage. At 0.8 a
-   * squad that can reach nothing is priced at a fifth of one that can reach
-   * everything, which is roughly the difference between a run that keeps
-   * compounding and one that stops.
-   */
-  accessWeight: 0.8,
-  /**
-   * How much of a state's value is JUDGMENT bought by `+SENSE`. Sense carries
-   * no damage and no reach; what it buys is a chance (`SENSE.chance`) that an
-   * offer arrives with its best option marked, which is a share of every
-   * future pick made well. Priced as `1 + senseWeight x chance`, so the first
-   * sense is worth +10% of value, the second +6%, the third +4% - a weak-to-
-   * middling damage draw, which is the call the design wants: take the hint
-   * or take the damage. Difficulty ignores it entirely; see `progressValue`.
-   */
-  senseWeight: 0.4,
-} as const;
+export const RISK_AXES = ['move', 'time', 'sense'] as const;
 
 /**
  * `+SENSE`: the one bonus about the player rather than the squad. Each level
@@ -576,7 +548,7 @@ export const SENSE = {
 
 export const CAGE = {
   /** Rescue cages: shoot one open to free allies. A way to grow mid-wave. */
-  chancePerWave: 0.75,
+  chancePerWave: 0.4,
   speed: 52,
   radius: 18,
   /**
@@ -598,12 +570,6 @@ export const CAGE = {
    * with par the way the boss does instead of with the wave's `hpMult`.
    */
   hpTitanFraction: 0.2,
-} as const;
-
-export const STREAK = {
-  /** Every N kills grants power, so aggression compounds. */
-  killsPerBonus: 25,
-  bonus: 2,
 } as const;
 
 /**

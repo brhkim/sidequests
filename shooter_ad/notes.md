@@ -209,13 +209,11 @@ recomputed live against the state the player is in now, by the same
 `scoreOffer` par and the death screen use, so if taking the previous gate
 changes the answer the mark moves with it.
 
-It has to be priced or the scoring calls every one a mistake, exactly the
-trap MOVE and TIME fell into. It is priced as **judgment**: value carries a
-factor `1 + 0.4 × chance`, so the first is worth about a tenth of a state's
-value, the second half that, the third less — a weak-to-middling damage draw.
-Difficulty ignores it entirely, as it ignores access: a hint kills nothing.
-`npm run model` asserts it beats a `×1.05 DMG`, loses to a `×1.25 DMG`, and
-leaves the pool at the cap.
+It is **not priced**. It was for a while - as judgment, a factor on value so
+that par would sometimes take it - and the author's rule now is the plain
+one: a bonus that moves no damage number is worth zero to the scoring. See
+"RISK: the three axes par never takes" below. `npm run model` asserts it is
+priced at exactly zero and leaves the pool at the cap.
 
 ### Move speed is the deliberate oddity
 
@@ -226,6 +224,30 @@ you survive and how spread out future gates are. Offering it against a flat
 
 The squad should therefore start **slow enough that movement is a real
 constraint**, or the bonus is worthless.
+
+### RISK: the three axes par never takes
+
+**Decided, 2026-09-20.** `×MOVE`, `+TIME` and `+SENSE` change no damage
+number, and the scoring prices them at **exactly zero**. For a while they
+were priced by an access factor and a judgment factor so that par would
+sometimes take one and the grade wash would not call every one a mistake.
+The author's call is the opposite: par is a shadow player who only ever
+needs DPS, so it should only ever take DPS, and these three are the
+player's gamble alone. Consequences, all deliberate:
+
+- Par never takes one unless the offer is nothing else (then the tie-break
+  picks and it costs par nothing).
+- The SENSE mark never lands on one beside a damage option.
+- A player who takes one is told **RISK** on the field - lavender, off every
+  axis colour - instead of PERFECT / GOOD / BAD, and it has its own column on
+  the end screen beside MISS. It still counts as **no growth** in the
+  optimal-play percentage: the gamble is real and the number says so.
+- The pause screen's BONUSES rows for the three say `RISK: no DPS, par never
+  takes it` in the same words, and the DETAILS page says taking one is a RISK.
+
+The word is chosen with care. It is not a grade and not a scold: the player
+is buying reach or seconds or a hint with a pick the curve will not repay,
+and the game names the trade.
 
 ### Gate approach speed
 
@@ -378,26 +400,27 @@ mechanic changes — only how hard the arithmetic is.
 
 This is the axis that scales furthest, because it never stops being interesting.
 
-**When the decimals appear today.** Three tiers: waves 1-5 draw six round
-values (`1.05, 1.15, 1.25, 1.3, 1.4, 1.5`, two significant figures on raw
-numbers); wave 6 every `.05`; wave 11 every `.01` with three significant
-figures, which is when `×1.07` and `+1840%` start showing up. Hard mode is
-five waves ahead: every `.05` from wave 1, every `.01` from wave 6. The
-author's proposed schedule - three values for 1-5, tenths for 6-10 (1.1 to
-1.5, dropping 1.25), every `.05` for 11-15, every hundredth from 16 - is
-**pending**: the tiers must share a mean, arithmetic and geometric, or the
-legibility axis is a power axis in disguise (see below), and "tenths" cannot
-be mean-neutral inside the fixed [1.05, 1.5] range. Waiting on the author's
-choice between accepting that drift and a neutral variant; the tables are
-unchanged until then. `npm run model` prints the whole curve per wave under
-"the judgment curve".
+**When the decimals appear today.** The author's schedule, four tiers of
+five waves, built 2026-09-20: waves 1-5 draw three values (`1.1, 1.25,
+1.5`); 6-10 the tenths (`1.1` to `1.5`, no `1.25`); 11-15 every `.05`;
+16 on every `.01` with three significant figures, which is when `×1.07` and
+`+1840%` start showing up. Hard mode is five waves ahead: tenths from wave
+1, hundredths from wave 11. `npm run model` prints the whole curve per wave
+under "the judgment curve".
 
-**"No mechanic changes" is a constraint on the tables' MEAN, not only on their
-range, and the first draft broke it.** The original coarse table bunched low -
-1.32% less per draw than the ladders, about 48% less power over thirty offers -
-so moving up a tier was a power increase wearing a legibility costume. Every
-tier's table must now be symmetric about the middle of the range; `npm run
-model` fails otherwise.
+**"No mechanic changes" was a constraint on the tables' MEAN, and the author
+chose to relax it.** The original coarse table bunched low - 1.32% less per
+draw than the ladders, about 48% less power over thirty offers - so moving
+up a tier was a power increase wearing a legibility costume, and for a while
+every tier was held to the same geometric mean within 0.5%. The round
+schedule cannot meet that inside a fixed [1.05, 1.5]: the tenths sit about
+**1.9% per draw above** the hundredths, the first tier 0.4%, which over ten
+offers of the tenths tier is roughly +20% power. The author read those
+numbers and took the round tables anyway, for their readability. `npm run
+model` prints the drift per tier and fails past 2.5% per draw, so it stays a
+decision on the record rather than a surprise; and the direction is at least
+the kind one - the tiers a player meets while learning pay a little more, and
+the drift ends as the ladders begin.
 
 ## Instant feedback on every pick
 
@@ -623,8 +646,7 @@ Consider surfacing a single headline number: **"you played at 82% of optimal."**
 Par is permanently on screen, not saved for the death readout. Seeing yourself
 fall behind in real time is the feedback that makes the next decision mean
 something. The standing bar under the rail flashes ONCE when the run crosses
-the curve's target line in either direction and never pulses otherwise; a
-streak track under KILLS fills toward the next streak bonus.
+the curve's target line in either direction and never pulses otherwise.
 
 **The field says what is about to hit you.** The bottom of the lane is a
 ground band, not a line, from where a full ring's front rank sits down to the
@@ -637,17 +659,27 @@ never the play space. Everything else - the grade wash, MISS, rescue and
 contact labels, the wave banner, the Titan bar, the death beat - is a typed
 `moment` from the simulation, so audio and rendering read one account.
 
-**Directly beneath the red line** is *the squad*: every input to the DPS
+**Directly beneath the rail** is *the squad*: every input to the DPS
 product and nothing else — **ARMY** (power and rank), DMG pool and mult, RATE
 pool and mult, GUNS, PIERCE — in the order the pause screen's DETAILS page
 multiplies them. ARMY moved down from the rail because it is a conversion
 input exactly as the pools are, and it was the one term of the product living
 at the other end of the screen; SENSE took its place because it is the one
-bonus that is not a DPS input. The player's eye is already at the red line —
-it is where the threat resolves — so the strip costs no extra attention.
-Chosen over a right rail because the game is 540×960 portrait and widening the
-canvas shrinks the playfield badly under `Scale.FIT` on a phone, which is the
-device this genre is played on.
+bonus that is not a DPS input. Chosen over a right rail because the game is
+540×960 portrait and widening the canvas shrinks the playfield badly under
+`Scale.FIT` on a phone, which is the device this genre is played on.
+
+**The strip sat beneath the red line until 2026-09-20 and the author moved
+it.** The argument for the bottom was that the eye is already at the line;
+the phone refuted it: the thumb steering the squad covers the strip, and every
+conversion meant flicking the eyes from the bottom of the screen to the rail
+and back. Under the rail the two readouts are one glance, the run above the
+squad, and the thumb covers nothing but ground. The cost is 94px of an
+offer's descent hidden behind the panel at the top of the screen, where it is
+furthest from mattering. In the same pass every text size under 18px on the
+HUD and the three screens went up two to three points: at `Scale.FIT` on a
+390px-wide phone the canvas is drawn at 0.72, and the 11px labels the author
+had been reading were 8px.
 
 That placement buys space at a cost: the strip is **wide and short**, so the
 readout has to be genuinely parsimonious. This is real design work, not a
@@ -700,10 +732,9 @@ Carried over from the earlier backlog, reprioritised against the thesis.
 - **Gate approach speed scales with wave**, plus `×MOVE` and `+TIME`. Squad
   movement is rate-limited now (it teleported to the pointer before, which made
   the whole movement economy inert) and `SQUAD.moveSpeed` came down to 260.
-  Neither bonus carries damage, so scoring values a state as
-  `squadDps × accessFactor(reach)` while difficulty keeps budgeting raw
-  `squadDps` — see `CLAUDE.md`. **Still owed**: the active-bonus strip does not
-  show MOVE or TIME, so a player cannot read the pool the conversion needs.
+  Neither bonus carries damage, and since 2026-09-20 neither is priced:
+  they are RISK axes, worth zero to the scoring — see "RISK: the three axes
+  par never takes".
 - **Active-bonus readout** beneath the red line — damage pool and mult, rate
   pool and mult, guns, and pierce priced by the shared valuation. The pool is
   the big number in each cell because it is what the raw-versus-multiplicative
@@ -784,6 +815,32 @@ A cage is worth **+5 army until you hold 100, then +5%**, whole — the same
 bite of a run at 20 power and at 20,000. **Par does not collect it.** It is
 the one source of army meant for a player behind the curve, and crediting the
 shadow player too would move the curve by exactly what the cage gave back.
+
+It rolls once per wave duration at a **40% chance** (was 75%): the author
+found it appearing too often, and early on it made keeping up with par
+trivial. Frequency is the lever rather than size because the size is already
+a share of the run. Par is unaffected by rescue in every way that matters to
+the grade: a pick is graded against the army the player actually holds when
+the offer arrives, never against par's, so extra army from a rescue simply
+makes "best pick" mean best for that army. The one leak is that a `+N ARMY`
+card is sized to the player's pool and par applies the same N to its
+smaller one, which nudges par UP when the player is ahead - it closes the
+gap slightly rather than widening it, and it is small.
+
+## No automatic army
+
+**Decided, 2026-09-20.** There is no army for surviving a wave (`+4` was
+awarded at every wave clear) and none for kill streaks (`+2` every 25 kills),
+on either side - par was credited with both. The author's reasons: neither
+is intuitive, both throw off the sum at the next offer (a `+N ARMY` card
+against a `×ARMY` card is only decidable if you know what you hold, and a
+gift arriving mid-decision changes the answer), and the streak in particular
+removed agency - power that arrives for standing in the stream is not
+power that was chosen. Every unit the player holds now came through a gate
+or out of a cage. The one number that had to move with it: the army starts
+at **5** rather than 1, because with wave-clear army gone a start of 1 made
+the first leaked Grunt at ~30s the end of the run on three seeds in five, and
+5 is what a player held through wave 2 before.
 
 Its HP is **a fifth of the Titan that would spawn now** (the boss's own
 budget, so it scales with par the way the boss does): about 2.65 seconds of

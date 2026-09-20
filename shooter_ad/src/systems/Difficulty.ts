@@ -1,4 +1,4 @@
-import { DIFFICULTY, SQUAD, STREAK, WAVE } from '../config';
+import { DIFFICULTY, SQUAD } from '../config';
 import type { GateType } from '../data/gates';
 import {
   applyGate, cloneProgress, freshUpgrades, singleTargetDps, squadDps, type Progress,
@@ -80,7 +80,6 @@ export class Difficulty {
   /** Perfect play: the best possible power level at this moment. */
   private ideal: Progress = { power: SQUAD.startPower, upgrades: freshUpgrades() };
   private idealKills = 0;
-  private streakProgress = 0;
   /** Budget actually in force, easing toward the par-derived target. */
   private smoothedTarget = 0;
 
@@ -170,18 +169,13 @@ export class Difficulty {
   }
 
 
-  /** Par clears every wave. */
-  awardWaveClear(): void {
-    this.ideal.power = Math.min(SQUAD.maxPower, this.ideal.power + WAVE.clearBonus);
-  }
-
-  /** Par kills everything that spawns, so streak bonuses accrue on spawn. */
+  /**
+   * Par kills everything that spawns. It is credited with the kill and with
+   * nothing else: there is no wave-clear army and no streak army any more, on
+   * either side, so the only power par ever holds came through a gate.
+   */
   observeSpawn(): void {
     this.idealKills++;
-    if (++this.streakProgress >= STREAK.killsPerBonus) {
-      this.streakProgress = 0;
-      this.ideal.power = Math.min(SQUAD.maxPower, this.ideal.power + STREAK.bonus);
-    }
   }
 
   // Par does NOT collect rescue cages, deliberately. A rescue is the one
@@ -267,7 +261,6 @@ export class Difficulty {
   reset(): void {
     this.ideal = { power: SQUAD.startPower, upgrades: freshUpgrades() };
     this.idealKills = 0;
-    this.streakProgress = 0;
     this.smoothedTarget = 0;
   }
 

@@ -32,15 +32,18 @@ export interface HudPayload {
   sense: number;
   /** Chance an offer arrives with its best option marked, at this sense. */
   senseChance: number;
-  /** Kills toward the next `STREAK.bonus`; the rail draws it as a track. */
-  streak: number;
   /** The live boss, or null. `progress` is its descent as a fraction. */
   titan: { hpFrac: number; progress: number } | null;
 }
 
-/** The three grades a pick can earn, in the colours every reader uses. */
-export const GRADE_COLOR = { perfect: 0x3ecf7a, good: 0xffc93c, bad: 0xff4757 } as const;
-export const GRADE_WORD = { perfect: 'PERFECT', good: 'GOOD', bad: 'BAD' } as const;
+/**
+ * The grades a pick can earn, in the colours every reader uses. RISK is not
+ * a grade on the ladder: it is what a MOVE / TIME / SENSE pick is told
+ * instead of PERFECT / GOOD / BAD, because those axes are worth zero DPS and
+ * par never takes them (see `RISK_AXES`). Lavender, off every axis colour.
+ */
+export const GRADE_COLOR = { perfect: 0x3ecf7a, good: 0xffc93c, bad: 0xff4757, risk: 0xc9a7ff } as const;
+export const GRADE_WORD = { perfect: 'PERFECT', good: 'GOOD', bad: 'BAD', risk: 'RISK' } as const;
 export type Grade = keyof typeof GRADE_COLOR;
 
 /** The HUD's type roles. System stack only: nothing is fetched at runtime. */

@@ -5,11 +5,11 @@ Paste everything below the line into a fresh session.
 ---
 
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo,
-on branch `claude/laughing-feynman-ghh9r3` (no PR open; `main` is at the
-previous session's merge). The version tag went 0.4 to 0.5: every seed is a
-different match now. The last session landed nine commits on top of the
-author's eleven; §3 lists them. Nothing is blocked. §4 is what the author still
-has to decide, §5 what nobody has verified.
+on branch `claude/laughing-feynman-ghh9r3` (no PR open). The version tag went
+0.5 to 0.6 this session: every seed is a different match again. The session
+of 2026-09-20 landed the author's balance and scoring decisions and moved the
+HUD for the phone; §3 lists what changed. Nothing is blocked. §4 is what the
+author still has to decide, §5 what nobody has verified.
 
 ## 1. Orient before touching anything
 
@@ -18,119 +18,123 @@ Read in this order:
 1. `CLAUDE.md` at the repo root — repo conventions, the shared-tree rules for
    subagents, and the measuring-before-tuning rules.
 2. `shooter_ad/ASKS.md` — **the author's asks, verbatim, with a status per
-   ask.** This is the checklist the session is judged against. Read it first.
-3. `shooter_ad/PRODUCT.md` — product truth and the decisions the author made
-   this round (art world, contact rule, tiers, headline number).
+   ask**, two sessions of them. The 2026-09-20 section is the checklist this
+   session is judged against. Read it first.
+3. `shooter_ad/PRODUCT.md` — product truth and the decisions on record. New:
+   RISK axes, no automatic army, the strip under the rail, the root schedule.
 4. `shooter_ad/notes.md` — design intent; wins over `CLAUDE.md`. New this
-   session: "Enemies have a hurt box", "Dead space between gates", "When the
-   decimals appear today", "Sound", the rewritten "Instant feedback".
-5. `shooter_ad/CLAUDE.md` — mechanics. New: "Simulation events", "Contact
-   damage", "Dead space is the fourth judgment lever", the Art section (the
-   creatures, the depth table, `npm run roster`), "Audio", "HUD and feedback,
-   as built", "Finish review".
-6. `shooter_ad/DESIGN.md` — the design system as shipped (written by the
-   impeccable documenter from the build). Read before any UI edit, with
-   `.claude/skills/impeccable/reference/craft-floor.md`.
-7. `git log --oneline -12` — the commit messages carry the reasoning and the
+   session: "RISK: the three axes par never takes", "No automatic army", the
+   rewritten "Numeric legibility" (the drift the author accepted), the
+   rescue-frequency paragraph, the strip-moved paragraph under "HUD and
+   layout".
+5. `shooter_ad/CLAUDE.md` — mechanics. Rewritten: "Scoring prices DPS and
+   nothing else; MOVE, TIME and SENSE are RISK", "Legibility drifts in
+   strength, by a measured and accepted amount", the Army-growth bullet, the
+   HUD-as-built paragraph.
+6. `shooter_ad/DESIGN.md` — the design system as shipped; updated for the
+   strip position, the phone type floor and the RISK colour.
+7. `git log --oneline -6` — the commit messages carry the reasoning and the
    measurements.
 
 Then:
 
 ```bash
 cd shooter_ad && npm ci && npm run build && npm run verify && npm run model
-npm run roster     # the whole enemy roster, a hit frame, a late stream: LOOK at these
-npm run moments    # every feedback moment mid-animation, plus a wave-16 offer with dead space
-npm run endscreen  # start / pause / end screens
-npm run audio      # writes .verify/audio/*.wav - LISTEN to palette.wav
+npm run endscreen  # end screen with PEAK DPS and the five-column tally; pause pages
+npm run moments    # every feedback moment; the RISK wash is not forced (see §5)
+npm run hud        # the strip under the rail at three states
 ```
 
-Do not start until you have looked at `.verify/roster.png`,
-`.verify/moment-deadspace.png` and `.verify/sense-mark.png`.
+Do not start until you have looked at `.verify/screenshot.png`,
+`.verify/end-poor.png` (RISK and MISS columns) and `.verify/pause-early.png`.
 
 ## 2. What the game is
 
 **DPS golf.** Every 7.5 seconds three bonuses descend and you must judge, before
 they arrive, which most increases your damage output. A stat is
 `base × (1 + pool) × mult`; raw draws scale to the pool so neither form is
-ever dominant. Difficulty is closed-loop against a shadow "par" player. Four
+ever dominant. Difficulty is closed-loop against a shadow "par" player who
+takes the best DPS option every time and collects nothing else. Four
 judgment levers rise with the wave: descent speed, root granularity, raw
-rounding, and now dead space between the gates.
+rounding, and dead space between the gates.
 
-## 3. What landed this session, commit by commit
+## 3. What changed this session (version 0.6)
 
-1. **Contact damage, tiered cost, Healer removed** (`4f0cd4b`). An enemy
-   touching the army is consumed and charges it; a breach beside the army
-   charges the same, through one function (`Contact.contactCost`): Basic 2%
-   floor 1, Medium 4% floor 2, Large 6% floor 3, Titan 100%. `damage` on the
-   roster became `tier`; `SQUAD.breachLoss` is gone. The simulation publishes
-   a typed event stream (`SimEvents`) that the scene drains once per render
-   and re-emits as `moment`; sprites, HUD feedback and audio all read it.
-   Measured: balance seeds 1-5 unchanged in survival (the bot never leaves
-   the floor regime), repeat 0.00%, titan delivery 1.00 before and after,
-   `from --dps=1e5` survival 100.7/36.7/52.9 → 62.4/55.9/52.0s with
-   contact/min 14/5/22.
-2. **GameScene split into render layers** (`e582bdd`): `SpriteRender` and
-   `FieldRender`; neutral identical 5/5.
-3. **Creatures** (`9c28371`): a silhouette per type, white-with-black-detail
-   at 2x, walkers rotate to travel, magenta outlined darts for enemy fire,
-   outlined squad, hit flash and bleach, shards. `npm run roster`. Neutral
-   identical 5/5.
-4. **Field and feedback** (`572e2a1`): ground band, breach horizon and ticks,
-   gate roofs and labels above the stream, brackets on the targeted card,
-   PERFECT / GOOD / BAD washes and MISS, edge flashes sized by share of army
-   lost, boss bar, wave banner, death beat, the three screens re-laid, a
-   REPLAY button, the SOUND line. `npm run moments`. Neutral identical 5/5.
-5. **Audio** (`5af92d7`, `d513c39`): procedural WebAudio, 21 cues, kills
-   bundled at most ten voices a second and pitched down a semitone per
-   doubling, mute on the pause screen and the M key, `npm run audio` writes
-   WAVs. Neutral identical 5/5.
-6. **Dead space and taller cards, v0.5** (`f1619c2`): from wave 5 gates
-   narrow 6px a wave to 108px in a 180px lane by wave 16, on the judgment
-   wave; cards 88px with a two-line label; `npm run model` prints the whole
-   curve per wave. Balance moved through the taller card (median 44.1 →
-   42.9s); dead space itself is unexercised by the bot.
-7. **Finish review fixes** (`0d7b2c3`): opaque rail, OVERRUN as a heading,
-   bolder SENSE mark, longer appendages on the roundest creatures, Lancer to
-   indigo, readable pause notes, dividers instead of stripes, boss bar under
-   the standing bar, one type scale. Neutral identical 5/5.
+All of it is the author's decision, recorded verbatim in `ASKS.md`.
+
+1. **MOVE, TIME and SENSE are RISK axes.** `progressValue` is `squadDps`;
+   the access and sense factors, `SCORING`, `reach`, `accessFactor` and
+   `senseFactor` are deleted. `RISK_AXES` in config names the three. Par
+   never takes one beside a damage option (asserted over 200 modelled runs;
+   the 0.17% of offers that are all-risk tie and cost par nothing). A player
+   who takes one sees a lavender **RISK** wash instead of a grade, hears a
+   rising tritone (`pickRisk`), and it counts as no growth in the optimal
+   percentage. `DecisionLog.resolve` returns the `Decision` (with `risk`);
+   `tally` is five buckets `top / mid / low / risk / miss`. The pause
+   BONUSES rows for the three say `RISK: no DPS, par never takes it`.
+2. **No automatic army.** `WAVE.clearBonus` and `STREAK` are gone on both
+   sides; par is credited with the kill and nothing else. The streak track
+   left the rail; the `streak` event and cue are gone; the wave banner no
+   longer says `+4 ARMY`. **`SQUAD.startPower` 1 → 5** (my call, flagged in
+   ASKS §1.4): with the wave-1 `+4` gone a start of 1 made the first leaked
+   Grunt at ~30s the end of the run on three seeds in five.
+3. **Rescue cages roll at 40%** per wave duration, from 75%.
+4. **The root schedule is the author's**: waves 1-5 `[1.1, 1.25, 1.5]`,
+   6-10 the tenths, 11-15 every `.05`, 16+ every `.01`. Drift against the
+   finest tier +0.38% / +1.91% / -0.09% per draw; `npm run model` prints it
+   and caps it at 2.5% (`MEAN_DRIFT`).
+5. **Peak DPS on the end screen**, beside OF OPTIMAL PLAY; `peakDps` is in
+   the `stats` registry.
+6. **The bonus strip sits directly under the rail** (y 72-166); the pause
+   button is in the rail's right-hand 80px (`RAIL_PAUSE_WIDTH`,
+   `PAUSE_BUTTON` at 500,33); the ground continues in a darker step below
+   the breach line. Every HUD and screen text size under 18px went up two
+   to three points (`DESIGN.md`, "The Phone Floor").
+
+**Measured**, `npm run balance` seeds 1-5, skill 0.7, before on a snapshot of
+`36c65ca` and after with everything above:
+
+| | survival | median | optimal | standing | contact/min | breach/min |
+| --- | --- | --- | --- | --- | --- | --- |
+| before (0.5) | 41.6 / 42.1 / 42.9 / 44.2 / 81s | 42.9s | 78% | 0.87 | 1.4 | 15.4 |
+| after (0.6) | 36.5 / 38.4 / 41.3 / 66.8 / 71.6s | 41.3s | 100% | 1.00 | 4.4 | 9.0 |
+
+Read the standing as the interesting number: with par no longer collecting
+wave-clear and streak army, and no longer spending picks on access, the bot
+that takes the best DPS option sits exactly ON par. Optimal reads 100% on
+three seeds because a risk pick scores zero and the bot never reaches for
+one. `npm run repeat` reads 0.00% spread. Before the start went to 5 the
+after median was 31.7s with three seeds dying at the first leak.
 
 ## 4. What the author still has to decide
 
-- **The root-table schedule.** The author proposed: waves 1-5 `1.1, 1.25,
-  1.5`; 6-10 `1.1, 1.2, 1.3, 1.4, 1.5`; 11-15 every .05; 16-20 every .01.
-  Tenths cannot be mean-neutral inside the fixed [1.05, 1.5] range (+2% per
-  draw in waves 6-10, +0.65% in 1-5). Options laid out in ASKS.md §5a.
-  `npm run model` fails if the means drift past 0.5%; widening that check per
-  tier is the code change if the author accepts the drift.
-- **Analytics.** Options and costs in ASKS.md §6. Nothing built.
-- **Play it.** Every strand was verified by instruments and stills. Nobody has
-  played it, watched the motion, or listened to the sounds. The questions
-  only play can answer: does contact damage feel fair at 2-6%; does ±54px at
-  wave 16 feel like precision or a geometry accident; do cages feel like
-  walls (`CAGE.hpTitanFraction`); is 1% per bullet right for a player who
-  dodges; is the Bomber at floor 3 still the Bomber.
+- **Anonymous analytics.** Options were raised in the session summary
+  (a privacy-first counter with custom events; a tiny serverless endpoint for
+  scores; a hosted database for a leaderboard). Nothing built.
+- **The UI design pass.** The author's ask #2 (screens are barebones and
+  text-heavy) is open by agreement. It needs a comp-first pass with the
+  impeccable skill on the three screens, not more polish of the current
+  layout.
+- **Whether a RISK pick should count in the optimal percentage.** It does
+  (zero growth). Excluding it is a two-line change in `fractionOfOptimal`.
+- **`startPower` 5.** My number; revert to 1 for the harder open.
 
 ## 5. Known gaps — name these as unverified if you report on them
 
-- **Nothing here has been played by a human.** All balance is the probe bot,
-  which does not dodge, does not aim at cages, steers to a card's exact x
-  (so never stands in dead space), and dies by wave 6.
+- **Nothing here has been played on a phone since the changes.** The strip
+  move and the type sizes were made FOR the phone and verified only in
+  540x960 stills.
+- **The RISK wash is not forced by `npm run moments`**; it was seen only on
+  the end screen (`end-poor.png`, 2 RISK picks). The wash uses the same
+  `GRADE_COLOR` / `GRADE_WORD` path as the three grades.
+- **`pickRisk` is unheard**; `npm run audio` renders it to
+  `.verify/audio/pickRisk.wav`.
+- **Gate cards emerge from beneath the strip**, so the first ~90px of an
+  offer's descent is hidden. Unplayed.
 - **The contact share regime (above 75 power) is unmeasured** by every
-  instrument.
-- **Motion is unverified**: Splitter swell, Bomber ember, Spitter gun
-  tracking, bullet trail, shard arcs, the tweened feedback, the boss warning
-  pulse. Stills only.
-- **Audio is unheard.** The palette is judged by peak/RMS/dominant-Hz tables.
-  The Titan heartbeat ramps on time since arrival, not real descent.
-- **`landedAt`** (where a Titan landed on the squad) is wired and never
-  observed; no instrumented run produced a landing.
-- **Breach ticks** on the horizon appear in no still.
-- **A MISS count** is not on the end screen (`DecisionLog.tally` has no miss
-  field; misses sit in BAD and the decisions count).
-- **Nothing is verified at phone DPI**; 540×960 stills only.
-- The worktree harness cut agent worktrees from `main`, not the branch; each
-  agent copied the base tree in by hand. If you use `isolation: "worktree"`
-  again, check the base commit first.
+  instrument, as before.
+- The probe bot never takes a risk axis and never stands in dead space; its
+  numbers are a floor.
 
 ## 6. Ground rules
 
@@ -143,16 +147,16 @@ rounding, and now dead space between the gates.
   once; `Contact.ts` prices every arrival once; `Mode.ts` holds difficulty.
 - Nothing in `systems/` reads the event stream or knows about audio.
 - Commit subjects `shooter_ad:`; stage explicit paths, never `git add -A`.
+- `pkill -f` on a script name matches your own shell; kill by PID.
 - No CI on pull requests; local `verify` is the gate.
 
 ## 7. Settled — do not relitigate
 
-Everything in the previous list, plus: enemies are consumed on contact, no
-kill credit; breach and contact are one price; tiers are by body size with
-Large floor 3; the Healer is gone; waves survived is the end screen's
-headline; the pick words are PERFECT / GOOD / BAD / MISS; the event stream is
-the only channel from simulation to feedback; the rank palette and axis
-colours are vocabulary.
+Everything in the previous list, plus: MOVE / TIME / SENSE are worth zero
+to the scoring and par never takes them; there is no automatic army; the
+strip lives under the rail; RISK is a fifth word beside PERFECT / GOOD /
+BAD / MISS; the root tables drift and the drift is accepted; peak DPS is a
+score on the end screen; waves survived stays the headline.
 
 ## 8. How to report
 

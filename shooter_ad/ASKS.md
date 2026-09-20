@@ -196,3 +196,114 @@ author picks one.
 > we can review them intensively later on for completion
 
 Status: `done` (this file). Keep it updated as strands land.
+
+---
+
+# Author's asks — session of 2026-09-20
+
+Same format. The author opened by reading `RESTART.md` and listing seven
+thoughts, then answered questions on each.
+
+## 1. The seven thoughts (verbatim)
+
+> 1. End-screen should show Peak DPS Reached as a score output
+
+Status: `landed`. `GameScene` samples `peakDps` every step and the end
+screen shows it beside OF OPTIMAL PLAY, captioned PEAK DPS; it is also in
+the `stats` registry for the probes.
+
+> 2. the UI and explainers and menus and stuff like that remain way too
+> barebones and text-heavy with very little visual flair.
+
+Status: `open`. Not started this session by agreement - the balance and
+scoring batches came first. Needs a comp-first design pass (impeccable) on
+the three screens; the two phone findings below (text size, strip position)
+were taken now because they were blocking play.
+
+> 3. When the player selects a bonus gate that is intentionally 0-dps (TIME,
+> MOVE, SENSE), we should have a separate evaluation note
+> (perfect/good/bad/miss whatever) that says "RISK". We should have something
+> in the pause/tutorial about all of these stats
+
+Follow-up when told the three were priced by an access factor:
+
+> 3. How could MOVE/TIME/SENSE ever be optimal against other dps-associated
+> picks? They should have zero impact on DPS and thus should never be
+> valuable for par and thus never worth picking
+
+Status: `landed`. `progressValue` is `squadDps`; the access and sense factors
+are deleted; `RISK_AXES` names the three; par never takes one beside a damage
+option; the wash says RISK in lavender, with its own cue; the end screen has
+RISK and MISS columns; the pause BONUSES rows for MOVE / TIME / SENSE say
+`RISK: no DPS, par never takes it` and DETAILS says taking one is a RISK. A
+RISK pick counts as no growth in the optimal percentage (my call: the gamble
+is real and the number should say so; easy to exclude instead).
+
+> 4. I don't think wave completion should give you more ARMY, that throws
+> everything off (not intuitive and throws off my calculations for picking
+> bonuses)
+
+> 4. Yes, throw out that power bonus for kill streaks, not valuable and
+> removes player agency. Please surface for me anything else "automated" in
+> terms of power upgrades in our system
+
+Status: `landed`. Wave-clear army and streak army are gone on both sides
+(player and par); the streak track left the rail, the `streak` event and cue
+are gone, the wave banner no longer says `+4 ARMY`. **Everything automated,
+surfaced:** those two were the only sources of army that arrived without a
+choice. What remains is gates (chosen) and rescue cages (must be shot open;
+par never gets them). Nothing else calls `addPower` with a positive amount.
+**One number moved with it, my call:** `SQUAD.startPower` 1 -> 5, because
+with the wave-1 `+4` gone a start of 1 made the first leaked Grunt at ~30s the
+end of the run on three seeds in five; 5 is what a player held through wave 2
+before. Revert to 1 if you want the harder open.
+
+> 5. The rescue mechanic I think needs to appear a little less often, say 25%
+> less often than it currently does.
+
+> 5. Yeah drop it to 40% chance
+
+Status: `landed`. `CAGE.chancePerWave` 0.75 -> 0.4.
+
+> 6. I also want to think carefully about how par is calculated with the
+> rescue mechanic in place...
+
+> 6. Roger okay, that sounds fine to me as-is
+
+Status: `done` (explained; no change). Recorded in `notes.md` under "Rescue
+cages are the catch-up".
+
+> 7. The play should also lose if they hit 0 army, right?
+
+Status: `done` (already true: `Squad.alive` is `power > 0`, checked after
+every charge, cause `overrun`).
+
+## 2. Answers to the open items from last session
+
+> Root-table schedule: Yes that's fine to accept the drift
+
+Status: `landed`. Four tiers at waves 1 / 6 / 11 / 16: `[1.1, 1.25, 1.5]`,
+tenths, every `.05`, every `.01`. Drift measured against the finest tier:
++0.38% / +1.91% / -0.09% per draw. `npm run model` caps it at 2.5%.
+
+> I didn't see any options for anonymous analytics, so please raise to me
+> here
+
+Status: `open`. Options raised in the session summary; nothing built.
+
+> Motion and audio work well! No issues on my pass. Text is really small on
+> mobile, really small. Legible on a high DPI screen but just barely
+
+Status: `landed` (text). Every HUD and screen text size under 18px went up
+two to three points (10 -> 13, 11/12 -> 14, 13 -> 15, 14 -> 16, 15 -> 17,
+16 -> 18). Verified only in 540x960 stills; not on a phone.
+
+> Also, I'm resolved: The current bonuses status bar at the bottom of the
+> screen needs to be moved to the top. On mobile play, the thumb I'm using to
+> play the game covers it, and I'm constantly flicking my eyes from the
+> bottom to the top. It should be just below the par/wave status bar
+
+Status: `landed`. The strip sits at y 72-166 directly under the rail; the
+pause button moved into the rail's right-hand 80px (below both it landed on
+the right-hand gate card); the ground continues in a darker step below the
+breach line where the strip used to be.

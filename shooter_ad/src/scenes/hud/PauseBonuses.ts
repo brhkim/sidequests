@@ -53,7 +53,7 @@ export class PauseBonuses {
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { b.push(o); return o; };
 
     add(scene.add.text(cx, 98, 'stat  =  base × (1 + pool) × mult', {
-      fontFamily: FONT, fontSize: '14px', color: SMALL,
+      fontFamily: FONT, fontSize: '16px', color: SMALL,
     }).setOrigin(0.5, 0));
 
     // Two rulers side by side, because damage and rate are separate pools and
@@ -63,30 +63,30 @@ export class PauseBonuses {
       const x = 26 + i * 254;
       const color = AXIS_COLOR[axis];
       const head = add(scene.add.text(x, 118, '', {
-        fontFamily: FONT, fontSize: '14px', color: hex(color), fontStyle: 'bold',
+        fontFamily: FONT, fontSize: '16px', color: hex(color), fontStyle: 'bold',
       }).setOrigin(0, 0));
       const divide = add(scene.add.text(x, 138, '', {
-        fontFamily: FONT, fontSize: '11px', color: CAPTION,
+        fontFamily: FONT, fontSize: '14px', color: CAPTION,
       }).setOrigin(0, 0));
       const lines = SAMPLE_ROOTS.map((_, r) => add(scene.add.text(x, 160 + r * 22, '', {
-        fontFamily: MONO, fontSize: '15px', color: '#e8ecf8', fontStyle: 'bold',
+        fontFamily: MONO, fontSize: '17px', color: '#e8ecf8', fontStyle: 'bold',
       }).setOrigin(0, 0)));
       this.rulers.push({ head, divide, lines });
     }
 
     add(scene.add.text(cx, 232, 'Neither form is better — convert, then take the bigger one.', {
-      fontFamily: FONT, fontSize: '13px', color: '#9fe8ff', align: 'center',
+      fontFamily: FONT, fontSize: '15px', color: '#9fe8ff', align: 'center',
     }).setOrigin(0.5, 0));
     add(scene.add.text(cx, 250, 'as a pool grows, the same × needs a bigger +% to match it', {
-      fontFamily: FONT, fontSize: '12px', color: SMALL, align: 'center',
+      fontFamily: FONT, fontSize: '14px', color: SMALL, align: 'center',
     }).setOrigin(0.5, 0));
 
     add(scene.add.rectangle(cx, 270, VIEW.width - 52, 1, 0x2a3350));
     add(scene.add.text(26, 278, 'WHAT YOU HOLD', {
-      fontFamily: FONT, fontSize: '12px', color: SMALL, fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(0, 0).setLetterSpacing(1.5));
     this.standing = add(scene.add.text(VIEW.width - 26, 278, '', {
-      fontFamily: FONT, fontSize: '12px', color: SMALL, fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(1, 0));
 
     for (const [i, axis] of ROWS.entries()) {
@@ -94,13 +94,13 @@ export class PauseBonuses {
       const color = AXIS_COLOR[axis];
       this.rows.push({
         label: add(scene.add.text(28, y - 1, '', {
-          fontFamily: FONT, fontSize: '12px', color: hex(color), fontStyle: 'bold',
+          fontFamily: FONT, fontSize: '14px', color: hex(color), fontStyle: 'bold',
         }).setOrigin(0, 0).setLetterSpacing(1)),
         value: add(scene.add.text(VIEW.width - 26, y - 2, '', {
           fontFamily: FONT, fontSize: '20px', color: '#f2f6ff', fontStyle: 'bold',
         }).setOrigin(1, 0)),
         note: add(scene.add.text(28, y + 15, '', {
-          fontFamily: FONT, fontSize: '13px', color: CAPTION,
+          fontFamily: FONT, fontSize: '15px', color: CAPTION,
         }).setOrigin(0, 0)),
       });
     }
@@ -162,16 +162,18 @@ export class PauseBonuses {
     this.setRow(6, 'PIERCE', String(h.pierce),
       `bodies one shot goes through · worth ${formatMult(h.pierceMult)} now · grows past 3`,
       h.pierce > 0);
+    // The three RISK axes: worth zero to the scoring, never taken by par.
+    // Taking one is told RISK on the field, not graded, and counts as no
+    // growth in the end screen's percentage. Said the same way on each row.
     this.setRow(7, 'MOVE', formatMult(h.moveMult),
-      'squad speed · no DPS — reach the gate you judged best', h.moveMult > 1);
+      'squad speed · RISK: no DPS, par never takes it', h.moveMult > 1);
     const time = Math.round((1 / h.gateSpeedMult - 1) * 100);
     this.setRow(8, 'TIME', `+${time}%`,
-      'offers fall slower · no DPS — buys seconds to do the arithmetic', time > 0);
+      'offers fall slower · RISK: no DPS, par never takes it', time > 0);
     const chances = Array.from({ length: MAX_SENSE }, (_, i) => Math.round(senseChance(i + 1) * 100));
     this.setRow(9, 'SENSE', sensePips(h.sense),
-      // Short enough at 13px to clear the pips on the right.
-      `${Math.round(h.senseChance * 100)}% of offers arrive best-marked`
-      + ` · ${chances.join(' / ')}% at 1 / 2 / 3`,
+      // Short enough at 15px to clear the pips on the right.
+      `${Math.round(h.senseChance * 100)}% of offers best-marked · RISK: no DPS · ${chances.join('/')}% at 1/2/3`,
       h.sense > 0);
   }
 }

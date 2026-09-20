@@ -110,13 +110,17 @@ expected text is on screen and that the end screen is held back for the beat.
 Stills are not motion; look at them, and read `npm run neutral` beside them,
 because a feedback change that reached the simulation would pass this.
 
-**HUD and feedback, as built.** `UIScene` draws the rail, the strip, the
+**HUD and feedback, as built.** `UIScene` draws the rail, the strip
+(directly beneath the rail since 2026-09-20 - `BonusStrip.TOP` is
+`RAIL_HEIGHT`, `STRIP_HEIGHT` 94, the pause button below both at y 192 -
+because on a phone the thumb covered it at the bottom; the ground now
+continues in a darker step below the breach line where it used to sit), the
 pause button and the three screens, and dispatches the `moment` stream to
 `hud/EdgeFlash` (damage, at the screen edges, sized by `share`),
 `hud/BossBar` (the Titan's HP under the rail from `HudPayload.titan`) and
 `hud/WaveBanner`. Field-space feedback is `scenes/fx/FieldFx` inside
-`render/FieldRender`: the grade wash (`PERFECT` / `GOOD` / `BAD` in the
-card's own footprint, held then lifted - the one authored motion), `MISS`
+`render/FieldRender`: the grade wash (`PERFECT` / `GOOD` / `BAD`, or `RISK` for a MOVE / TIME / SENSE pick, in
+the card's own footprint, held then lifted - the one authored motion), `MISS`
 at the lane line, `+N ARMY` over a rescue, `-N` at a contact, and the death
 dim. The `toast` string event and the 420ms halo are gone. Gate labels and
 the SENSE tag sit at depth 15, above the squad's stream; `render/GateCards`
@@ -421,7 +425,7 @@ readable and testable without touching Phaser.
 
 **Simulation events.** `systems/SimEvents.ts` is the one typed stream of what
 a step DID - `kill`, `contact`, `breach`, `fire`, `pick`, `miss`, `rescue`,
-`streak`, `wave`, `titan` (arrive / volley / down), `sense`, `over` - with
+`wave`, `titan` (arrive / volley / down), `sense`, `over` - with
 positions, costs and the cost's share of the army before the charge.
 `GameScene` pushes into it only inside `step`, and the top of `render()`
 drains it and emits the whole array once per frame as the `moment` game
@@ -459,45 +463,36 @@ show up in the score. One ordering trap, already paid for: `consumePair` is what
 opens the log entry for a gate taken before it reaches the lane line, so
 resolving before it silently left every such decision unrecorded.
 
-### Scoring prices ACCESS; difficulty budgets DPS. Keep them apart.
+### Scoring prices DPS and nothing else; MOVE, TIME and SENSE are RISK
 
-`x MOVE` and `+TIME` change no damage number at all. Priced by resulting DPS
-they score a flat zero, so par would never take one, the halo would flash every
-one of them red, and the death screen would call them mistakes. That is not the
-game judging them harshly - it is the scoring failing to see a cost the game
-already charges. **You only get the bonus you can reach**, and at `PROBE_SKILL`
-1.0 the bot reaching for the best option every single time still lands a median
-88% of optimal, the gap being gates it chose and could not get to.
+`x MOVE`, `+TIME` and `+SENSE` change no damage number, and `scoreOffer`
+prices each at **exactly zero**: `progressValue` is `squadDps`, full stop.
+`RISK_AXES` in config names the three. For two sessions they were priced
+through an access factor (`1 - w / (1 + reach)`) and a sense factor so that
+par would sometimes take one; the author's rule (`notes.md`, "RISK: the
+three axes par never takes") replaced that, and `SCORING`, `reach`,
+`accessFactor` and `senseFactor` are deleted rather than left at zero weight.
 
-So a state is valued as `squadDps(p) x accessFactor(reach(wave, upgrades))`:
+What follows, and `npm run model` asserts each:
 
-```
-reach        = moveSpeed x descentSeconds x SCORING.reachShare / laneWidth
-accessFactor = 1 - SCORING.accessWeight / (1 + reach)
-```
+- **Par never takes one** beside a damage option. In an all-risk offer
+  (0.17% of offers over 200 modelled runs) every option scores zero and the
+  tie-break picks; that costs par nothing.
+- **A risk pick ranks last** (`pickRank` 1) beside any damage option, and an
+  all-risk offer ties at rank 0.
+- **The player is told RISK, not graded.** `DecisionLog.resolve` returns the
+  `Decision`, whose `risk` flag (`Scoring.isRiskPick`) `GameScene` turns
+  into `grade: 'risk'` on the `pick` event; `GRADE_COLOR.risk` is lavender
+  `0xc9a7ff`, off every axis colour, and `GRADE_WORD.risk` is `RISK`. The
+  wash, the strip flash and the `pickRisk` cue (a rising tritone) all read
+  the same grade.
+- **`fractionOfOptimal` counts it as no growth**: delta is zero. The gamble
+  is real and the percentage says so.
+- **`tally` has five buckets** - `top / mid / low / risk / miss` - and the
+  end screen shows all five. A miss is no longer folded into BAD.
 
-Three properties are load-bearing:
-
-- **`Scoring.scoreOffer` uses the value; `Difficulty` uses raw `squadDps`.**
-  Access buys future picks, not kills, so folding it into the enemy budget would
-  tell the curve a squad that merely moves well is destroying more than it is.
-  Par still *chooses* on value, because that is the decision - the asymmetry is
-  deliberate and is commented at both ends.
-- **`accessFactor` saturates but never reaches 1**, and `reach` is NOT clamped.
-  A clamp would price every `x MOVE` past saturation at exactly zero, which is
-  the failure the valuation exists to remove. `npm run model` asserts the floor
-  is positive at every wave and at stacked multipliers up to x8.
-- **`SCORING.reachShare` is a tuned constant, for the reason `WEAPON.pierceQ`
-  is.** The true share of a descent the squad can spend travelling swings
-  second to second with the board; a value read at the instant of a decision
-  scores the pick against a truth that lasted one second. Stable and identical
-  for par and player beats precise and unrepeatable.
-
-`x1.5 MOVE` and `+50% TIME` are exactly equivalent by construction - both
-multiply reach by the same root. When two such draws land in one offer the
-options genuinely tie, and the tie-break decides. Mismatched roots
-(`x1.2 MOVE` against `+30% TIME`) are a real comparison, and that is the usual
-case.
+`Difficulty` budgets against raw `squadDps` as it always did; with the
+factors gone, par's valuation and the budget are the same number.
 
 ### Hard mode is a wave offset on the judgment axes, and nothing else
 
@@ -857,24 +852,29 @@ and the same tap reaches both scenes' pointer handlers, so nothing may depend
 on which runs first - `newmatchrequest` is not gated on `over` for that
 reason.
 
-### Legibility must stay difficulty-neutral, and once did not
+### Legibility drifts in strength, by a measured and accepted amount
 
-`notes.md` says of the legibility axis: "No mechanic changes — only how hard the
-arithmetic is." That is a claim about the MEAN of each tier's root table, and it
-was false. The original first tier, `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, bunches
-low: 1.32% under the ladders on the arithmetic mean and 1.48% on the geometric
+`notes.md` once said of the legibility axis: "No mechanic changes — only how
+hard the arithmetic is." That is a claim about the MEAN of each tier's root
+table, and the original first tier, `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, broke
+it: 1.32% under the ladders on the arithmetic mean and 1.48% on the geometric
 one — **about 55% less power over thirty offers**, because bonuses multiply.
+So escalating legibility was quietly escalating strength, and hard mode,
+which starts a tier in, was handing out bigger bonuses rather than harder
+sums. For a while every tier was held to the same geometric mean within 0.5%
+(`[1.05, 1.15, 1.25, 1.3, 1.4, 1.5]` matched on both means).
 
-So escalating legibility was quietly escalating strength, and hard mode, which
-starts a tier in, was handing out bigger bonuses rather than harder sums.
-
-**The first repair was not enough, and that is the more useful half of the
-story.** Matching the ARITHMETIC mean left 0.26% per draw on the geometric one —
-still 7.5% over a run. A table spread toward its extremes has a lower geometric
-mean at the same average, and the geometric mean is the one that governs when
-draws compound. The tier is now `[1.05, 1.15, 1.25, 1.3, 1.4, 1.5]`, which
-matches on both, and `npm run model` checks both for every tier and fails past
-0.5% per draw.
+**The schedule is now the author's, and it drifts on purpose.** `LEGIBILITY`
+in `data/roots.ts` is four tiers at waves 1 / 6 / 11 / 16: `[1.1, 1.25,
+1.5]`, the tenths from 1.1, every `.05`, every `.01` (three significant
+figures on raw numbers from wave 16, two before). Round tables inside a fixed
+[1.05, 1.5] cannot share the ladders' mean: measured against the hundredths,
+the tenths sit +1.91% per draw and the first tier +0.38%. The author read
+that and accepted it. `npm run model` prints the drift per tier under
+"legibility tiers: the drift the author accepted", measures it against the
+FINEST tier, and fails past `MEAN_DRIFT` (2.5% per draw) or if the schedule
+is not four tiers at those waves - so the drift stays a decision on the
+record, and a table drifting further is a new decision.
 
 Worth generalising twice over: **any content table indexed by difficulty needs
 its mean checked, not just its range** — the range was fixed, and documented as
@@ -1076,8 +1076,8 @@ Four rules, each with a reason:
   contradicts that, on both is a no-op.
 - **Consumed, not killed.** `Enemies.consume` sets `active = false` directly,
   never through `damage`, so a Splitter does not split (three Grunts inside
-  the ring would each contact next step), `onKill` is not called, so no
-  `kills++` and no streak - standing in the stream would otherwise farm both.
+  the ring would each contact next step), and `onKill` is not called, so no
+  `kills++` - standing in the stream would otherwise farm the count.
   `Difficulty.observeSpawn` already credited par with the body at spawn.
   Contact with a cage does nothing.
 - **Step order is `collide -> applyContacts -> checkGates -> applyBreaches ->
@@ -1263,7 +1263,7 @@ neutral` are what keep that true.
 **Mapping.** `kill` -> `kill` (bundled; a Titan kill is `titan down` ->
 `titanKill`); `contact` / `breach` -> the same-named cues, level rising with
 `share`; `fire` with hits -> `fireHit`; `pick` -> `pickPerfect` / `pickGood`
-/ `pickBad` by grade; `miss`, `rescue`, `streak`, `wave`, `sense` -> the
+/ `pickBad` / `pickRisk` by grade; `miss`, `rescue`, `wave`, `sense` -> the
 same names; `titan arrive` -> `titanArrive` and a heartbeat (`titanPulse`)
 that quickens over 20 s, since audio cannot see the descent; `titan volley`
 -> `titanVolley`, at most every 250 ms; `over` -> `playerDeath` or
@@ -1280,7 +1280,7 @@ carries a partial an octave down - heavier, never louder. Under 600 kills
 
 **Budget.** Twelve voices, per-cue caps (kill/contact/breach/fireHit 2, the
 rest 1), priorities `titanLand 100 > playerDeath 95 > titanKill 90 >
-titanArrive 85 > breach 70 > pick 65 > rescue 60 > wave 55 > streak 50 >
+titanArrive 85 > breach 70 > pick 65 > rescue 60 > wave 55 >
 contact 45 > sense 40 > titanVolley 35 > titanPulse 30 > miss 25 > fireHit
 20 > kill 10 > ui 5`. A full mix evicts the lowest priority below the
 newcomer or refuses it (`stats.refused`). Breach and the Titan cues duck the
@@ -1321,8 +1321,8 @@ cue must peak between -40 and -1 dBFS. `window.__audio` on every page has
   `+N PIERCE` are the whole number whose effect is nearest the draw
   (`Progression.discreteAmount`), so `OfferContext` carries `guns`, `pierce`
   and `sense` beside the pools. A bonus that changes no damage number - MOVE,
-  TIME, SENSE - must be priced in `progressValue` or the scoring calls every
-  one a mistake; `npm run model` asserts each beats a weak damage draw.
+  TIME, SENSE - is a RISK axis (`RISK_AXES`): priced at zero, never taken by
+  par, told RISK when the player takes it; `npm run model` asserts the zero.
   Colour names the axis and both forms of an axis share it, so the player cannot
   read the raw-versus-multiplicative choice off the tint instead of doing the
   conversion.
@@ -1333,5 +1333,9 @@ cue must peak between -40 and -1 dBFS. `window.__audio` on every page has
   one second. Par and the player must price every bonus with the same function
   or the death screen's "optimal pick" marker lies to the player about their
   own mistake.
-- **Army growth**: gates, rescue cages, kill streaks (`STREAK`), wave-clear
-  bonuses (`WAVE.clearBonus`). Add another by calling `squad.addPower()`.
+- **Army growth**: gates and rescue cages, and nothing automatic. Kill
+  streaks (`STREAK`) and wave-clear bonuses (`WAVE.clearBonus`) were removed
+  at the author's request on 2026-09-20, on both the player's side and par's
+  (`Difficulty.observeSpawn` credits par with the kill and nothing else) -
+  see `notes.md`, "No automatic army". `SQUAD.startPower` went 1 to 5 with
+  it. Any new source must be a choice the player makes.

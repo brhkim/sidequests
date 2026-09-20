@@ -53,7 +53,7 @@ for (const r of results) {
   console.log(
     `\n=== seed ${r.seed} — survived ${r.survived}s, reached wave ${r.wave},`,
     `played at ${(r.optimal * 100).toFixed(0)}% of optimal`,
-    `(${r.decisions} decisions ${r.tally.top}/${r.tally.mid}/${r.tally.low}) ===`,
+    `(${r.decisions} decisions ${r.tally.top}/${r.tally.mid}/${r.tally.low} risk ${r.tally.risk} miss ${r.tally.miss}) ===`,
   );
   if (VERBOSE || results.length === 1) {
     console.log('  t   wave  power    par   dps  parDps  stand  hpMult   rate  kills');

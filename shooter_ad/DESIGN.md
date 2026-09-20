@@ -28,6 +28,7 @@ colors:
   grade-perfect: "#3ecf7a"
   grade-good: "#ffc93c"
   grade-bad: "#ff4757"
+  grade-risk: "#c9a7ff"
   breach: "#ff4d5e"
   loss: "#ff5566"
   fire: "#ff8a5c"
@@ -171,7 +172,7 @@ the system below is read off the shipped build (`.verify/*.png`, 2026-09-19)
 and the modules that draw it, not off a plan. Where this record and the code
 disagree, the code is stale or this record is; re-scan rather than defend.
 
-The game is a dark navy field with a data rail above and a data strip below,
+The game is a dark navy field with a data rail and a data strip stacked above it,
 and every colour on it is a word: an axis, a rank, a grade, a threat. The
 squad is human (skin head, rank-coloured shirt); everything it fights is a
 creature drawn white-with-black-detail and tinted at runtime, because the
@@ -217,7 +218,9 @@ which means exactly one thing.
 
 ### Secondary (feedback)
 - **Grades** (`GRADE_COLOR`): PERFECT `{colors.grade-perfect}`, GOOD
-  `{colors.grade-good}`, BAD `{colors.grade-bad}`. The pick wash, the end
+  `{colors.grade-good}`, BAD `{colors.grade-bad}`, and RISK
+  `{colors.grade-risk}` (lavender, off every axis colour) for a MOVE / TIME /
+  SENSE pick, which is told rather than graded. The pick wash, the end
   screen's tally, and the pick cues.
 - **Breach red** `{colors.breach}`: the horizon glow, breach ticks, the
   Titan-landing horizon flash, the edge flash on contact or breach.
@@ -277,20 +280,27 @@ speaks to the player.
   wave banner is 40px bold tracking 4 on a 64px band.
 - **Magnitude** (bold, 26px): gate card top line and strip cell main; shrinks
   to the card's inner width when wider (`+1840%`). Rail values are 23px, the
-  pause bonus list 20px, the boss warning 22px tracking 6.
-- **Value sub** (bold, 15px, `{colors.strip-sub}`): the strip's second line.
+  pause bonus list 20px, the boss warning 22px tracking 6. The end screen's
+  two scores (percentage, peak DPS) are 44px.
+- **Value sub** (bold, 17px, `{colors.strip-sub}`): the strip's second line.
 - **Body** (regular, 17px, line spacing 5, `{colors.text-working}`): start
-  screen copy; 16px for the end screen's detail line.
-- **Link** (regular, 15px): text links and tappable lines; the difficulty
-  line is 15px bold caption colour.
-- **Caption** (regular, 13px, `{colors.caption}`): under the value it names.
-  Secondary captions are 12px `{colors.small}`, untracked.
-- **Label** (bold, 11-12px, tracking 1.2-1.5, uppercase): rail column names,
-  strip axis names, pause section heads, PAUSE. Gate axis words are 14px
-  tracking 2; the SENSE tag 14px tracking 2.
+  screen copy; 18px for the end screen's detail line.
+- **Link** (regular, 17px): text links and tappable lines; the difficulty
+  line is 17px bold caption colour.
+- **Caption** (regular, 15px, `{colors.caption}`): under the value it names.
+  Secondary captions are 14px `{colors.small}`, untracked.
+- **Label** (bold, 14px, tracking 1.2-1.5, uppercase): rail column names,
+  strip axis names, pause section heads, PAUSE. Gate axis words are 16px
+  tracking 2; the SENSE tag 16px tracking 2.
 - **Code** (mono bold, 40px): the match code on start and end.
-- **Working** (mono regular, 14px): the DETAILS tab; its answer line is white
+- **Working** (mono regular, 16px): the DETAILS tab; its answer line is white
   bold and the only bright line.
+
+**The Phone Floor** (2026-09-20). Nothing under 13px, and labels at 14: the
+author read the 11px labels on a phone, where `Scale.FIT` draws the canvas
+at ~0.72, as barely legible. Every size under 18px went up two to three
+points in one pass; the values above are the new ones. Verified in 540x960
+stills only.
 
 ### Named Rules
 **The Two-Line Card Rule.** A gate label is always magnitude over axis word,
@@ -306,10 +316,14 @@ to bottom: rail (0-72, four equal columns WAVE / DPS / PAR / SENSE, label at
 11px over a 23px value over an 11px sub); standing bar (6px at y 72 with a
 3x12 white tick at the target fraction; a 12px fade strip under it carries
 the Titan bar at y 77); field; lane band (680-940); ground band (740-862)
-with its 1px top edge and a 24px breach glow to the line at 862; strip
-(864-960, five cells 100/128/128/92/92 wide, 18px inset, 1px dividers 12px
-below the top). The pause button sits at (486,100), 88x44. Gate cards are
-88px tall, drawn `width - 8` and fade in over 44px below the rail. Screens
+with its 1px top edge and a 24px breach glow to the line at 862, and a
+darker step of ground (`0x0e1220`) from the line to the bottom edge. The
+strip sits directly under the rail (72-166, five cells 100/128/128/92/92
+wide, 18px inset, 1px dividers 12px below the top, a 1px hairline along its
+bottom edge) - moved up from 864-960 on 2026-09-20 because a thumb on a
+phone covered it. The pause button sits below both at (486,192), 88x44.
+Gate cards are 88px tall, drawn `width - 8`, and emerge from beneath the
+strip. Screens
 are full-bleed opaque panels with content centred on x 270, hairlines 380
 (start) or 420 (end) wide, the primary button 300x56, every tappable line on
 a 44px hit bar, the version at ~820 (start) or 756 (end).
@@ -349,7 +363,7 @@ rotated along velocity with a fainter copy (0.45 alpha, 0.35 scale) behind.
   0.2, 2px axis-green stroke at 0.9, 22px bold tracking 1 axis-green label.
   The only filled button; one per screen.
 - **Pause:** 88x44 panel fill at 0.96, 1px `{colors.small}` stroke at 0.9,
-  12px bold tracking 1.5 caption-colour PAUSE.
+  14px bold tracking 1.5 caption-colour PAUSE.
 - **States:** none drawn; hit-tested by GameScene, hand cursor only.
 
 ### Text link and tappable line
@@ -379,8 +393,8 @@ rotated along velocity with a fainter copy (0.45 alpha, 0.35 scale) behind.
   `{colors.standing-above}`; SENSE is three 1px-stroked pips.
 
 ### Strip cell
-- Axis-coloured 12px tracked label, 26px bold main in `{colors.text-bright}`,
-  15px bold sub in `{colors.strip-sub}`; 1px `{colors.hairline}` dividers,
+- Axis-coloured 14px tracked label, 26px bold main in `{colors.text-bright}`,
+  17px bold sub in `{colors.strip-sub}`; 1px `{colors.hairline}` dividers,
   no side stripes. Unheld cells at 0.55 alpha. A change flashes the main from
   scale 1.25 in the event's colour over 500ms; ARMY floats `-N` in loss or
   fire colour at 18px, lifting 26px over 700ms.
