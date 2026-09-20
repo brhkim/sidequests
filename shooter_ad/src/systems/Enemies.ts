@@ -69,6 +69,8 @@ export class Enemies {
   wave: WaveState;
   private spawnAccum = 0;
   private cageAccum = 0;
+  /** Cages spawned this run; `npm run balance` reads it as cages per minute. */
+  cagesSpawned = 0;
 
   /** Set by GameScene each frame: what the squad can actually destroy. */
   playerDps = 1;
@@ -255,8 +257,15 @@ export class Enemies {
 
   private updateCages(dt: number): void {
     this.cageAccum += dt;
-    if (this.cageAccum > this.wave.duration && this.rng() < CAGE.chancePerWave) {
+    if (this.cageAccum > this.wave.duration) {
+      // One roll per wave duration, and the clock restarts on EVERY roll.
+      // For two versions it restarted only on a success, so a failed roll
+      // was rolled again on the next step - sixty times a second - until
+      // one passed: at 40% that is a cage within ~40ms of the deadline on
+      // every wave, and the 40% was a figure on paper. Measured in 0.8.
       this.cageAccum = 0;
+      if (this.rng() >= CAGE.chancePerWave) return this.driftCages(dt);
+      this.cagesSpawned++;
       // A fifth of a Titan, not a wave-scaled constant: the cage is priced off
       // the same par budget the boss is, so opening one costs the same share
       // of a run's fire at every stage. Par gets nothing for it (see
@@ -269,6 +278,10 @@ export class Enemies {
       if (cage) Object.assign(cage, fresh);
       else this.cages.push(fresh);
     }
+    this.driftCages(dt);
+  }
+
+  private driftCages(dt: number): void {
     for (const c of this.cages) {
       if (!c.active) continue;
       c.y += CAGE.speed * dt;
@@ -345,5 +358,6 @@ export class Enemies {
     this.wave = this.buildWave(1);
     this.spawnAccum = 0;
     this.cageAccum = 0;
+    this.cagesSpawned = 0;
   }
 }

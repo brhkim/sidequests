@@ -367,8 +367,11 @@ changed for display.
 A fixed 540x960 logical canvas under `Scale.FIT`; nothing is responsive. Top
 to bottom: rail (0-72, four equal columns WAVE / DPS / PAR / SENSE, label at
 11px over a 23px value over an 11px sub); standing bar (6px at y 72 with a
-3x12 white tick at the target fraction; a 12px fade strip under it carries
-the Titan bar at y 77); field; lane band (768-960); ground band (828-950)
+3x12 white tick at the target fraction; a 12px fade strip under it); the
+strip; the Titan row while a boss lives (an 18px panel at 0.96 directly
+under the strip's hairline, 166-184, carrying a 10px purple bar with its
+TITAN tag - moved out of the fade under the rail on 2026-09-20 so it reads
+as a third row rather than a seam); field; lane band (768-960); ground band (828-950)
 with its 1px top edge and a 24px breach glow to the line at 950, and a
 darker step of ground (`0x0e1220`) from the line to the bottom edge. The
 lane (888) and the line (950) moved down 88px with the strip's move up, so
@@ -436,22 +439,27 @@ rotated along velocity with a fainter copy (0.45 alpha, 0.35 scale) behind.
 
 ### Buttons
 - **Shape:** the card's shape (`cardButton` in `hud/CardTile`): square
-  (0px), a 4px solid roof along the top edge in the button's colour, body
-  filled in that colour at 0.2, 2px stroke at 0.9, the label 22px bold
-  tracking 1 in the same colour, 1px below centre.
-- **Primary (START MATCH 380x64, RESUME 300x56, REPLAY THIS MATCH 300x56):**
-  ARMY green. The only filled button; one per screen. The primary action is
-  itself an offer.
-- **Pause:** 68x44 panel fill at 0.96, in the rail's right-hand 80px, 1px `{colors.small}` stroke at 0.9,
-  14px bold tracking 1.5 caption-colour PAUSE.
-- **States:** none drawn; hit-tested by GameScene, hand cursor only.
-
-### Text link and tappable line
-- **Link:** 15px regular `{colors.link}`, no underline; an invisible 300x44
-  rectangle behind it is the target.
-- **Tappable line:** the same bar behind a caption-colour line (SOUND ON —
-  tap to mute; NORMAL / HARD; enter a code); RESTART is 15px bold tracking
-  1.5 in `{colors.grade-bad}`. Its hint sits below at 13px caption.
+  (0px), a 4px solid roof along the top edge in the button's colour, a
+  tinted body, a stroke, one word in the same colour, 1px below centre.
+  Three weights (2026-09-20, the author's UX round):
+- **Primary (START MATCH 380x64, RESUME / BACK 300x56, REPLAY THIS MATCH
+  300x56):** ARMY green, body 0.2, 2px stroke 0.9, 22px bold tracking 1.
+  The only filled button; one per screen. The primary action is itself an
+  offer.
+- **Secondary (ENTER A CODE / NEW MATCH 184x44, HOW TO PLAY 380x44, COPY
+  LINK 240x44, NEW MATCH on the end screen 300x44, SOUND ON 184x44, the
+  guide's twelve topics 240x40):** link teal `{colors.link}` (topics in
+  their own colours), body 0.07, 1.5px stroke 0.5, roof at 0.6, 14-15px
+  bold tracking 1.2.
+- **Danger (RESTART 184x44):** the secondary weight in `{colors.grade-bad}`.
+- **Segmented (`segmented`; NORMAL / HARD 184x44 in ARMY green and
+  `{colors.warning-text}`; HOW TO PLAY / BONUSES / DETAILS 164x40 in
+  `{colors.code}`):** a row of secondary buttons where the chosen one wears
+  the primary weight and its word turns `{colors.text}`.
+- **Pause:** 68x44, the secondary weight in `{colors.caption}` on a panel
+  fill at 0.96, in the rail's right-hand 80px; hit-tested by GameScene.
+- **States:** hover adds 0.08 to the body fill; pressed adds 0.22 and takes
+  the stroke to 1 for 140ms; hand cursor. No text links remain.
 
 ### Card tile
 A gate card off the field (`hud/CardTile`), so a player who has taken one

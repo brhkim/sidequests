@@ -144,8 +144,13 @@ export function waveGateSpeedMult(wave: number): number {
  * bullets a player has to dodge to get there.
  */
 export function gateDeadSpace(wave: number): number {
-  const { fromWave, perWave, max } = GATES.deadSpace;
-  return Math.min(max, Math.max(0, judgmentWave(wave) - fromWave) * perWave);
+  const { fromWave, perWave, max, latePerWave, lateMax } = GATES.deadSpace;
+  const w = judgmentWave(wave);
+  const first = Math.min(max, Math.max(0, w - fromWave) * perWave);
+  // The second stage starts the wave the first reaches its cap.
+  const capWave = fromWave + max / perWave;
+  const late = Math.min(lateMax - max, Math.max(0, w - capWave) * latePerWave);
+  return first + late;
 }
 
 /** Px/s an offer descends at, for this wave and this run's accumulated `+TIME`. */

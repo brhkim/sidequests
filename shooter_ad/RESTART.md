@@ -6,8 +6,8 @@ Paste everything below the line into a fresh session.
 
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo,
 on branch `claude/laughing-feynman-ghh9r3` (no PR open; the branch is ahead
-of `main` by the whole 2026-09-20 session). The version tag is **0.7**; a seed
-only compares with another 0.7 run. Nothing is blocked. §4 is what the author
+of `main` by two sessions' work). The version tag is **0.8**; a seed only
+compares with another 0.8 run. Nothing is blocked. §4 is what the author
 still has to do or decide, §5 what nobody has verified.
 
 ## 1. Orient before touching anything
@@ -17,35 +17,38 @@ Read in this order:
 1. `CLAUDE.md` at the repo root — repo conventions, the shared-tree rules for
    subagents, the measuring-before-tuning rules.
 2. `shooter_ad/ASKS.md` — **the author's asks, verbatim, with a status per
-   ask**, two sessions of them. The 2026-09-20 sections (§1-§4) are the
-   checklist this session is judged against. Read it first.
+   ask**, three sessions of them. The last section (2026-09-20, the UX
+   round) is the checklist this session is judged against. Read it first.
 3. `shooter_ad/PRODUCT.md` — product truth and the decisions on record.
 4. `shooter_ad/notes.md` — design intent; wins over `CLAUDE.md`. From this
-   session: "RISK: the three axes par never takes", "No automatic army", the
-   rewritten "Numeric legibility", the rescue-frequency paragraph, and under
-   "HUD and layout" the strip move, the field move and the card-built screens.
-5. `shooter_ad/CLAUDE.md` — mechanics. From this session: "Scoring prices DPS
-   and nothing else; MOVE, TIME and SENSE are RISK", "Legibility drifts in
-   strength, by a measured and accepted amount", "Analytics", the
-   HUD-as-built and "The three screens are built from the gate card"
-   paragraphs, the Army-growth bullet.
-6. `shooter_ad/DESIGN.md` — the design system as shipped, re-derived from the
-   build by the impeccable documenter at the end of the session; the direction
+   session: the rescue paragraph under "Rescue cages are the catch-up" (the
+   glitch), the second stage under "Dead space between gates", "The Titan's
+   bar is a third row" under "HUD and layout", and "Buttons look like
+   buttons, and the game explains itself to a stranger" under "The start
+   screen says what the game is".
+5. `shooter_ad/CLAUDE.md` — mechanics. From this session: "Rescue cages
+   roll once per wave, and for two versions they did not", the second-stage
+   paragraphs under "Dead space is the fourth judgment lever" and "Gate
+   approach speed", and "Every control is a card button, and the pause
+   screen has a HOW TO PLAY page" under HUD-as-built.
+6. `shooter_ad/DESIGN.md` — the design system as shipped; the direction
    contract for the screens is `.impeccable/surfaces/src-scenes-hud-startscreen-ts.md`.
-7. `git log --oneline -8` — the commit messages carry the reasoning and the
+7. `git log --oneline -10` — the commit messages carry the reasoning and the
    measurements.
 
 Then:
 
 ```bash
 cd shooter_ad && npm ci && npm run build && npm run verify && npm run model
-npm run endscreen  # start / pause / end screens: the card-built screens
-npm run moments    # every feedback moment; the RISK wash is not forced (see §5)
-npm run hud        # the strip under the rail at three states
+npm run endscreen  # start / guide / pause / end screens; presses every button
+npm run moments    # every feedback moment; the Titan bar in its row
+npm run hud        # the rail (YOUR DPS / PAR DPS) and the strip at three states
+npm run balance    # now prints cages/min
 ```
 
 Do not start until you have looked at `.verify/screenshot.png`,
-`.verify/start-hard.png`, `.verify/pause-mid.png` and `.verify/end-poor.png`.
+`.verify/start-hard.png`, `.verify/start-guide.png`, `.verify/pause-mid.png`,
+`.verify/moment-titan-bar.png` and `.verify/end-poor.png`.
 
 ## 2. What the game is
 
@@ -60,93 +63,69 @@ axes: worth zero to the scoring, never taken by par, the player's gamble.
 
 ## 3. What changed this session, in the order it landed
 
-Every item is the author's decision, recorded verbatim in `ASKS.md`.
+Every item is the author's ask, recorded verbatim in `ASKS.md`.
 
-1. **(0.6) MOVE, TIME and SENSE are RISK axes.** `progressValue` is
-   `squadDps`; the access and sense factors are deleted; `RISK_AXES` names
-   the three. Par never takes one beside a damage option (asserted over 200
-   modelled runs). A player who takes one sees a lavender RISK wash, hears
-   `pickRisk`, and it counts as no growth in the optimal percentage (the
-   author confirmed: "it's an investment by the player"). `tally` is five
-   buckets `top / mid / low / risk / miss`.
-2. **(0.6) No automatic army.** Wave-clear and streak army are gone on both
-   sides. **`SQUAD.startPower` 1 → 5**, my call: with the wave-1 `+4` gone a
-   start of 1 made the first leaked Grunt at ~30s the end of the run on three
-   seeds in five.
-3. **(0.6) Rescue cages roll at 40%** per wave duration.
-4. **(0.6) The author's root schedule**: waves 1-5 `[1.1, 1.25, 1.5]`, 6-10
-   tenths, 11-15 every `.05`, 16+ every `.01`; drift +0.38 / +1.91 / -0.09%
-   per draw against the finest tier, accepted, capped at 2.5% in `npm run
-   model`.
-5. **(0.6) Peak DPS on the end screen**; the strip under the rail; the pause
-   button in the rail's right-hand 80px; every text size under 18px raised
-   for the phone.
-6. **(0.7) The lane and the breach line moved down 88px** to 888 / 950, so
-   the field is as tall as it was; every descent is 88px longer.
-7. **(0.7) SENSE marks 25 / 50 / 75%** of offers at one, two, three held.
-8. **(0.7) Anonymous analytics, ON.** `src/analytics/Analytics.ts` is
-   GoatCounter; `ANALYTICS.site` is `brhkim` (the author's site). It loads
-   only on the deployed page: never on `?seed=` pages, never on `localhost`
-   / `127.0.0.1` (the dev server and `npm run verify`, whose bare player
-   URL would otherwise log a failed script load as a console error in a
-   sandbox that cannot reach the counter). Counts: pageviews, `run/start`,
-   `run/end/<mode>/wave-NN`, `run/time/<bucket>`.
-9. **The UI pass** (impeccable, code-led, rendering only). The screens are
-   built from the gate card: `hud/CardTile.ts` is the tile and the button
-   shape; the start screen is a first wave (a demo offer descending on a
-   2.6s loop, the squad on the field's own ground, START MATCH as a card);
-   the pause BONUSES page is eight tiles plus one tap-to-read line under the
-   ruler; the end screen's tally is five card footprints and the waves
-   number counts up. Finish review: fix, eight items, all scored resolved,
-   ship. Three authored motions now exist (pick wash, demo descent,
-   count-up); DESIGN.md says "don't add a fourth".
+1. **(0.8) The rescue glitch.** `Enemies.updateCages` reset its clock only
+   on a successful roll, so a failed 40% roll was re-rolled every step until
+   one passed: one cage per wave, always. Watched on the 0.7 build: cages at
+   17.0 / 32.2 / 47.5 / 61.7s on every seed. The clock now restarts on every
+   roll; `stats.cages` and `cages/min` in `npm run balance` are the new
+   instrument.
+2. **(0.8) Two more stages on the judgment curve.** Gate speed rises at the
+   same 0.075/wave to ×3.25 at wave 31 (was ×2.5 at 21). Dead space keeps
+   its 6px/wave to 72px at wave 16, then 2.5px/wave to 97px at wave 26 (an
+   83px gate, `minWidth` 100 → 80). The late width slope is my call: 6px/wave
+   for ten more waves leaves a 48px card. `npm run model` asserts both caps.
+3. **The Titan bar is a third row** under both panels: an 18px panel
+   backing directly under the strip's hairline, the 10px bar and TITAN tag
+   on it, the warning band beneath.
+4. **The UX round** (impeccable context loaded; rendering only): every
+   control is a `cardButton` (primary / secondary / danger, hover and
+   pressed fills); difficulty and pause tabs are `segmented`; the pause
+   screen is HOW TO PLAY / BONUSES / DETAILS, with `hud/PauseGuide` (twelve
+   tappable topics in plain words); the start screen's HOW TO PLAY opens
+   that screen before a run (GameScene publishes a start-state HUD frame in
+   `announceMatch`); the demo offer deals six offers in rotation; every
+   explanation, caption and rail label is written for a first-time player;
+   the end screen says YOUR SQUAD WAS OVERRUN / OF THE BEST PICKS / PEAK
+   DAMAGE / SEC. The pitch is untouched. `npm run endscreen` presses every
+   new control, opens the guide, and asserts the demo swap.
 
-**Measured**, `npm run balance` seeds 1-5, skill 0.7, before on a snapshot of
-`36c65ca` and after each balance step:
-
-| | survival | median | optimal | standing | contact/min | breach/min |
-| --- | --- | --- | --- | --- | --- | --- |
-| 0.5 | 41.6 / 42.1 / 42.9 / 44.2 / 81s | 42.9s | 78% | 0.87 | 1.4 | 15.4 |
-| 0.6 | 36.5 / 38.4 / 41.3 / 66.8 / 71.6s | 41.3s | 100% | 1.00 | 4.4 | 9.0 |
-| 0.7 | 37.3 / 43.7 / 50.2 / 52.9 / 58.3s | 50.2s | 90% | 1.00 | 2.1 | 13.4 |
-
-Standing sits exactly on par now because par collects nothing the bot does
-not and spends no picks on access. The 0.7 row is the longer descent. `npm
-run repeat` reads 0.00% on every build. `npm run moments` failed once on its
-death-beat timing under headless load and passed on rerun: flaky check, not
-the beat. Before the start went to 5 the 0.6 median was 31.7s.
+**Measured**, `npm run balance`, skill 0.7 (see §3 of the session report in
+the final commit message for the five-seed table; the cage rate is the
+number to read - the 0.7 build was one cage per wave on every seed).
+`npm run repeat` reads 0.00%. `npm run neutral` against a 0.7 snapshot
+FAILS on 4/5 seeds, as a balance change must.
 
 ## 4. What the author still has to do or decide
 
-- **Deploy and look at the GoatCounter dashboard.** The first real count is
-  theirs to see; nothing from this session reached the counter (the sandbox
-  cannot).
-- **Play it on a phone.** The strip position, the type sizes, the longer
-  descent, the RISK wash, the two new screen motions and the card-built
-  screens are all unplayed.
-- **`startPower` 5.** My number; revert to 1 for the harder open.
+- **The late dead-space slope.** 2.5px/wave from wave 16 is my reading of
+  "similar curve" against a card that has to hold its label. If the full
+  6px/wave is wanted, the label has to shrink or go one-line.
+- **Play it on a phone.** The buttons' pressed states, the guide, the Titan
+  row, the rail's new words, the second-stage curves (past wave 16 - the
+  bot never gets there) are all unplayed.
+- **Deploy and look at the GoatCounter dashboard** (still unobserved).
+- **`startPower` 5.** Still my number from last session.
 
 ## 5. Known gaps — name these as unverified if you report on them
 
 - **Nothing here has been played by a human since 0.5**, on any device.
-- **The demo descent and the count-up are unseen in motion**; judged from
-  code and one still each.
-- **The RISK wash is not forced by `npm run moments`**; seen only on the
-  end screen (`end-poor.png`). Same `GRADE_COLOR` / `GRADE_WORD` path as
-  the three grades.
-- **`pickRisk` is unheard**; `npm run audio` renders it.
-- **Gate cards emerge from beneath the strip**, so the first ~90px of an
-  offer's descent is hidden. Unplayed.
-- **Analytics is unobserved end to end**: the script tag and endpoint are in
-  the bundle (`grep goatcounter dist/game.js`), the event paths are
-  exercised by nothing.
-- The contact share regime above 75 power is unmeasured by every
-  instrument, as before; the probe bot never takes a risk axis and never
-  stands in dead space.
-- DESIGN.md drift the documenter saw and left: the field SENSE tag is 16px
-  where the record says 14; the end screen's two 13px captions and 12px
-  version line sit under the stated 13px floor; the sidecar's rail and strip
-  CSS carry pre-phone-floor sizes.
+- **The second-stage curves are unreached by every instrument** except
+  `npm run model`'s table and `moment-deadspace` (wave 16, the first cap).
+  No run has been played past wave 16 on this build.
+- **Cage frequency is measured only over the bot's ~40-70s runs**: two to
+  four rolls a seed. The 40% is asserted by the code's shape and the watch
+  script, not by a long run.
+- **The demo swap is asserted in a still at 3.2s**; the motion between is
+  unseen. Pressed states are unseen (a tap hides the screen).
+- **The guide's copy is unread by anyone but me.** Twelve topics; the
+  numbers in them (×1.35 against +47%, 25 / 50 / 75%) are the config's
+  today and are not generated from it.
+- **The RISK wash, `pickRisk` and analytics** remain as last session left
+  them: unforced, unheard, unobserved end to end.
+- DESIGN.md is re-derived by the documenter at the end of the session;
+  read it against the stills rather than trusting it.
 
 ## 6. Ground rules
 
@@ -161,8 +140,9 @@ the beat. Before the start went to 5 the 0.6 median was 31.7s.
 - Commit subjects `shooter_ad:`; stage explicit paths, never `git add -A`.
 - `pkill -f` on a script name matches your own shell; kill by PID.
 - The impeccable skill lives at `.claude/skills/impeccable/`; run its
-  `context` once per session before any UI work, and its reviewer and
-  documenter agents at the end. `.impeccable/review/` is ignored;
+  `context` once per session (`sh .../scripts/impeccable context`, the file
+  is not executable) before any UI work, and its reviewer and documenter
+  agents at the end. `.impeccable/review/` is ignored;
   `.impeccable/surfaces/` and `design.json` are tracked.
 - No CI on pull requests; local `verify` is the gate.
 
@@ -171,10 +151,14 @@ the beat. Before the start went to 5 the 0.6 median was 31.7s.
 Everything in the previous list, plus: MOVE / TIME / SENSE are worth zero
 to the scoring and par never takes them; a RISK pick counts as no growth;
 there is no automatic army; the strip lives under the rail and the field
-moved down with it; RISK is a fifth word beside PERFECT / GOOD / BAD / MISS;
-the root tables drift and the drift is accepted; SENSE is 25 / 50 / 75; peak
-DPS is a score on the end screen; waves survived stays the headline; the
-screens are built from the gate card; analytics is GoatCounter at `brhkim`.
+moved down with it; the Titan bar is a row under both; RISK is a fifth
+word beside PERFECT / GOOD / BAD / MISS; the root tables drift and the
+drift is accepted; SENSE is 25 / 50 / 75; peak DPS is a score on the end
+screen; waves survived stays the headline; the screens are built from the
+gate card and every control is a card button; the pause screen has a HOW
+TO PLAY page that the start screen also opens; the judgment curve has two
+more stages; the cage roll's clock restarts on every roll; analytics is
+GoatCounter at `brhkim`.
 
 ## 8. How to report
 

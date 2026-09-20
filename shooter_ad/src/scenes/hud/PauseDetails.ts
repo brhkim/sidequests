@@ -21,11 +21,11 @@ export class PauseDetails {
 
   constructor(scene: Phaser.Scene) {
     const parts: Phaser.GameObjects.GameObject[] = [];
-    parts.push(scene.add.text(26, 100, 'YOUR DPS, STEP BY STEP', {
+    parts.push(scene.add.text(26, 104, 'YOUR DAMAGE PER SECOND (DPS), STEP BY STEP', {
       fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(0, 0).setLetterSpacing(1.5));
     for (let i = 0; i < 26; i++) {
-      const t = scene.add.text(26, 124 + i * 22, '', {
+      const t = scene.add.text(26, 128 + i * 22, '', {
         fontFamily: MONO, fontSize: '16px', color: WORKING,
       }).setOrigin(0, 0);
       parts.push(t);
@@ -68,21 +68,21 @@ export class PauseDetails {
     const standing = h.parDps > 0 ? Math.round(total / h.parDps * 100) : 100;
 
     const lines = [
-      `1  ARMY ${compact(h.power)}`,
-      `   → ${shares.length} bodies of ${low === lead ? compact(lead) : `${compact(low)}–${compact(lead)}`} power each, rank ${rank}`,
-      `   leader's rank: damage ×${num(stats.damage)}, rate ×${stats.fireRate.toFixed(2)}`,
+      `1  ARMY ${compact(h.power)} power`,
+      `   → ${shares.length} soldiers of ${low === lead ? compact(lead) : `${compact(low)}–${compact(lead)}`} power each, rank ${rank}`,
+      `   that rank: damage ×${num(stats.damage)}, fire rate ×${stats.fireRate.toFixed(2)}`,
       '',
-      '2  DAMAGE PER SHOT  (leader)',
-      `   ${WEAPON.baseDamage} base × ${num(stats.damage)} rank × (1 + ${pct}%) × ${h.damageMult.toFixed(2)}`,
+      '2  DAMAGE PER SHOT  (the leader)',
+      `   ${WEAPON.baseDamage} base × ${num(stats.damage)} rank × (1 + ${pct}% pool) × ${h.damageMult.toFixed(2)}`,
       `   = ${num(shotDamage)}`,
       '',
-      '3  SHOTS PER SECOND  (leader)',
-      `   ${WEAPON.baseFireRate} base × ${stats.fireRate.toFixed(2)} rank × (1 + ${rpct}%) × ${h.rateMult.toFixed(2)}`,
+      '3  SHOTS PER SECOND  (the leader)',
+      `   ${WEAPON.baseFireRate} base × ${stats.fireRate.toFixed(2)} rank × (1 + ${rpct}% pool) × ${h.rateMult.toFixed(2)}`,
       `   = ${num(shotsPerSec)}`,
       '',
-      '4  PER BODY, THEN THE RING',
+      '4  ONE SOLDIER, THEN ALL OF THEM',
       `   leader ${num(shotDamage)} × ${num(shotsPerSec)} = ${num(shotDamage * shotsPerSec)} /s`,
-      `   all ${shares.length} bodies together = ${num(ring)} /s`,
+      `   all ${shares.length} soldiers together = ${num(ring)} /s`,
       '',
       `5  × ${h.guns} GUN${h.guns === 1 ? '' : 'S'}  = ${num(withGuns)} /s`,
       '',
@@ -91,9 +91,9 @@ export class PauseDetails {
       '',
       `=  ${compact(total)} DPS      par ${compact(h.parDps)}  →  ${standing}%`,
       '',
-      'against ONE body (the Titan) pierce is worth nothing:',
+      'against one body (the Titan), pierce adds nothing:',
       `   ${compact(withGuns)} /s`,
-      `MOVE ×${h.moveMult.toFixed(2)}, TIME, SENSE are not in this sum: taking one is a RISK`,
+      'MOVE, TIME and SENSE add nothing here (RISK)',
     ];
     // The answer is the one bright, bold line; the working stays quieter.
     this.lines.forEach((t, i) => {

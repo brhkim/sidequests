@@ -160,7 +160,7 @@ for (const run of RUNS) {
     // fresh code.
     await page.evaluate(() => { const g = window.game.scene.getScene('Game'); g.over = true; g.emitGameOver(); });
     await page.waitForTimeout(900);
-    const fresh = await findText(page, 'or start a new match');
+    const fresh = await findText(page, 'NEW MATCH');
     await page.mouse.click(box.x + (fresh.x / 540) * box.width, box.y + (fresh.y / 960) * box.height);
     await page.waitForTimeout(300);
     const start = await page.evaluate(() => {
@@ -336,10 +336,15 @@ for (const shot of [
     const texts = ui.children.list
       .filter((o) => o.type === 'Container' && o.visible)
       .flatMap((c) => c.list.filter((o) => o.type === 'Text').map((o) => o.text));
-    return { waiting: g.waiting, mode: g.mode, texts };
+    // The difficulty is two segments, NORMAL and HARD, and the chosen one is
+    // the lit card: its word in text white, the other's in its own colour.
+    const lit = ui.children.list
+      .filter((o) => o.type === 'Container' && o.visible)
+      .flatMap((c) => c.list.filter((o) => o.type === 'Text' && o.style.color === '#e8ecf8').map((o) => o.text));
+    return { waiting: g.waiting, mode: g.mode, texts, lit };
   });
   const codeText = state.texts.find((t) => /^[0-9A-Z]{4}-[0-9A-Z]{3}-[NH]$/.test(t));
-  const namesMode = state.texts.some((t) => t.startsWith(shot.mode.toUpperCase()));
+  const namesMode = state.lit.includes(shot.mode.toUpperCase()) && !state.lit.includes(shot.mode === 'hard' ? 'NORMAL' : 'HARD');
   console.log(
     `${shot.name}: waiting=${state.waiting} mode=${state.mode}`,
     `code=${codeText ?? 'MISSING'} namesMode=${namesMode}`,
@@ -374,37 +379,30 @@ for (const shot of [
   const read = () => page.evaluate(() => {
     const g = window.game.scene.getScene('Game');
     const ui = window.game.scene.getScene('UI');
-    const texts = ui.children.list
+    const all = ui.children.list
       .filter((o) => o.type === 'Container' && o.visible)
-      .flatMap((c) => c.list.filter((o) => o.type === 'Text').map((o) => o.text));
+      .flatMap((c) => c.list.filter((o) => o.type === 'Text'));
+    const texts = all.map((o) => o.text);
     return {
       mode: g.mode,
       waiting: g.waiting,
       code: texts.find((t) => /^[0-9A-Z]{4}-[0-9A-Z]{3}-[NH]$/.test(t)),
-      saysHard: texts.some((t) => t.startsWith('HARD')),
+      // The HARD segment is lit (text white) and NORMAL is not.
+      saysHard: all.some((o) => o.text === 'HARD' && o.style.color === '#e8ecf8')
+        && !all.some((o) => o.text === 'NORMAL' && o.style.color === '#e8ecf8'),
     };
   });
   const box = await page.locator('canvas').boundingBox();
-  // Located by the hint that names it, not by a hardcoded y. The same literal
-  // spelled out twice is how `verify` came to fail on a button that worked.
-  const toggleAt = await page.evaluate(() => {
-    const ui = window.game.scene.getScene('UI');
-    for (const c of ui.children.list) {
-      if (c.type !== 'Container' || !c.visible) continue;
-      const hint = c.list.find(
-        (o) => o.type === 'Text' && o.text === 'tap to change difficulty',
-      );
-      // The hint sits just under the label; the tappable bar is centred on the
-      // label itself, which is one line above.
-      if (hint) return { x: hint.x, y: hint.y - 28 };
-    }
-    return null;
-  });
-  if (!toggleAt) { console.log('  ERROR no difficulty toggle on the start screen'); errors++; }
+  // Two segments, located by their words, not by a hardcoded y. The same
+  // literal spelled out twice is how `verify` came to fail on a button that
+  // worked. Tapping the segment that is NOT the current mode is the toggle.
   const tapToggle = async () => {
+    const mode = await page.evaluate(() => window.game.scene.getScene('Game').mode);
+    const at = await findText(page, mode === 'hard' ? 'NORMAL' : 'HARD');
+    if (!at) { console.log('  ERROR no difficulty segments on the start screen'); errors++; return; }
     await page.mouse.click(
-      box.x + (toggleAt.x / 540) * box.width,
-      box.y + (toggleAt.y / 960) * box.height,
+      box.x + (at.x / 540) * box.width,
+      box.y + (at.y / 960) * box.height,
     );
     await page.waitForTimeout(250);
   };
@@ -419,6 +417,19 @@ for (const shot of [
     `${afterOne.mode} ${afterOne.code} -> ${afterTwo.mode} ${afterTwo.code}`,
   );
   await page.screenshot({ path: join(OUT_DIR, 'start-toggled-hard.png') });
+  // The demo offer deals a different offer each pass (2.6s), so the screen
+  // shows the whole vocabulary rather than one offer on a loop. Photographed
+  // and asserted: the first pass is DMG / DMG / GUNS, the second RATE / ARMY
+  // / PIERCE, and a still at the second pass must not carry the first.
+  const firstPass = await visibleTexts(page);
+  await page.waitForTimeout(3200);
+  await page.screenshot({ path: join(OUT_DIR, 'start-demo-2.png') });
+  const secondPass = await visibleTexts(page);
+  const demoWords = (texts) => ['GUNS', 'PIERCE', 'ARMY', 'RATE', 'DMG'].filter((w) => texts.includes(w));
+  console.log(`start-demo: pass 1 [${demoWords(firstPass).join(' ')}] -> pass 2 [${demoWords(secondPass).join(' ')}]`);
+  if (!firstPass.includes('GUNS') || !secondPass.includes('PIERCE') || secondPass.includes('GUNS')) {
+    console.log('  ERROR the demo offer did not change between passes'); errors++;
+  }
 
   if (before.mode !== 'normal') { console.log('  ERROR fresh run did not start on normal'); errors++; }
   if (afterOne.mode !== 'hard') { console.log('  ERROR tapping the toggle did not select hard'); errors++; }
@@ -464,19 +475,19 @@ for (const shot of [
   const before = await read();
   // A hard code, typed the sloppy way: lower case, no dashes, an O for the 0.
   page.once('dialog', (d) => d.accept('2tnbbgsh'));
-  await tap('enter a code');
+  await tap('ENTER A CODE');
   const typed = await read();
   // Genuinely not a code: the decoder folds and forgives, so eight letters of
   // anything would decode. Too short cannot.
   page.once('dialog', (d) => d.accept('nope'));
-  await tap('enter a code');
+  await tap('ENTER A CODE');
   const rejected = await read();
   // The rejection message stands in for the label for a moment; let it clear.
   await page.waitForTimeout(1800);
   page.once('dialog', (d) => d.dismiss());
-  await tap('enter a code');
+  await tap('ENTER A CODE');
   const dismissed = await read();
-  await tap('new match');
+  await tap('NEW MATCH');
   const fresh = await read();
   await page.screenshot({ path: join(OUT_DIR, 'start-entered.png') });
   console.log(`start-enter: ${before.code} -> typed ${typed.code} (${typed.mode}) -> bad ${rejected.code} -> dismissed ${dismissed.code} -> new ${fresh.code}`);
@@ -484,6 +495,29 @@ for (const shot of [
   if (rejected.code !== typed.code || dismissed.code !== typed.code) { console.log('  ERROR a bad or dismissed prompt changed the match'); errors++; }
   if (fresh.code === typed.code || fresh.mode !== 'hard') { console.log('  ERROR new match did not roll a fresh seed on the same mode'); errors++; }
   if (!fresh.waiting) { console.log('  ERROR a start-screen control began the match'); errors++; }
+  // HOW TO PLAY: the pause screen's pages over the start screen, before a
+  // run exists. It must open on the guide, carry the start state's numbers
+  // on DETAILS (power 5, wave 1), leave by BACK without starting the match,
+  // and leave the start screen exactly as it was.
+  await tap('HOW TO PLAY');
+  const guide = await page.evaluate(() => {
+    const ui = window.game.scene.getScene('UI');
+    return { visible: ui.pause.visible, page: ui.pause.currentPage };
+  });
+  const guideTexts = await visibleTexts(page);
+  await page.screenshot({ path: join(OUT_DIR, 'start-guide.png') });
+  await tap('DETAILS');
+  const detailTexts = await visibleTexts(page);
+  await page.screenshot({ path: join(OUT_DIR, 'start-guide-details.png') });
+  await tap('BACK');
+  const back = await read();
+  const backVisible = await page.evaluate(() => window.game.scene.getScene('UI').pause.visible);
+  console.log(`start-guide: visible ${guide.visible} page ${guide.page} heading ${guideTexts.includes('HOW TO PLAY')} topics ${guideTexts.includes('THE GOAL')} details ${detailTexts.find((t) => /^1  ARMY/.test(t)) ?? 'MISSING'} -> back: guide ${backVisible}, waiting ${back.waiting}, code ${back.code}`);
+  if (!guide.visible || guide.page !== 'guide') { console.log('  ERROR HOW TO PLAY did not open on the guide page'); errors++; }
+  if (!guideTexts.includes('THE GOAL') || !guideTexts.includes('BACK')) { console.log('  ERROR the guide is missing its topics or BACK'); errors++; }
+  if (!detailTexts.some((t) => /^1  ARMY 5 power/.test(t))) { console.log('  ERROR the guide DETAILS page is not the start state'); errors++; }
+  if (backVisible || !back.waiting || back.code !== fresh.code) { console.log('  ERROR BACK did not return to the same start screen'); errors++; }
+
   await tap('START MATCH');
   const started = await read();
   if (started.waiting) { console.log('  ERROR START MATCH did not begin the entered match'); errors++; }

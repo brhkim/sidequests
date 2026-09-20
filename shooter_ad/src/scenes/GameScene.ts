@@ -279,6 +279,11 @@ export class GameScene extends Phaser.Scene {
 
   /** The start screen's payload: what the button will play right now. */
   private announceMatch(): void {
+    // One HUD frame of the start state, so the start screen's HOW TO PLAY
+    // (the pause screen's pages, before a run exists) has real numbers to
+    // teach against. Nothing simulates while waiting, so nothing else would
+    // publish one.
+    this.emitHud();
     this.game.events.emit('showstart', {
       code: encodeMatch({ seed: this.seed, mode: this.mode }),
       version: VERSION,
@@ -928,6 +933,7 @@ export class GameScene extends Phaser.Scene {
       contactLoss: Math.round(this.contactLoss),
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
+      cages: this.enemies.cagesSpawned,
       traveled: Math.round(this.traveled),
       peakPower: Math.floor(this.peakPower),
       peakDps: Math.round(this.peakDps),
