@@ -1,15 +1,16 @@
 import Phaser from 'phaser';
-import { DIFFICULTY, STREAK, VIEW } from '../../config';
+import { DIFFICULTY, VIEW } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
 import { MAX_SENSE } from '../../systems/Progression';
 import { compact, FONT, hex, SMALL, type HudPayload } from './types';
 
 /** Height of the whole rail, including the standing bar along its lower edge. */
 export const RAIL_HEIGHT = 72;
+/** The rail's right edge is the pause button's; the four columns share the rest. */
+export const RAIL_PAUSE_WIDTH = 80;
 
 const LABEL = SMALL;
 const VALUE = '#e8ecf8';
-const STREAK_W = 60;
 
 /**
  * Four columns, ordered by how load-bearing they are rather than by tradition.
@@ -30,26 +31,24 @@ const COLUMNS = ['WAVE', 'DPS', 'PAR', 'SENSE'] as const;
  * feedback that makes the next pick mean something; after the run it is only a
  * post-mortem.
  *
- * Two small instruments ride on it: a streak track under KILLS that fills
- * toward the next `STREAK.bonus`, and the standing bar, which flashes once
- * when the run crosses the curve's target line in either direction - no
- * continuous pulse, because a bar that is always moving says nothing.
+ * One instrument rides on it: the standing bar, which flashes once when the
+ * run crosses the curve's target line in either direction - no continuous
+ * pulse, because a bar that is always moving says nothing.
  */
 export class TopRail {
   private readonly values: Phaser.GameObjects.Text[] = [];
   private readonly subs: Phaser.GameObjects.Text[] = [];
   private readonly barTrack: Phaser.GameObjects.Rectangle;
   private readonly barFill: Phaser.GameObjects.Rectangle;
-  private readonly streakFill: Phaser.GameObjects.Rectangle;
   private above: boolean | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {
-    const lane = VIEW.width / COLUMNS.length;
+    const lane = (VIEW.width - RAIL_PAUSE_WIDTH) / COLUMNS.length;
 
     COLUMNS.forEach((name, i) => {
       const cx = lane * i + lane / 2;
       scene.add.text(cx, 9, name, {
-        fontFamily: FONT, fontSize: '11px',
+        fontFamily: FONT, fontSize: '14px',
         color: name === 'SENSE' ? hex(AXIS_COLOR.sense) : LABEL, fontStyle: 'bold',
       }).setOrigin(0.5, 0).setLetterSpacing(1.4);
 
@@ -60,14 +59,9 @@ export class TopRail {
       // Sub-lines sit on one baseline under non-adjacent columns, so no two of
       // them can ever grow into each other.
       this.subs.push(scene.add.text(cx, 49, '', {
-        fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: LABEL,
+        fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: LABEL,
       }).setOrigin(0.5, 0).setLetterSpacing(1));
     });
-
-    // Kills toward the next streak bonus, as a track under the KILLS line.
-    const sx = lane / 2 - STREAK_W / 2;
-    scene.add.rectangle(sx, 63, STREAK_W, 2, 0x1b2236).setOrigin(0, 0);
-    this.streakFill = scene.add.rectangle(sx, 63, 0, 2, 0x6ee7a0).setOrigin(0, 0);
 
     const barY = RAIL_HEIGHT - 6;
     this.barTrack = scene.add.rectangle(0, barY, VIEW.width, 6, 0x232b40).setOrigin(0, 0);
@@ -100,24 +94,11 @@ export class TopRail {
     this.subs[3].setText(h.sense > 0 ? `${Math.round(h.senseChance * 100)}% MARKED` : '')
       .setColor(hex(AXIS_COLOR.sense));
 
-    this.streakFill.width = STREAK_W * Phaser.Math.Clamp(h.streak / STREAK.killsPerBonus, 0, 1);
-
     this.barFill.width = Math.max(1, Math.min(1, ratio) * VIEW.width);
     this.barFill.fillColor = Phaser.Display.Color.HexStringToColor(color).color;
     const above = ratio >= DIFFICULTY.targetFraction;
     if (this.above !== null && above !== this.above) this.flashBar();
     this.above = above;
-  }
-
-  /** The streak paid out: the track fills and flashes white, then empties. */
-  flashStreak(): void {
-    this.scene.tweens.killTweensOf(this.streakFill);
-    this.streakFill.width = STREAK_W;
-    this.streakFill.fillColor = 0xffffff;
-    this.scene.tweens.add({
-      targets: this.streakFill, alpha: 0.2, duration: 300, yoyo: true,
-      onComplete: () => { this.streakFill.fillColor = 0x6ee7a0; this.streakFill.setAlpha(1); },
-    });
   }
 
   /** One-shot on crossing the target line: the bar swells 6 to 10 and back. */
@@ -131,12 +112,10 @@ export class TopRail {
 
   reset(): void {
     this.above = null;
-    this.scene.tweens.killTweensOf([this.barTrack, this.barFill, this.streakFill]);
+    this.scene.tweens.killTweensOf([this.barTrack, this.barFill]);
     this.barTrack.setSize(VIEW.width, 6).setY(RAIL_HEIGHT - 6);
     this.barFill.height = 6;
     this.barFill.y = RAIL_HEIGHT - 6;
-    this.streakFill.fillColor = 0x6ee7a0;
-    this.streakFill.setAlpha(1);
   }
 }
 
@@ -147,7 +126,7 @@ export function sensePips(sense: number): string {
   return s;
 }
 
-function standingColor(ratio: number): string {
+export function standingColor(ratio: number): string {
   if (ratio >= 1) return '#6ee7a0';
   if (ratio >= DIFFICULTY.targetFraction) return '#ffd166';
   if (ratio >= DIFFICULTY.targetFraction * 0.65) return '#ff9f4a';

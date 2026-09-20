@@ -22,12 +22,12 @@ export class WaveBanner {
       fontFamily: FONT, fontSize: '40px', fontStyle: 'bold', color: '#f2f6ff',
     }).setOrigin(0.5).setLetterSpacing(4).setDepth(44).setVisible(false);
     this.sub = scene.add.text(cx, Y + 22, '', {
-      fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#3ecf7a',
+      fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#3ecf7a',
     }).setOrigin(0.5).setLetterSpacing(1.5).setDepth(44).setVisible(false);
   }
 
-  wave(index: number, bonus: number): void {
-    this.show(`WAVE ${index}`, `+${bonus} ARMY`, 0x0b0f1c, 0.75, 600);
+  wave(index: number): void {
+    this.show(`WAVE ${index}`, '', 0x0b0f1c, 0.75, 600);
   }
 
   titanDown(): void {

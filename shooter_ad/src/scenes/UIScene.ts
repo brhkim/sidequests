@@ -109,7 +109,7 @@ export class UIScene extends Phaser.Scene {
     this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.96)
       .setStrokeStyle(1, 0x6f7b99, 0.9).setDepth(40);
     this.add.text(x, y, 'PAUSE', {
-      fontFamily: FONT, fontSize: '12px', color: CAPTION, fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '14px', color: CAPTION, fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(40).setLetterSpacing(1.5);
   }
 
@@ -139,7 +139,6 @@ export class UIScene extends Phaser.Scene {
           this.batchFire(e.cost);
           break;
         case 'rescue': case 'wave': this.strip.prime(GREEN); break;
-        case 'streak': this.rail.flashStreak(); this.strip.prime(GREEN); break;
         case 'titan':
           if (e.phase === 'arrive') this.boss.arrive();
           if (e.phase === 'down') { this.boss.down(); this.banner.titanDown(); }
@@ -149,7 +148,7 @@ export class UIScene extends Phaser.Scene {
           break;
         default: break;
       }
-      if (e.kind === 'wave') this.banner.wave(e.index, e.bonus);
+      if (e.kind === 'wave') this.banner.wave(e.index);
     }
   }
 

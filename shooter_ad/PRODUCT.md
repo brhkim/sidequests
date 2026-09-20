@@ -70,6 +70,17 @@ Confirmed for the current round of work (author's answers, 2026-09-19):
 - **Audio is minimal and procedural**: quiet stacking enemy-death sounds,
   distinct sounds for gate pickup, rescue, wave clear, damage taken, Titan
   events. No music for now.
+- **MOVE, TIME and SENSE are RISK axes** (2026-09-20): worth zero to the
+  scoring, never taken by par, told RISK rather than graded when the player
+  takes one. The shadow player only ever needs DPS.
+- **No automatic army** (2026-09-20): no wave-clear or streak army, on either
+  side. Every unit held was chosen at a gate or shot out of a cage. Cages roll
+  at 40% per wave duration.
+- **The bonus strip sits under the rail, not under the line** (2026-09-20):
+  on a phone the thumb covered it. Peak DPS is on the end screen. Text sizes
+  under 18px went up for the phone.
+- **The root schedule is the author's round one and drifts up to ~2% per
+  draw** in the tenths tier; accepted, measured, capped in `npm run model`.
 - **Visual clarity is non-negotiable.** Any aesthetic change that makes an
   enemy, bullet, cage or gate harder to tell apart at a glance is a
   regression, whatever it looks like in a still.

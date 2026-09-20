@@ -19,9 +19,12 @@
  * rounding escalate with difficulty: widening the range would make picks
  * swingier, and this game is about precision rather than luck.
  *
- * Every tier must also have the same mean - both the arithmetic one and, since
- * bonuses multiply, the GEOMETRIC one - or the legibility axis is a power axis
- * in disguise. See the note on the first tier below.
+ * The tiers do NOT share a mean, and that is now a decision rather than an
+ * accident. Inside a fixed [1.05, 1.5] a table of round tenths cannot have
+ * the geometric mean of the hundredths ladder: the author chose the round
+ * early tables anyway, for their readability, and accepted the drift.
+ * `npm run model` prints the drift per tier and fails past `MEAN_DRIFT`
+ * (in scripts/model.mjs) so it cannot grow unnoticed. See the tier notes.
  */
 export const ROOT_RANGE = { min: 1.05, max: 1.5 } as const;
 
@@ -32,12 +35,12 @@ export interface Legibility {
   readonly roots: readonly number[];
 }
 
-/** Every multiple of `step` within the range, inclusive. */
-function ladder(step: number): number[] {
+/** Every multiple of `step` from `from` to the top of the range, inclusive. */
+function ladder(step: number, from: number = ROOT_RANGE.min): number[] {
   const out: number[] = [];
-  const count = Math.round((ROOT_RANGE.max - ROOT_RANGE.min) / step);
+  const count = Math.round((ROOT_RANGE.max - from) / step);
   for (let i = 0; i <= count; i++) {
-    out.push(Number((ROOT_RANGE.min + i * step).toFixed(2)));
+    out.push(Number((from + i * step).toFixed(2)));
   }
   return out;
 }
@@ -50,28 +53,28 @@ function ladder(step: number): number[] {
  */
 export const LEGIBILITY: readonly Legibility[] = [
   /**
-   * Six round values, matched to the ladders on the mean that actually
-   * governs: the GEOMETRIC one.
+   * The author's schedule, four tiers of five waves:
    *
-   * The original table, `[1.05, 1.1, 1.2, 1.3, 1.4, 1.5]`, bunched low - 1.32%
-   * under the ladders on the arithmetic mean, 1.48% on the geometric, about
-   * 55% less power over thirty offers. So moving up a legibility tier was a
-   * power increase wearing a legibility costume, and a hard run, which starts
-   * a tier in, was handing out bigger bonuses rather than harder sums.
+   *   1-5    three round values a player can hold in their head
+   *   6-10   the tenths
+   *   11-15  every twentieth
+   *   16+    every hundredth, rounded to three figures
    *
-   * The first repair matched the ARITHMETIC mean and left 0.26% per draw on
-   * the geometric one - still 7.5% over a run, because bonuses MULTIPLY and a
-   * table spread toward its extremes has a lower geometric mean at the same
-   * average. Matching both leaves 0.05% per draw, 1.6% over a run, which is
-   * inside the noise of anything this project can measure.
-   *
-   * Every value is still a multiple of 0.05, which is what makes this tier
-   * mentally tractable; `npm run model` checks both means of every tier and
-   * fails if they drift apart again.
+   * The two round tables sit ABOVE the ladders on the mean: about +2.0% per
+   * draw for the tenths and +0.4% for the first tier on the geometric mean,
+   * against the hundredths. Over a run that is real power - the tenths tier
+   * compounds to roughly +20% over ten offers - and it was once the reason
+   * this file matched every tier's mean exactly (the previous first tier was
+   * `[1.05, 1.15, 1.25, 1.3, 1.4, 1.5]`, which matched to 0.05%). The author
+   * read the drift and chose the round tables anyway; the model prints it and
+   * caps it, so it stays a decision on the record rather than a surprise.
+   * The direction is at least the kind one: the tiers a player sees while
+   * learning pay a little more, and the drift ends as the ladders begin.
    */
-  { minWave: 1,  sigFigs: 2, roots: [1.05, 1.15, 1.25, 1.3, 1.4, 1.5] },
-  { minWave: 6,  sigFigs: 2, roots: ladder(0.05) },
-  { minWave: 11, sigFigs: 3, roots: ladder(0.01) },
+  { minWave: 1,  sigFigs: 2, roots: [1.1, 1.25, 1.5] },
+  { minWave: 6,  sigFigs: 2, roots: ladder(0.1, 1.1) },
+  { minWave: 11, sigFigs: 2, roots: ladder(0.05) },
+  { minWave: 16, sigFigs: 3, roots: ladder(0.01) },
 ];
 
 export function legibilityFor(wave: number): Legibility {

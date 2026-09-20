@@ -5,6 +5,7 @@ import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
 import { installAudio } from './audio/AudioEvents';
+import { installAnalytics } from './analytics/Analytics';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -34,3 +35,6 @@ const game = new Phaser.Game({
 // outside every scene, so no scene file knows it exists. `?seed=` pages (the
 // instruments) get no context unless they ask with `audio=1`.
 installAudio(game.events, window.location.search);
+// Same shape as audio: reads `game.events`, installed here, off on every
+// instrument page and whenever `ANALYTICS.site` is empty.
+installAnalytics(game.events, window.location.search);

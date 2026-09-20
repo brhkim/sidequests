@@ -25,7 +25,8 @@ export interface FieldWorld {
 }
 
 /** Ground band: where contact happens, drawn as a floor rather than a strip. */
-const GROUND_TOP = 740;
+/** Where the ground band begins: a full ring's front rank, 60px above the lane. */
+const GROUND_TOP = ARENA.laneY - 60;
 /** A body below this line is about to breach; its tick brightens as it nears. */
 const TICK_FROM = 772;
 
@@ -83,6 +84,10 @@ export class FieldRender {
     g.fillStyle(COLORS.lane, 1).fillRect(0, ARENA.laneY - 120, VIEW.width, 260);
     const ground = this.scene.add.graphics().setDepth(1);
     ground.fillStyle(0x171d2e, 1).fillRect(0, GROUND_TOP, VIEW.width, ARENA.breachY - GROUND_TOP);
+    // Below the line, where the bonus strip used to sit: a darker step of
+    // ground, so the bottom of the screen reads as beyond the line and not as
+    // a hole. The thumb lives here on a phone.
+    ground.fillStyle(0x0e1220, 1).fillRect(0, ARENA.breachY + 1, VIEW.width, VIEW.height - ARENA.breachY - 1);
     ground.fillStyle(0x2a3350, 1).fillRect(0, GROUND_TOP, VIEW.width, 1);
     [0.05, 0.035, 0.02].forEach((a, i) => {
       ground.fillStyle(COLORS.breach, a).fillRect(0, ARENA.breachY - 6 * (i + 1), VIEW.width, 6);

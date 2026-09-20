@@ -139,7 +139,7 @@ export class GateCards {
       bar: s.add.rectangle(0, 0, 10, 8, AXIS_COLOR.sense, 1).setDepth(4).setVisible(false),
       tagBack: s.add.rectangle(0, 0, 64, 22, 0x0b0f1c, 0.96).setDepth(14).setVisible(false),
       tag: s.add.text(0, 0, 'SENSE', {
-        fontFamily: FONT, fontSize: '14px', color: hex(AXIS_COLOR.sense), fontStyle: 'bold',
+        fontFamily: FONT, fontSize: '16px', color: hex(AXIS_COLOR.sense), fontStyle: 'bold',
       }).setOrigin(0.5).setLetterSpacing(2).setDepth(15).setVisible(false),
     };
     this.visuals.push(v);

@@ -92,7 +92,7 @@ for (const run of RUNS) {
   await page.goto(`http://127.0.0.1:${port}/?seed=${run.seed}${modeParam}`, { waitUntil: 'load' });
 
   const box = await page.locator('canvas').boundingBox();
-  const laneY = box.y + box.height * 0.84;
+  const laneY = box.y + box.height * 0.925;
   await page.mouse.move(box.x + box.width / 2, laneY);
   await page.mouse.down();
 
@@ -176,7 +176,7 @@ for (const run of RUNS) {
   console.log(
     `${run.name}: wave ${summary.wave}, ${summary.decisions} decisions,`,
     `${Math.round(summary.optimal * 100)}% of optimal,`,
-    `${summary.tally.top}/${summary.tally.mid}/${summary.tally.low}`,
+    `${summary.tally.top}/${summary.tally.mid}/${summary.tally.low} risk ${summary.tally.risk} miss ${summary.tally.miss}`,
     `[${summary.mode}]`,
   );
   if (summary.mode !== run.mode) {
@@ -214,7 +214,7 @@ for (const shot of PAUSE_SHOTS) {
   await page.goto(`http://127.0.0.1:${port}/?seed=11`, { waitUntil: 'load' });
 
   const box = await page.locator('canvas').boundingBox();
-  const laneY = box.y + box.height * 0.84;
+  const laneY = box.y + box.height * 0.925;
   await page.mouse.move(box.x + box.width / 2, laneY);
   await page.mouse.down();
   const chosen = new Map();
@@ -222,6 +222,16 @@ for (const shot of PAUSE_SHOTS) {
     const s = await page.evaluate(() =>
       window.game?.scene?.getScene('Game')?.registry?.get('stats') ?? null);
     if (s?.over) break;
+    // Without wave-clear army the bot on seed 11 dies inside 40s, and a pause
+    // pressed on the end screen is refused. Hold the army alive so the shot
+    // is of a mid-run pause with real pools; the pools are what it teaches.
+    if (shot.play > 10 && s && s.power < 10) {
+      await page.evaluate(() => {
+        const g = window.game.scene.getScene('Game');
+        g.squad.progress.power = 30;
+        g.squad.rebuild();
+      });
+    }
     const reachable = (s?.gates ?? []).filter((g) => g.y < 820);
     if (reachable.length > 0) {
       const pair = reachable.reduce((a, b) => (b.y > a.y ? b : a)).pair;
@@ -236,7 +246,8 @@ for (const shot of PAUSE_SHOTS) {
   // Tap the real control at its real coordinates, so the hit test GameScene
   // owns is what is exercised rather than an event fired past it.
   const scale = box.width / 540;
-  await page.mouse.click(box.x + 486 * scale, box.y + 100 * scale);
+  // PAUSE_BUTTON in hud/PauseScreen.ts: in the rail's right-hand 80px.
+  await page.mouse.click(box.x + 500 * scale, box.y + 33 * scale);
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(OUT_DIR, `${shot.name}.png`) });
 

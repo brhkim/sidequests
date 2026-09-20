@@ -17,7 +17,7 @@ import { Bundler, encodeBundle, type Flush } from './collapse';
 import { CUES, CUE_NAMES, cueDuration, type CueName } from './cues';
 import type { VoiceOpts } from './synth';
 
-const GRADE_CUE = { perfect: 'pickPerfect', good: 'pickGood', bad: 'pickBad' } as const;
+const GRADE_CUE = { perfect: 'pickPerfect', good: 'pickGood', bad: 'pickBad', risk: 'pickRisk' } as const;
 const OVER_CUE = { overrun: 'playerDeath', titan: 'titanLand' } as const;
 /** The heartbeat quickens over this long after the Titan arrives; audio has no view of its descent. */
 const TITAN_RAMP_MS = 20000;
@@ -104,7 +104,6 @@ export class AudioEvents {
       case 'pick': this.cue(GRADE_CUE[e.grade], now); break;
       case 'miss': this.cue('miss', now); break;
       case 'rescue': this.cue('rescue', now); break;
-      case 'streak': this.cue('streak', now); break;
       case 'wave': this.cue('wave', now); break;
       case 'sense': this.cue('sense', now); break;
       case 'titan': this.onTitan(e.phase, now); break;

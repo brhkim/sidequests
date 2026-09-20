@@ -1,4 +1,4 @@
-import { ARENA, GATES, SCORING, SENSE, SQUAD, WEAPON } from '../config';
+import { ARENA, GATES, SENSE, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { judgmentWave } from './Mode';
@@ -114,17 +114,6 @@ export function discreteAmount(axis: 'guns' | 'pierce', held: number, root: numb
 }
 
 /**
- * What sense is worth to a decision: `1 + senseWeight x chance`. Judgment,
- * priced beside access rather than beside damage - it kills nothing, so the
- * difficulty budget never sees it, but a player who takes it will pick better
- * for the rest of the run, and a scoring that called that a wasted pick would
- * flash it red and teach players never to take it.
- */
-export function senseFactor(sense: number): number {
-  return 1 + SCORING.senseWeight * senseChance(sense);
-}
-
-/**
  * The movement economy, in one place so par and the player cannot drift.
  *
  * Gate approach speed rises with the wave and is pulled back down by `+TIME`;
@@ -175,53 +164,26 @@ export function gateDescentSeconds(wave: number, u: Upgrades): number {
 }
 
 /**
- * Reach: lane widths the squad can cover while one offer descends, after the
- * share of that descent it can actually spend travelling (`SCORING.reachShare`
- * - the rest is dodging and staying on target).
+ * What a progress state is WORTH to a decision: its damage output, exactly.
  *
- * Deliberately NOT clamped to 1. A clamp would make every `x MOVE` past
- * saturation worth exactly zero, which is the failure this whole valuation
- * exists to remove; `accessFactor` saturates smoothly instead, so a bonus the
- * squad barely needs is worth little rather than nothing.
- */
-export function reach(wave: number, u: Upgrades): number {
-  const laneWidth = ARENA.maxX - ARENA.minX;
-  const travel = moveSpeed(u) * gateDescentSeconds(wave, u) * SCORING.reachShare;
-  return travel / laneWidth;
-}
-
-/**
- * What that reach is worth, as a factor on damage output: `1 - w / (1 + reach)`.
+ * Access (`x MOVE`, `+TIME`) and judgment (`+SENSE`) used to be folded in as
+ * factors here so that par would sometimes take them. They are not any more -
+ * see `RISK_AXES` in config. A state is worth what it kills, so those three
+ * axes price at zero, par never takes them, and a player who does is told
+ * RISK rather than graded. The `wave` argument stays because the descent
+ * curve is still the difficulty axis and the signature is shared by every
+ * caller that reasons about an offer at a wave.
  *
- * Strictly increasing, asymptotic to 1, never equal to it. A squad that cannot
- * move at all is priced at `1 - w` of one that can be anywhere, because a
- * player who can never get to the option they judged best stops compounding;
- * and a squad already covering the lane still gains a little from more, which
- * is honest - offers do not all arrive in the lane you are standing in.
- */
-export function accessFactor(r: number): number {
-  return 1 - SCORING.accessWeight / (1 + Math.max(0, r));
-}
-
-/**
- * What a progress state is WORTH to a decision, as opposed to what it kills.
- *
- * Access is added, because reaching the option you judged best is part of
- * being better off over the rest of the run. The difficulty budget keeps
- * ignoring it - access does not kill anything, and folding it in would tell
- * the curve a squad that merely moves well is destroying more than it is.
- *
- * Nothing is subtracted for delivery any more, and that is deliberate. For a
- * while this priced on a `deliverableDps` that modelled the bullet pool's
- * throughput ceiling, because a `x1.4 RATE` the pool refused to honour was
- * being scored +40% for changing nothing. The ceiling is gone - past
+ * Nothing is subtracted for delivery, and that is deliberate. For a while
+ * this priced on a `deliverableDps` that modelled the bullet pool's
+ * throughput ceiling. The ceiling is gone - past
  * `WEAPON.maxSimShotsPerSecond` the simulation bundles shots into heavier
  * bullets rather than dropping them - so `squadDps` is true again and is the
- * right price. If a delivery gap ever reappears, it belongs here as well as in
- * the budget, or par will recommend bonuses that do nothing.
+ * right price. If a delivery gap ever reappears, it belongs here as well as
+ * in the budget, or par will recommend bonuses that do nothing.
  */
-export function progressValue(p: Progress, wave: number): number {
-  return squadDps(p) * accessFactor(reach(wave, p.upgrades)) * senseFactor(p.upgrades.sense);
+export function progressValue(p: Progress, _wave: number): number {
+  return squadDps(p);
 }
 
 export function damageFactor(u: Upgrades): number { return (1 + u.damageBonus) * u.damageMult; }

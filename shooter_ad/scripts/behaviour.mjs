@@ -88,7 +88,7 @@ const seed = (id) => page.evaluate((typeId) => {
   const s = window.game.scene.getScene('Game');
   window.__revive(s);
   const type = window.enemyTypes.find((t) => t.id === typeId);
-  const y0 = type.motion.kind === 'charger' ? 800 - type.motion.trigger - 40 : 130;
+  const y0 = type.motion.kind === 'charger' ? 888 - type.motion.trigger - 40 : 130;
   // Absurd hpScale on purpose: the squad is still firing, and a cohort that
   // died mid-window would report the movement of whichever members lived
   // longest rather than of the type. Power is topped up only enough to survive

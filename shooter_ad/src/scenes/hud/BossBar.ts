@@ -40,7 +40,7 @@ export class BossBar {
     this.tagBack = scene.add.rectangle(4, BAR_Y, 50, 12, 0x0b0f1c, 0.96)
       .setOrigin(0, 0.5).setDepth(42).setVisible(false);
     this.label = scene.add.text(29, BAR_Y, 'TITAN', {
-      fontFamily: FONT, fontSize: '10px', fontStyle: 'bold', color: '#d9b8f0',
+      fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#d9b8f0',
     }).setOrigin(0.5, 0.5).setLetterSpacing(1.5).setDepth(42).setVisible(false);
   }
 

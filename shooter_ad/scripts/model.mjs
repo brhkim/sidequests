@@ -12,11 +12,10 @@
  *    must move damage output at every army size, which is why tier stats
  *    interpolate between rows instead of stepping at them.
  * 3. Pierce diminishes on a fixed q, identically for par and the player.
- * 4. The movement economy is never free. `x MOVE` and `+TIME` carry no damage
- *    at all, so priced by DPS they score a flat zero and the game calls every
- *    one of them a mistake. They are priced by ACCESS instead, and this asserts
- *    that price is positive everywhere - at every wave and however far the
- *    bonuses have already been stacked.
+ * 4. `x MOVE`, `+TIME` and `+SENSE` carry no damage, and the author's rule is
+ *    that they are therefore worth exactly zero to the scoring: par never
+ *    takes one, and a player who does is told RISK. This asserts the zero
+ *    holds at every wave and stacking, and that par's pick rate on them is 0.
  */
 import { register } from 'node:module';
 register('./ts-resolve.mjs', import.meta.url);
@@ -30,8 +29,9 @@ const { SQUAD } = await import('../src/config.ts');
 const { tierFor, tierRow, unitStats, CYCLE } = await import('../src/data/tiers.ts');
 const { rawShare } = await import('../src/data/gates.ts');
 const { scoreOffer } = await import('../src/systems/Scoring.ts');
-const { reach, gateDescentSeconds, waveGateSpeedMult } =
+const { gateDescentSeconds, waveGateSpeedMult } =
   await import('../src/systems/Progression.ts');
+const { RISK_AXES } = await import('../src/config.ts');
 const { GATES } = await import('../src/config.ts');
 
 const state = (power, over = {}) => ({
@@ -196,14 +196,13 @@ for (const [i, series] of liveness.entries()) {
 // valuation, so this measures what par takes, what the halo flashes and what
 // the death screen says - not a second model that could drift from all three.
 console.log('\n=== gate approach speed rises with the wave ===');
-console.log('  wave   speed x   descent s   reach');
+console.log('  wave   speed x   descent s');
 for (const wave of [1, 3, 6, 10, 15, 21, 30]) {
   const u = freshUpgrades();
   console.log(
     String(wave).padStart(6),
     waveGateSpeedMult(wave).toFixed(2).padStart(9),
     gateDescentSeconds(wave, u).toFixed(2).padStart(11),
-    reach(wave, u).toFixed(3).padStart(8),
   );
 }
 if (!(waveGateSpeedMult(30) > waveGateSpeedMult(1))) {
@@ -214,74 +213,62 @@ if (!(waveGateSpeedMult(30) > waveGateSpeedMult(1))) {
 /** What the game's own scoring says one gate is worth, in one state, one wave. */
 const priced = (p, g, wave) => scoreOffer(p, [g], wave).options[0].delta;
 
-console.log('\n=== x MOVE and +TIME are never worth zero ===');
-console.log('  wave   stacked move/time    x1.05 MOVE   x1.5 MOVE    +5% TIME   +50% TIME');
-let cheapest = Infinity;
-for (const wave of [1, 3, 6, 10, 15, 21, 30]) {
-  // Including states where the bonuses are already stacked hard: access
-  // saturates smoothly rather than clamping, precisely so a fifth x MOVE is
-  // worth little instead of nothing.
-  for (const [mv, tm] of [[1, 1], [2, 1], [1, 2], [4, 3], [8, 6]]) {
-    const p = state(200, { moveMult: mv, gateSpeedMult: 1 / tm });
-    const cells = [
-      priced(p, gate('move', 'mult', 1.05), wave),
-      priced(p, gate('move', 'mult', 1.5), wave),
-      priced(p, gate('time', 'raw', 1.05), wave),
-      priced(p, gate('time', 'raw', 1.5), wave),
-    ];
-    cheapest = Math.min(cheapest, ...cells);
-    console.log(
-      String(wave).padStart(6),
-      `x${mv} / x${tm}`.padStart(19),
-      ...cells.map((c) => `${(c * 100).toFixed(2)}%`.padStart(12)),
-    );
+console.log('\n=== x MOVE, +TIME and +SENSE are priced at exactly zero (RISK) ===');
+// The author's rule: a bonus that moves no damage number is worth nothing to
+// the scoring. Par never takes one; the player who does is told RISK. Checked
+// at every wave and however far the bonuses are already stacked, so a factor
+// cannot creep back into `progressValue` unnoticed.
+{
+  let worst = 0;
+  for (const wave of [1, 3, 6, 10, 15, 21, 30]) {
+    for (const [mv, tm, se] of [[1, 1, 0], [2, 1, 1], [1, 2, 2], [4, 3, 0], [8, 6, 3]]) {
+      const p = state(200, { moveMult: mv, gateSpeedMult: 1 / tm, sense: se });
+      for (const g of [
+        gate('move', 'mult', 1.05), gate('move', 'mult', 1.5),
+        gate('time', 'raw', 1.05), gate('time', 'raw', 1.5), gate('sense', 'raw', 1),
+      ]) worst = Math.max(worst, Math.abs(priced(p, g, wave)));
+    }
   }
-}
-console.log(`\n  cheapest movement bonus anywhere: ${(cheapest * 100).toFixed(3)}%`);
-if (!(cheapest > 0)) {
-  console.error(
-    'FAIL: a movement bonus is priced at zero somewhere',
-    '\n      par will never take it, the halo will flash it red and the death',
-    '\n      screen will call it a mistake - see Scoring.scoreOffer',
-  );
-  process.exit(1);
-}
-
-// Nonzero is not enough: the bonus also has to be able to WIN an offer, or it
-// is merely a differently-worded way to waste a pick. A strong draw must beat a
-// weak damage draw somewhere on the curve.
-const weakDmg = gate('damage', 'mult', 1.05);
-const beats = [1, 6, 15, 30].filter((wave) => {
-  const p = state(200);
-  return priced(p, gate('move', 'mult', 1.5), wave) > priced(p, weakDmg, wave);
-});
-console.log(`  x1.5 MOVE beats x1.05 DMG at waves: ${beats.join(', ') || 'nowhere'}`);
-if (beats.length === 0) {
-  console.error('FAIL: no movement bonus can ever be the right pick');
-  process.exit(1);
+  console.log(`  largest |delta| of a risk axis anywhere: ${worst}`);
+  if (worst !== 0) {
+    console.error('FAIL: a MOVE / TIME / SENSE draw moved the scoring - see RISK_AXES in config');
+    process.exit(1);
+  }
+  const axes = new Set(RISK_AXES);
+  if (!(axes.has('move') && axes.has('time') && axes.has('sense') && axes.size === 3)) {
+    console.error('FAIL: RISK_AXES is not exactly move / time / sense'); process.exit(1);
+  }
+  // A risk pick against damage options ranks last, and against other risk
+  // picks ranks as a tie (any pick is a top pick when every option is 0).
+  const { pickRank, isRiskPick } = await import('../src/systems/Scoring.ts');
+  const mixed = scoreOffer(state(200), [gate('damage', 'mult', 1.05), gate('move', 'mult', 1.5), gate('rate', 'mult', 1.25)], 6);
+  if (mixed.best !== 2 || pickRank(mixed, 1) !== 1 || !isRiskPick(mixed, 1) || isRiskPick(mixed, 0)) {
+    console.error('FAIL: a risk pick beside damage options must rank last and read as RISK'); process.exit(1);
+  }
+  const allRisk = scoreOffer(state(200), [gate('move', 'mult', 1.5), gate('time', 'raw', 1.2), gate('sense', 'raw', 1)], 6);
+  if (pickRank(allRisk, 0) !== 0 || pickRank(allRisk, 2) !== 0) {
+    console.error('FAIL: an offer of only risk axes must tie'); process.exit(1);
+  }
+  console.log('  a risk pick beside damage ranks last; an all-risk offer ties; isRiskPick agrees');
 }
 
 
-// What the movement economy costs par, and therefore the difficulty curve.
-//
-// Difficulty budgets enemies against `squadDps(par)`. Par now sometimes spends
-// a pick on access, which carries no damage, so par's DPS grows more slowly
-// than it did before these two bonuses existed and the whole curve softens.
-// That is self-consistent - a perfect player really does spend picks this way -
-// but it is a real effect and it belongs on the record rather than in a
-// surprise. REPORTED, not asserted: it depends on the candidate weights, which
-// are a design dial rather than an invariant.
+// What par spends on the risk axes: nothing, by construction. Difficulty
+// budgets enemies against `squadDps(par)`, and par prices every offer by DPS,
+// so it never takes MOVE, TIME or SENSE unless the offer is NOTHING ELSE - an
+// all-risk offer scores three zeros and the tie-break picks one, which costs
+// par nothing. Asserted over 200 runs so a factor creeping back into the
+// valuation would fail here.
 const { rollOffer } = await import('../src/data/gates.ts');
 const { GATES: G } = await import('../src/config.ts');
-console.log('\n=== what par spends on access (200 simulated runs of 30 offers) ===');
-let accessPicks = 0, totalPicks = 0;
-let withAccess = 0, dpsWith = 0, dpsWithout = 0;
+console.log('\n=== what par spends on the risk axes (200 simulated runs of 30 offers) ===');
+let riskPicks = 0, totalPicks = 0, withRisk = 0, allRisk = 0;
+const axesRisk = new Set(RISK_AXES);
 for (let run = 0; run < 200; run++) {
   // Seeded, like everything else here: a deterministic LCG per run.
   let s0 = run * 2654435761 + 12345;
   const rng = () => ((s0 = (s0 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
   const par = state(SQUAD.startPower);
-  const noAccess = state(SQUAD.startPower);
   for (let offer = 0; offer < 30; offer++) {
     const wave = 1 + Math.floor(offer / 2);
     const ctx = {
@@ -292,28 +279,18 @@ for (let run = 0; run < 200; run++) {
     };
     const gates = rollOffer(G.perOffer, wave, ctx, rng);
     if (gates.length === 0) continue;
-    if (gates.some((g) => g.axis === 'move' || g.axis === 'time')) withAccess++;
+    if (gates.some((g) => axesRisk.has(g.axis))) withRisk++;
+    if (gates.every((g) => axesRisk.has(g.axis))) allRisk++;
     const pick = gates[scoreOffer(par, gates, wave).best];
     totalPicks++;
-    if (pick.axis === 'move' || pick.axis === 'time') accessPicks++;
+    if (axesRisk.has(pick.axis)) riskPicks++;
     applyGate(par, pick);
-    // The same offer, priced the old way - by DPS alone, so access never wins.
-    const byDps = gates.reduce((a, b) => {
-      const p = cloneProgress(noAccess);
-      applyGate(p, b);
-      const q = cloneProgress(noAccess);
-      applyGate(q, a);
-      return squadDps(p) > squadDps(q) ? b : a;
-    });
-    applyGate(noAccess, byDps);
   }
-  dpsWith += squadDps(par);
-  dpsWithout += squadDps(noAccess);
 }
-console.log(`  offers containing a movement option: ${(withAccess / totalPicks * 100).toFixed(1)}%`);
-console.log(`  picks par spends on access:          ${(accessPicks / totalPicks * 100).toFixed(1)}%`);
-console.log(`  par DPS after 30 offers, access-priced vs DPS-priced:`
-  + ` ${(dpsWith / dpsWithout).toFixed(3)}x`);
+console.log(`  offers containing a risk option:     ${(withRisk / totalPicks * 100).toFixed(1)}%`);
+console.log(`  offers that are ONLY risk options:   ${(allRisk / totalPicks * 100).toFixed(2)}%  (${allRisk})`);
+console.log(`  picks par spends on risk axes:       ${(riskPicks / totalPicks * 100).toFixed(2)}%  (${riskPicks})`);
+if (riskPicks !== allRisk) { console.error('FAIL: par took a risk axis when a damage option was offered'); process.exit(1); }
 
 
 // ---------------------------------------------------------------------------
@@ -412,55 +389,6 @@ setMode('normal');
 
 
 // ---------------------------------------------------------------------------
-// What hard mode does to the VALUE of a bonus, as opposed to its magnitude.
-//
-// This exists because the probe measured hard mode as consistently EASIER than
-// normal - higher standing, longer survival, at every skill level - which is
-// the opposite of the intent and had to be explained before anything was tuned
-// around it. The suspected mechanism is here rather than in the bot: gate speed
-// feeds `gateDescentSeconds`, which feeds `reach`, which is what `scoreOffer`
-// prices access with. Faster gates make reach SCARCER, which makes `x MOVE` and
-// `+TIME` worth more - and `+TIME` is a permanent divisor on gate speed, so it
-// is the direct counter to the very thing hard mode turned up.
-//
-// If par spends materially more of its picks on access under hard mode, the
-// effect is real game mechanics rather than a quirk of the bot: hard mode pays
-// for its own antidote.
-// ---------------------------------------------------------------------------
-console.log('\n=== what hard mode does to access pricing ===');
-console.log('  mode     offers with access   picks spent on access   par DPS after 30');
-for (const m of ['normal', 'hard']) {
-  setMode(m);
-  let picks = 0, total = 0, offersWith = 0, dpsEnd = 0;
-  for (let run = 0; run < 200; run++) {
-    let s1 = run * 2654435761 + 12345;
-    const r = () => ((s1 = (s1 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-    const par = state(SQUAD.startPower);
-    for (let offer = 0; offer < 30; offer++) {
-      const wave = 1 + Math.floor(offer / 2);
-      const ctx = {
-        power: par.power,
-        damageBonus: par.upgrades.damageBonus,
-        rateBonus: par.upgrades.rateBonus,
-      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense,
-      };
-      const gates = rollOffer(G.perOffer, wave, ctx, r);
-      if (gates.length === 0) continue;
-      if (gates.some((g) => g.axis === 'move' || g.axis === 'time')) offersWith++;
-      const pick = gates[scoreOffer(par, gates, wave).best];
-      total++;
-      if (pick.axis === 'move' || pick.axis === 'time') picks++;
-      applyGate(par, pick);
-    }
-    dpsEnd += squadDps(par);
-  }
-  console.log(
-    `  ${m.padEnd(8)}` + `${(offersWith / total * 100).toFixed(1)}%`.padStart(18)
-    + `${(picks / total * 100).toFixed(1)}%`.padStart(23)
-    + `${Math.round(dpsEnd / 200)}`.padStart(19),
-  );
-}
-setMode('normal');
 
 
 // ---------------------------------------------------------------------------
@@ -474,7 +402,7 @@ setMode('normal');
 // skew is a strength difference wearing a legibility costume - and it would
 // compound over every offer of a run.
 // ---------------------------------------------------------------------------
-console.log('\n=== legibility tiers must not differ in strength ===');
+console.log('\n=== legibility tiers: the drift the author accepted ===');
 console.log('  minWave   values   arith mean   geo mean   geo vs tier 0');
 const amean = (x) => x.reduce((a, b) => a + b, 0) / x.length;
 // The geometric mean is the one that governs: bonuses MULTIPLY, so a table
@@ -500,21 +428,26 @@ console.log(
   `  worst tier is ${((perDraw - 1) * 100).toFixed(3)}% per draw,`
   + ` ${(Math.pow(perDraw, OFFERS) * 100 - 100).toFixed(1)}% over ${OFFERS} offers`,
 );
-// 0.5% per draw is ~16% over 30 offers - already larger than most effects this
-// project tries to measure, so the tolerance is tight on purpose.
-const TOLERANCE = 0.005;
-if (Math.abs(perDraw - 1) > TOLERANCE) {
+// The tiers used to be held to 0.5% per draw. The author's schedule (three
+// round values, then the tenths, then twentieths, then hundredths) cannot
+// meet that inside a fixed range - the tenths sit ~1.9% per draw above the
+// hundredths - and the author read the number and accepted it. MEAN_DRIFT
+// caps it there so it stays a decision on the record: a table drifting past
+// 2.5% per draw (~110% over 30 offers) is a new decision, not this one.
+// Measured against the FINEST tier, which is the reference the schedule
+// converges to, not against tier 0.
+const MEAN_DRIFT = 0.025;
+const fine = geo[geo.length - 1];
+const worstVsFine = geo.reduce((a, b) => (Math.abs(b / fine - 1) > Math.abs(a / fine - 1) ? b : a));
+console.log(`  worst tier against the finest: ${((worstVsFine / fine - 1) * 100).toFixed(2)}% per draw (cap ${MEAN_DRIFT * 100}%)`);
+if (Math.abs(worstVsFine / fine - 1) > MEAN_DRIFT) {
   throw new Error(
-    `legibility tiers differ in geometric mean by ${((perDraw - 1) * 100).toFixed(2)}%`
-    + ' per draw - escalating legibility is secretly escalating power',
+    `a legibility tier differs from the finest in geometric mean by ${((worstVsFine / fine - 1) * 100).toFixed(2)}%`
+    + ' per draw - past the drift the author accepted',
   );
 }
-const ARITH_TOLERANCE = 0.005;
-const worstArith = LEGIBILITY.map((t) => amean(t.roots))
-  .reduce((a, b) => (Math.abs(b - amean(LEGIBILITY[0].roots))
-    > Math.abs(a - amean(LEGIBILITY[0].roots)) ? b : a));
-if (Math.abs(worstArith / amean(LEGIBILITY[0].roots) - 1) > ARITH_TOLERANCE) {
-  throw new Error('legibility tiers differ in arithmetic mean');
+if (LEGIBILITY.length !== 4 || LEGIBILITY.map((t) => t.minWave).join() !== '1,6,11,16') {
+  throw new Error('the legibility schedule is four tiers at waves 1 / 6 / 11 / 16');
 }
 
 
@@ -834,7 +767,7 @@ console.log('\n=== the Titan budget ===');
 // offer is +1; above it the top draw is worth at least what a mid draw of DMG
 // is, so the axis never goes dead; and the label's number is the number applied.
 // ---------------------------------------------------------------------------
-const { discreteAmount, senseFactor, senseChance, MAX_SENSE } =
+const { discreteAmount, senseChance, MAX_SENSE } =
   await import('../src/systems/Progression.ts');
 const { SENSE } = await import('../src/config.ts');
 console.log('\n=== GUNS and PIERCE offers scale with what you hold ===');
@@ -882,13 +815,11 @@ if (discreteAmount('guns', 3, 1.05) !== 1 || discreteAmount('guns', 10, 1.5) !==
   console.log(`  ${seen} discrete offers rolled at 6 guns / 6 pierce; every label matches its effect`);
 }
 
-console.log('\n=== SENSE: priced as judgment, never a no-op while it can be taken ===');
-console.log('  held   chance   value factor   marginal value   still offered');
+console.log('\n=== SENSE: a roll at spawn, never a price ===');
+console.log('  held   chance   still offered');
 for (let s = 0; s <= MAX_SENSE; s++) {
-  const marginal = s < MAX_SENSE ? senseFactor(s + 1) / senseFactor(s) - 1 : 0;
   console.log(
     String(s).padStart(6), `${(senseChance(s) * 100).toFixed(0)}%`.padStart(8),
-    senseFactor(s).toFixed(3).padStart(14), `${(marginal * 100).toFixed(1)}%`.padStart(16),
     (s < MAX_SENSE ? 'yes' : 'no').padStart(15),
   );
 }
@@ -896,19 +827,8 @@ if (SENSE.chance[0] !== 0) { console.error('FAIL: sense 0 must mark nothing'); p
 for (let s = 1; s <= MAX_SENSE; s++) {
   if (!(SENSE.chance[s] > SENSE.chance[s - 1])) { console.error('FAIL: sense chance must rise'); process.exit(1); }
 }
-// Priced through the shipped scoring: positive at every level below the cap,
-// able to win against a weak damage draw, and never the whole decision.
 {
-  const p = state(200);
-  const senseDelta = priced(p, gate('sense', 'raw', 1), 5);
-  const weak = priced(p, gate('damage', 'mult', 1.05), 5);
-  const mid = priced(p, gate('damage', 'mult', 1.25), 5);
-  console.log(`  first +SENSE is worth ${(senseDelta * 100).toFixed(1)}% of value; x1.05 DMG ${(weak * 100).toFixed(1)}%, x1.25 DMG ${(mid * 100).toFixed(1)}%`);
-  if (!(senseDelta > weak)) { console.error('FAIL: +SENSE can never beat a weak damage draw, so it is priced as a mistake'); process.exit(1); }
-  if (!(senseDelta < mid)) { console.error('FAIL: +SENSE beats a mid damage draw - it has become the obvious pick'); process.exit(1); }
-  // At the cap it is not offered, and if applied anyway changes nothing.
-  const capped = state(200, { sense: MAX_SENSE });
-  if (priced(capped, gate('sense', 'raw', 1), 5) !== 0) { console.error('FAIL: sense past the cap changed value'); process.exit(1); }
+  // At the cap it is not offered; it never reaches DPS at any level.
   let h = 9;
   const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
   const ctx = { power: 200, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: MAX_SENSE };

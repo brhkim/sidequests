@@ -79,7 +79,7 @@ const stats = () => page.evaluate(() => window.__audio.stats);
 // --- live half --------------------------------------------------------------
 console.log('\nlive:');
 const box = await page.locator('canvas').boundingBox();
-await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.84);
+await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.925);
 await page.waitForFunction(() => window.__audio?.stats.state === 'running', null, { timeout: 3000 }).catch(() => {});
 const state = (await stats()).state;
 console.log(`  context state after gesture: ${state}`);

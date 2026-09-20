@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { VIEW } from '../../config';
+import { cardButton } from './CardTile';
 import { PauseBonuses } from './PauseBonuses';
 import { PauseDetails } from './PauseDetails';
 import { CAPTION, FONT, SMALL, type HudPayload } from './types';
@@ -10,7 +11,10 @@ import { CAPTION, FONT, SMALL, type HudPayload } from './types';
  * tap that reaches BOTH scenes pauses the game and simultaneously orders the
  * squad to walk to x=486 - which it then does the moment you resume.
  */
-export const PAUSE_BUTTON = { x: 486, y: 100, width: 88, height: 44 } as const;
+// In the rail's right-hand 80px (`TopRail.RAIL_PAUSE_WIDTH`), above the
+// standing bar. It sat on the field at y 100 until the strip moved up under
+// the rail; below both it landed on the right-hand gate card.
+export const PAUSE_BUTTON = { x: 500, y: 33, width: 68, height: 44 } as const;
 
 type Page = 'bonuses' | 'details';
 
@@ -67,7 +71,7 @@ export class PauseScreen {
     for (const [i, spec] of ([['bonuses', 'BONUSES'], ['details', 'DETAILS']] as const).entries()) {
       const x = cx + (i === 0 ? -90 : 90);
       const label = add(scene.add.text(x, 62, spec[1], {
-        fontFamily: FONT, fontSize: '15px', color: CAPTION, fontStyle: 'bold',
+        fontFamily: FONT, fontSize: '17px', color: CAPTION, fontStyle: 'bold',
       }).setOrigin(0.5, 0).setLetterSpacing(1.6));
       const underline = add(scene.add.rectangle(x, 84, 120, 2, 0x9fe8ff, 1).setOrigin(0.5, 0));
       tap(x, 70, 170, 44, () => this.showPage(spec[0]));
@@ -79,26 +83,24 @@ export class PauseScreen {
     this.details = new PauseDetails(scene);
     parts.push(this.details.root);
 
-    // The one button.
-    const resume = add(scene.add.rectangle(cx, 740, 300, 56, 0x3ecf7a, 0.2)
-      .setStrokeStyle(2, 0x3ecf7a, 0.9).setInteractive({ useHandCursor: true }));
-    resume.on('pointerdown', (p: Phaser.Input.Pointer) => { p.event.stopPropagation(); onResume(); });
-    add(scene.add.text(cx, 740, 'RESUME', {
-      fontFamily: FONT, fontSize: '22px', color: '#3ecf7a', fontStyle: 'bold',
-    }).setOrigin(0.5).setLetterSpacing(1));
+    // The one button, in the card's shape like every primary action.
+    const resume = cardButton(scene, cx, 740, 300, 56, 0x3ecf7a, 'RESUME');
+    for (const p of resume.parts) add(p);
+    resume.hit.setInteractive({ useHandCursor: true });
+    resume.hit.on('pointerdown', (p: Phaser.Input.Pointer) => { p.event.stopPropagation(); onResume(); });
 
     this.sound = add(scene.add.text(cx, 800, 'SOUND ON — tap to mute', {
-      fontFamily: FONT, fontSize: '13px', color: CAPTION,
+      fontFamily: FONT, fontSize: '15px', color: CAPTION,
     }).setOrigin(0.5));
     tap(cx, 800, 300, 44, onMuteToggle);
 
     add(scene.add.text(cx, 846, 'RESTART', {
-      fontFamily: FONT, fontSize: '15px', color: '#ff4757', fontStyle: 'bold',
+      fontFamily: FONT, fontSize: '17px', color: '#ff4757', fontStyle: 'bold',
     }).setOrigin(0.5).setLetterSpacing(1.5));
     tap(cx, 846, 300, 44, onRestart);
 
     add(scene.add.text(cx, 900, 'P or ESC also pauses and resumes', {
-      fontFamily: FONT, fontSize: '13px', color: SMALL,
+      fontFamily: FONT, fontSize: '15px', color: SMALL,
     }).setOrigin(0.5));
 
     // Hidden until asked for. A container is VISIBLE by default, and an opaque
