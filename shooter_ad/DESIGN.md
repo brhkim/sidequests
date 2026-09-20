@@ -43,6 +43,7 @@ colors:
   titan: "#6b2b8c"
   titan-edge: "#bf8fdc"
   titan-text: "#e9d5ff"
+  titan-tag: "#d9b8f0"
   code: "#9fe8ff"
   link: "#6be8d4"
   skin: "#f2c9a0"
@@ -75,6 +76,11 @@ typography:
     fontSize: "22px"
     fontWeight: 700
     letterSpacing: "1px"
+  button-secondary:
+    fontFamily: "system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 700
+    letterSpacing: "1.2px"
   body:
     fontFamily: "system-ui, sans-serif"
     fontSize: "17px"
@@ -115,6 +121,7 @@ spacing:
   gap: "8px"
   fade: "12px"
   bracket: "14px"
+  tab-h: "44px"
   hit-bar: "44px"
   button-h: "56px"
   tally-h: "64px"
@@ -122,8 +129,12 @@ spacing:
   rail: "72px"
   gate-h: "88px"
   tally-w: "88px"
+  strip-h: "94px"
   tile-w: "120px"
   demo-w: "160px"
+  tab-w: "164px"
+  segment-w: "184px"
+  topic-w: "240px"
   button-w: "300px"
   start-button-w: "380px"
 components:
@@ -162,21 +173,34 @@ components:
     rounded: "{rounded.none}"
     width: "{spacing.tally-w}"
     height: "{spacing.tally-h}"
+  button-secondary:
+    backgroundColor: "{colors.link}"
+    textColor: "{colors.link}"
+    typography: "{typography.button-secondary}"
+    rounded: "{rounded.none}"
+    width: "{spacing.segment-w}"
+    height: "{spacing.hit-bar}"
+  button-danger:
+    backgroundColor: "{colors.grade-bad}"
+    textColor: "{colors.grade-bad}"
+    typography: "{typography.button-secondary}"
+    rounded: "{rounded.none}"
+    width: "{spacing.segment-w}"
+    height: "{spacing.hit-bar}"
+  button-segment-lit:
+    backgroundColor: "{colors.code}"
+    textColor: "{colors.text}"
+    typography: "{typography.button-secondary}"
+    rounded: "{rounded.none}"
+    width: "{spacing.segment-w}"
+    height: "{spacing.hit-bar}"
   button-pause:
     backgroundColor: "{colors.panel}"
     textColor: "{colors.caption}"
-    typography: "{typography.label}"
+    typography: "{typography.button-secondary}"
     rounded: "{rounded.none}"
-    width: "88px"
+    width: "68px"
     height: "44px"
-  text-link:
-    textColor: "{colors.link}"
-    typography: "{typography.link}"
-    height: "{spacing.hit-bar}"
-  tappable-line:
-    textColor: "{colors.caption}"
-    typography: "{typography.link}"
-    height: "{spacing.hit-bar}"
   gate-card:
     backgroundColor: "{colors.axis-army}"
     textColor: "{colors.text}"
@@ -208,7 +232,7 @@ components:
 **Creative North Star: "The Instrument Panel"**
 
 There was no direction contract for this world. It is code-led, with no comp:
-the system below is read off the shipped build (`.verify/*.png`, 2026-09-19)
+the system below is read off the shipped build (`.verify/*.png`, 2026-09-20)
 and the modules that draw it, not off a plan. Where this record and the code
 disagree, the code is stale or this record is; re-scan rather than defend.
 
@@ -280,8 +304,11 @@ which means exactly one thing.
 - **Cage tan** `{colors.cage}`: cage bars, its HP bar and `+N` caption.
 - **Titan purple** `{colors.titan}` with edge `{colors.titan-edge}` and text
   `{colors.titan-text}`: the warning band, the boss bar, the TITAN DOWN band.
-- **Code cyan** `{colors.code}` for match codes and the active pause tab
-  underline; **link teal** `{colors.link}` for text links.
+  The bar's own 13px TITAN tag is a step dimmer, `{colors.titan-tag}`.
+- **Code cyan** `{colors.code}` for match codes, the pause tabs and the
+  NORMAL segment (the lit one's word turns `{colors.text}`), and the BONUSES
+  page's two 15px teaching lines; **link teal** `{colors.link}` for every
+  secondary button. There are no text links.
 
 ### Neutral
 - **Ground** `{colors.ground}` (field and rail backing at 0.96), **lane**
@@ -331,20 +358,30 @@ speaks to the player.
 - **Value sub** (bold, 17px, `{colors.strip-sub}`): the strip's second line.
 - **Body** (regular, 17px, line spacing 5, `{colors.text-working}`): start
   screen copy; the HAVE FUN beat is 18px.
-- **Link** (regular, 17px): text links on the start screen and the pause
-  tabs (17px bold tracking 1.6); the difficulty line is 17px bold caption
-  colour; RESTART 17px bold tracking 1.5. The end screen's links are 16px
-  and 15px.
+- **Secondary button** (bold, 15px, tracking 1.2, uppercase): the word on
+  every secondary, danger and segment card (ENTER A CODE, NEW MATCH, HOW TO
+  PLAY, COPY LINK, SOUND ON, RESTART, NORMAL / HARD); 14px on the pause tabs,
+  the guide's topics and PAUSE. There are no text links (2026-09-20); the
+  `link` role below survives only as the token the secondary word is sized
+  from.
 - **Note** (regular, 16px, line spacing 4, `{colors.caption}`): the 16px
-  step the Phone Floor made a used one - the pause page's axis note (wrapped
-  to 488px), the end screen's detail line and score captions, the DETAILS
-  working. Bold at 16px: the ruler heads and the DPS · PAR line.
-- **Caption** (regular, 15px, `{colors.caption}`): under the value it names.
-  Secondary captions are 14px `{colors.small}`, untracked. The end screen
-  keeps two 13px tracked captions and a 12px version line (see drift).
-- **Label** (bold, 14px, tracking 1.4-2, uppercase): rail column names,
-  strip axis names, pause section heads, PAUSE, the tile's axis word
-  (tracking 2, never scaled). The field's SENSE tag is 16px tracking 2.
+  step the Phone Floor made a used one - the end screen's detail line, the
+  DETAILS working (mono). Bold at 16px: the ruler heads and the DPS · PAR
+  line. The pause page's axis note and the guide's topic text are a step up:
+  17px regular `{colors.text-working}`, line spacing 4, wrapped to 488px,
+  headed by a 14px bold tracking-1.5 word in the axis or topic colour.
+- **Caption** (regular, 15px, `{colors.caption}`): under the value it names
+  (the start screen's `match code` line, 15px `{colors.small}` under the end
+  screen's two scores). Hints and the version are 14px `{colors.small}`,
+  untracked (start hint and version, pause hints and key line, the end
+  screen's code caption at 14px `{colors.caption}`, `{colors.warning-text}`
+  on a hard run). The floor step, 13px: WAVES SURVIVED (bold, tracking 2,
+  `{colors.caption}`), the end tally caption and version line, the pause DPS
+  line's caption, all `{colors.small}`, and the boss bar's TITAN tag.
+- **Label** (bold, 14px, tracking 1-2, uppercase): rail column names
+  (tracking 1.4) and subs (tracking 1), strip axis names (1.2), pause section
+  and note heads (1.5), the tile's axis word (tracking 2, never scaled). The
+  field's SENSE tag is 16px tracking 2.
 - **Code** (mono bold, 40px): the match code on start and end.
 - **Working** (mono regular, 16px): the DETAILS tab; its answer line is white
   bold and the only bright line.
@@ -365,10 +402,15 @@ changed for display.
 ## Layout
 
 A fixed 540x960 logical canvas under `Scale.FIT`; nothing is responsive. Top
-to bottom: rail (0-72, four equal columns WAVE / DPS / PAR / SENSE, label at
-11px over a 23px value over an 11px sub); standing bar (6px at y 72 with a
-3x12 white tick at the target fraction; a 12px fade strip under it carries
-the Titan bar at y 77); field; lane band (768-960); ground band (828-950)
+to bottom: rail (0-72, four 115px columns WAVE / YOUR DPS / PAR DPS / SENSE
+across the 460px left of the pause button, 14px label at y 9 over a 23px
+value at 22 over a 14px bold sub at 49: N KILLS, N% PAR, BEST PLAY, N%
+MARKED); standing bar (6px at 66-72 on a `{colors.track-wide}` track with a
+3x12 white tick at the target fraction); the
+strip; the Titan row while a boss lives (an 18px panel at 0.96 directly
+under the strip's hairline, 166-184, carrying a 10px purple bar with its
+TITAN tag - moved out of the fade under the rail on 2026-09-20 so it reads
+as a third row rather than a seam); field; lane band (768-960); ground band (828-950)
 with its 1px top edge and a 24px breach glow to the line at 950, and a
 darker step of ground (`0x0e1220`) from the line to the bottom edge. The
 lane (888) and the line (950) moved down 88px with the strip's move up, so
@@ -378,30 +420,51 @@ strip sits directly under the rail (72-166, five cells 100/128/128/92/92
 wide, 18px inset, 1px dividers 12px below the top, a 1px hairline along its
 bottom edge) - moved up from 864-960 on 2026-09-20 because a thumb on a
 phone covered it. The pause button sits in the rail's right-hand 80px at (500,33), 68x44.
+The Titan warning band (436x40 at 0.35, centred x 218) sits at y 206, over
+the top of the field.
 Gate cards are 88px tall, drawn `width - 8`, and emerge from beneath the
 strip. Screens are full-bleed opaque panels with content centred on x 270,
-hairlines 380 (start) or 420 (end) wide, the primary card button 300x56
-(380x64 on the start screen), every tappable line on a 44px hit bar, the
-version at 812 (start) or 756 (end).
+hairlines 380 (start), 488 (pause) or 420 (end) wide, the primary card button
+300x56 (380x64 on the start screen), every other control a 44px-tall card
+button, the version at 842 (start) or
+750 (end).
 
 The start screen is a first wave, not a menu: DPS GOLF at y 54, the pitch
 from 96, a demo offer of three 160x88 card tiles in the three lanes (x 90 /
 270 / 450) descending 214 to 330, the remaining pitch beats 368-448, the
-match block between hairlines 490 and 626 (code at 530, caption 564, the two
-links at 600 on 150x44 bars), the difficulty line at 660 on a 480x48 bar
-with its hint at 688, START MATCH at 736, then the field's own ground: the
-lane band from 776, the ground band 828-950 with its 1px `{colors.hairline}`
-top edge, an 18px three-step breach glow (6px at 0.05 / 0.035 / 0.02), the
-2px `{colors.breach}` line at 950 at 0.6, the darker ground below, and a
-three-body squad from the real textures at the lane (888). The pause
-BONUSES page keeps the ruler (heads 118, three mono lines from 160), a
-hairline at 276, eight 120x88 card tiles in a 4x2 grid from (18, 298) with
-8px gaps in DPS order (ARMY, DMG, RATE, GUNS, PIERCE) then the RISK three
-(MOVE, TIME, SENSE), the hint 8px under the grid, one axis-headed note line
-34px under it, the DPS · PAR line at 648, RESUME at 740. The end screen's
-tally is five 88x64 footprints on a 96px pitch at y 446 under the two 44px
-scores at 346, the detail line at 520, the hairline at 572, the code at
-620, REPLAY THIS MATCH at 836.
+match block between hairlines 484 and 624 (code at 520, caption 553, ENTER A
+CODE and NEW MATCH as 184x44 secondary cards at 592, x 174 / 366), the
+NORMAL / HARD segments (184x44, 8px gap) at 654 with the hint at 688, START
+MATCH (380x64) at 732, HOW TO PLAY (380x44) at 798, then the field's own
+ground: the lane band from 826 (8px under the last button's stroke), the
+version at 842 on it, the ground band 828-950 with its 1px
+`{colors.hairline}` top edge, an 18px three-step breach glow (6px at 0.05 /
+0.035 / 0.02), the 2px `{colors.breach}` line at 950 at 0.6, the darker
+ground below, and a three-body squad from the real textures at the lane
+(888).
+
+The pause screen: heading at 14 (top-anchored), three 164x44 tab segments
+(4px gap) at 74, the hairline every page hangs from at 100. BASICS is the
+guide's twelve 240x44 topic cards in two columns from 114 (8px gaps, bottom
+418), `tap a topic` at 426, the topic head at 452 and its text from 474.
+BONUSES: the teaching line at 104, the ruler (two columns at x 26 / 280,
+heads 134, divide line 154, three mono lines 176 / 198 / 220), the closing
+line 246, a hairline at 284, eight 120x88 card tiles in a 4x2 grid from
+(18, 298) with 8px gaps in DPS order (ARMY, DMG, RATE, GUNS, PIERCE) then
+the RISK three (MOVE, TIME, SENSE), the hint at 488, the axis head at 512
+over the 17px `{colors.text-working}` note at 534, the DPS line's caption at
+664 and the DPS · PAR line at 682. DETAILS: its head at 104 and 26 mono
+lines from 128 on a 22px pitch. Under every page: RESUME (300x56) at 740,
+SOUND ON and RESTART (184x44) at 806, x 174 / 366, the key hint at 856.
+Opened from the start screen (HOW TO PLAY) the heading reads HOW TO PLAY,
+RESUME reads BACK, SOUND sits alone at x 270, RESTART and the hint are gone.
+
+The end screen: heading at 96, the 112px number at 196, WAVES SURVIVED at
+274, the two 44px scores at 346 (x 160 / 380) with OF THE GROWTH ON OFFER /
+PEAK DAMAGE / SEC at 384, five 88x64 footprints on a 96px pitch at 446, the
+tally caption at 490, the detail line at 522, one hairline at 566, the code
+at 610 with its caption at 650, COPY LINK (240x44) at 700, the version at
+750, REPLAY THIS MATCH (300x56) at 836, NEW MATCH (300x44) at 900.
 
 ## Elevation & Depth
 
@@ -436,22 +499,31 @@ rotated along velocity with a fainter copy (0.45 alpha, 0.35 scale) behind.
 
 ### Buttons
 - **Shape:** the card's shape (`cardButton` in `hud/CardTile`): square
-  (0px), a 4px solid roof along the top edge in the button's colour, body
-  filled in that colour at 0.2, 2px stroke at 0.9, the label 22px bold
-  tracking 1 in the same colour, 1px below centre.
-- **Primary (START MATCH 380x64, RESUME 300x56, REPLAY THIS MATCH 300x56):**
-  ARMY green. The only filled button; one per screen. The primary action is
-  itself an offer.
-- **Pause:** 68x44 panel fill at 0.96, in the rail's right-hand 80px, 1px `{colors.small}` stroke at 0.9,
-  14px bold tracking 1.5 caption-colour PAUSE.
-- **States:** none drawn; hit-tested by GameScene, hand cursor only.
-
-### Text link and tappable line
-- **Link:** 15px regular `{colors.link}`, no underline; an invisible 300x44
-  rectangle behind it is the target.
-- **Tappable line:** the same bar behind a caption-colour line (SOUND ON —
-  tap to mute; NORMAL / HARD; enter a code); RESTART is 15px bold tracking
-  1.5 in `{colors.grade-bad}`. Its hint sits below at 13px caption.
+  (0px), a 4px solid roof along the top edge in the button's colour, a
+  tinted body, a stroke, one word in the same colour, 1px below centre.
+  Three weights (2026-09-20, the author's UX round):
+- **Primary (START MATCH 380x64, RESUME / BACK 300x56, REPLAY THIS MATCH
+  300x56):** ARMY green, body 0.2, 2px stroke 0.9, 22px bold tracking 1.
+  The only filled button; one per screen. The primary action is itself an
+  offer.
+- **Secondary (ENTER A CODE / NEW MATCH 184x44, HOW TO PLAY 380x44, COPY
+  LINK 240x44, NEW MATCH on the end screen 300x44, SOUND ON 184x44, the
+  guide's twelve topics 240x44):** link teal `{colors.link}` (topics in
+  their own colours), body 0.07, 1.5px stroke 0.5, roof at 0.6, 14-15px
+  bold tracking 1.2.
+- **Danger (RESTART 184x44):** the secondary weight in `{colors.grade-bad}`.
+- **Segmented (`segmented`; NORMAL / HARD 184x44, 8px gap, in
+  `{colors.code}` and `{colors.warning-text}`; BASICS / BONUSES / DETAILS
+  164x44, 4px gap, in `{colors.code}`; the tab that opens the screen from
+  the start screen is HOW TO PLAY):** a row of secondary buttons where the
+  chosen one wears the primary weight (fill 0.2, 2px stroke 0.9, roof 1) and
+  its word turns `{colors.text}`. The guide's twelve topics behave the same
+  way in their own colours: one lit, eleven dim.
+- **Pause:** 68x44, the secondary weight in `{colors.caption}` on a panel
+  fill at 0.96, 14px, in the rail's right-hand 80px; drawn by UIScene and
+  hit-tested by GameScene, never bound.
+- **States:** hover adds 0.08 to the body fill; pressed adds 0.22 and takes
+  the stroke to 1 for 140ms; hand cursor. No text links remain.
 
 ### Card tile
 A gate card off the field (`hud/CardTile`), so a player who has taken one
@@ -488,16 +560,21 @@ anything new.
   look alike.
 
 ### Rail cell
-- Column of 135px: 11px tracked label in `{colors.small}` (SENSE in its axis
-  colour), 23px bold value in `{colors.text}` (DPS takes the standing
-  colour), 11px bold sub. KILLS carries a 60x2 streak track filling
-  `{colors.standing-above}`; SENSE is three 1px-stroked pips.
+- Column of 115px: 14px tracking-1.4 label in `{colors.small}` (SENSE in its
+  axis colour), 23px bold value in `{colors.text}` (YOUR DPS takes the
+  standing colour), 14px bold tracking-1 sub in `{colors.small}`. The words
+  are WAVE / YOUR DPS / PAR DPS / SENSE with `N KILLS`, `N% PAR` (standing
+  colour, `>999% PAR` past it), `BEST PLAY` and `N% MARKED` beneath. SENSE's
+  value is the text glyphs `●●○` in `{colors.axis-sense}`
+  (`{colors.disabled}` at zero); the drawn pips belong to the card tile.
 
 ### Strip cell
-- Axis-coloured 14px tracked label, 26px bold main in `{colors.text-bright}`,
-  17px bold sub in `{colors.strip-sub}`; 1px `{colors.hairline}` dividers,
-  no side stripes. Unheld cells at 0.55 alpha. A change flashes the main from
-  scale 1.25 in the event's colour over 500ms; ARMY floats `-N` in loss or
+- Axis-coloured 14px tracking-1.2 label, 26px bold main in
+  `{colors.text-bright}`, 17px bold sub in `{colors.strip-sub}` (blank at
+  identity); 1px `{colors.hairline}` dividers, no side stripes. The ARMY cell
+  is power alone with no sub-line (the rank word left it 2026-09-20) and is
+  always held. Unheld cells at 0.55 alpha. A change flashes the main from
+  scale 1.15 in the event's colour over 500ms; ARMY floats `-N` in loss or
   fire colour at 18px, lifting 26px over 700ms.
 
 ### Screens
@@ -508,19 +585,24 @@ anything new.
   demo offer descending on its loop, the match block, the difficulty line,
   the START card, and the field's own ground with a Grey three-body squad
   standing at the lane. The demo tiles are always held.
-- **Pause:** 28px PAUSED, two 17px tracked tabs with a 120x2 code-cyan
-  underline on the active one; BONUSES is the ruler (16px axis-coloured
+- **Pause:** 28px PAUSED (HOW TO PLAY from the start screen), three 164x44
+  tab segments in code cyan with the page lit; BASICS (`hud/PauseGuide`) is
+  twelve 240x44 topic cards in their own colours, one lit, over one 17px
+  `{colors.text-working}` explanation headed by the topic word; BONUSES is
+  two 15px code-cyan teaching lines around the ruler (16px axis-coloured
   heads, 14px caption divide line, 17px mono bold rows), the 4x2 tile grid
   with a 14px `{colors.small}` hint under it, one note (14px tracked axis
-  head in the axis colour over a wrapped 16px caption line) and the DPS ·
-  PAR line, 16px bold in the standing colour (`standingColor` from
-  `hud/TopRail`); DETAILS a 16px mono working with one bold white answer
-  line. RESUME, then SOUND (15px caption), RESTART, the key hint.
+  head in the axis colour over a wrapped 17px `{colors.text-working}` line)
+  and the DPS · PAR line, 16px bold in the standing colour (`standingColor`
+  from `hud/TopRail`) under its 13px caption; DETAILS a 14px tracked head and
+  a 16px mono working with one bold white answer line. RESUME, then SOUND ON
+  and RESTART as a row of two cards, the key hint.
 - **End:** heading in `{colors.loss}`, the 112px number counting up, the
-  tracked 13px caption under it, the two 44px scores with 16px
-  `{colors.small}` captions, the five-footprint tally, the 16px detail line,
-  the mono code between hairlines with its 13px caption, the copy link, the
-  12px version, REPLAY THIS MATCH, the new-match link. The panel enters over
+  tracked 13px caption under it, the two 44px scores (the percentage in its
+  grade colour) with 15px `{colors.small}` captions in plain words, the
+  five-footprint tally with its 13px caption, the 16px detail line, one
+  hairline, the mono code with its 14px caption (warning colour on a hard
+  run), COPY LINK, the 13px version, REPLAY THIS MATCH, NEW MATCH. The panel enters over
   200ms from alpha 0 after the death beat.
 
 ### Field feedback

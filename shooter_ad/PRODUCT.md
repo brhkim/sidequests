@@ -81,6 +81,13 @@ Confirmed for the current round of work (author's answers, 2026-09-19):
   under 18px went up for the phone.
 - **The root schedule is the author's round one and drifts up to ~2% per
   draw** in the tenths tier; accepted, measured, capped in `npm run model`.
+- **Every control is a button, and nothing assumes the vocabulary**
+  (2026-09-20): card-shaped buttons in three weights with pressed states;
+  a HOW TO PLAY page of tappable topics reachable from the start screen
+  and from pause; every explanation written for a first-time player. The
+  Titan bar is its own row under both panels. Gate speed and dead space
+  climb through two more five-wave stages instead of flattening. The
+  rescue roll's clock restarts on every roll (it was effectively 100%).
 - **Visual clarity is non-negotiable.** Any aesthetic change that makes an
   enemy, bullet, cage or gate harder to tell apart at a glance is a
   regression, whatever it looks like in a still.

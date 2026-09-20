@@ -100,9 +100,11 @@ export class BonusStrip {
   }
 
   update(h: HudPayload): void {
-    // Army: power, with the rank it buys underneath in the rank's own colour.
-    // Always "held" - there is no identity for an army.
-    this.set(0, compact(h.power), h.tierName.toUpperCase(), true, hex(h.tierColor));
+    // Army: power alone. The rank word sat beneath it in the rank's colour
+    // until 2026-09-20; the author dropped it ("it stopped being relevant a
+    // long time ago") - the shirts on the field already say it. Always
+    // "held" - there is no identity for an army.
+    this.set(0, compact(h.power), '', true);
     // Sub-lines are blank at identity. Four columns of `x1.00` is four pieces
     // of furniture the eye has to step over to find the one that changed.
     this.set(1, `+${Math.round(h.damageBonus * 100)}%`, multOrBlank(h.damageMult),

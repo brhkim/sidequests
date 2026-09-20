@@ -53,6 +53,11 @@ export const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 export const CAPTION = '#8f9ab5';
 /** The quietest text allowed: ~4.6:1. Nothing dimmer is drawn as text. */
 export const SMALL = '#6f7b99';
+/** Link teal: every secondary button and text link. */
+export const LINK = 0x6be8d4;
+export const LINK_HEX = '#6be8d4';
+/** The warning colour: the pitch's warning line, HARD, a bad code. */
+export const WARNING = '#ff7b54';
 
 /** Thousands get a suffix: a six-digit DPS would blow the rail's column. */
 export function compact(value: number): string {

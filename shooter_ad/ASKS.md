@@ -374,3 +374,124 @@ game's own stills as the comp; the direction contract is in
 Verified: `npm run endscreen` and `npm run verify` pass; stills in
 `.impeccable/review/`. The finish review's verdict is in the session summary.
 
+
+---
+
+# Author's asks — session of 2026-09-20 (second session, the UX round)
+
+Same rules as above: verbatim, in order, a status per ask.
+
+## 1. The opening message (verbatim)
+
+> Okay, things are generally looking pretty good across the board! Some
+> adjustments:
+
+> 1. Rescues still feel way too common; I think there's some glitch
+> happening here.
+
+Status: `landed`. There was. `Enemies.updateCages` reset its clock only
+when the 40% roll succeeded, so a failed roll was re-rolled every step until
+one passed: a cage within ~40ms of every wave deadline, on every seed
+(watched on the 0.7 build: 17.0 / 32.2 / 47.5 / 61.7s). The clock now
+restarts on every roll; `npm run balance` prints `cages/min`. Version 0.8.
+
+> 2. The intro explainer screen should show a variety of bonuses, rather
+> than just loop the same three
+
+Status: `landed`. Six demo offers deal in rotation, one per 2.6s pass
+(DMG/DMG/GUNS, RATE/ARMY/PIERCE, DMG/ARMY/TIME, RATE/RATE/SENSE,
+ARMY/GUNS/MOVE, DMG/RATE/PIERCE); `npm run endscreen` asserts the second
+pass differs from the first (`start-demo-2.png`).
+
+> 3. The opening screen should also have the option to view the pause
+> screen explainers. Something like "TUTORIAL" button
+
+Status: `landed`, as **HOW TO PLAY** under START MATCH: it opens the pause
+screen's three pages over the start screen, against the start state's
+numbers, with BACK in place of RESUME. `npm run endscreen` opens it, reads
+DETAILS, and comes back (`start-guide.png`, `start-guide-details.png`).
+
+> 4. buttons should look like buttons, why is there so many just text
+> buttons? Load the impeccable skill and get it with better UX
+
+Status: `landed`. Every control on the three screens and the PAUSE control
+is a card button (`cardButton` with `primary` / `secondary` / `danger`
+weights, hover and pressed fills); the difficulty and the pause tabs are
+segmented rows with one lit. No text links remain.
+
+> 5. A lot of our text explanations rely on players already knowing the
+> game terminology like RISK and "Par" -- we need to rewrite everything in a
+> beginner-friendly way not assuming they know anything about how this
+> works
+
+Status: `landed`. The HOW TO PLAY page (twelve topics), every BONUSES note,
+the DETAILS headings, the end screen's captions (OF THE BEST PICKS, PEAK
+DAMAGE / SEC, "every card you took, graded against the best of its three",
+"type it in to play this exact run"), the rail (YOUR DPS, PAR DPS, BEST
+PLAY) and the mode hint. The pitch on the start screen is untouched: it is
+yours and PRODUCT.md says not to rewrite it without asking.
+
+> 6. There needs to be more explanation in places that users can find. We
+> can reorganize the pause screen; the clickable elements is really great,
+> and that's a good start
+
+Status: `landed`. Pause is three pages - HOW TO PLAY / BONUSES / DETAILS -
+and HOW TO PLAY uses the tile idea: tappable topics, one explanation at a
+time. Reachable from pause and from the start screen.
+
+> Really I'm mostly concerned about UX
+
+## 2. Mid-session (verbatim)
+
+> I'll add to the UX: The Titan healthbar needs to appear distinctly below
+> both status/info bars rather than in the middle of them as is the case
+> right now.
+
+Status: `landed`. The bar is a full-width panel row (18px, the strip's
+backing) directly under the strip's bottom hairline, with the 10px bar and
+its TITAN tag; the warning band moved under it. `moment-titan-bar.png`.
+
+> I'd also like the difficulty speed and width of the bonuses to scale up
+> two more times (similar curve as-is) in two more increments for 5 waves
+> rather than flattening out completely
+
+Status: `landed`, with one judgment call to check. Speed: the same
+0.075/wave rise continues to ×3.25 at wave 31 (was ×2.5 at 21). Width: the
+6px/wave stage still ends at 72px at wave 16, then a second stage of
+2.5px/wave runs to 97px at wave 26 (an 83px gate; `minWidth` 100 → 80).
+The late slope is shallower than the first because 6px/wave for ten more
+waves leaves a 48px card that cannot hold its axis word. If you want the
+full 6px/wave, the label has to shrink or go one-line; say so.
+
+## 3. Later (verbatim)
+
+> Can you get rid of the color note under ARMY? It stopped being relevant a
+> long time ago
+
+Status: `landed`. The rank word under the ARMY cell in the strip is gone
+(the shirts on the field say it); the BONUSES note no longer names the
+rank either. DETAILS keeps "rank" because it is a term in the sum it
+derives.
+
+## 4. The finish review (impeccable reviewer, end of session)
+
+Verdict "fix then ship", eight fixes, all taken: START MATCH and HOW TO
+PLAY were 4px apart (now 12); the NORMAL segment wore ARMY green beside
+START MATCH (now code cyan, so START is the one green card); the guide's
+tab said HOW TO PLAY under a heading that said HOW TO PLAY (the tab is
+BASICS); a hairline under the tab row so it does not read as the grid's
+first row; the guide's and BONUSES' explanation text up to 17px working
+white; "OF THE BEST PICKS" contradicted the tally on a poor run ("OF THE
+GROWTH ON OFFER"); DETAILS glosses PAR under its answer line; the BONUSES
+header stated the conversion four times (now twice).
+
+## 5. Later (verbatim)
+
+> OH yes, please change start power to 1 btw
+
+Status: `landed`, version 0.9. `SQUAD.startPower` 5 → 1. Balance, seeds 1-5
+at skill 0.7: median survival 50.0s → 34.9s, optimal 93% → 73% (shorter
+runs, fewer decisions), standing 1.00, cages 1.72/min. `npm run verify`'s
+sine sweep killed nothing at power 1 and the run ended at the first leak,
+so its pointer now stands under the lowest live enemy (still real mouse
+input); three runs: 18 / 20 / 14 kills, wave 3, alive.

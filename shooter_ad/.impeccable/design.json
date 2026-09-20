@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-20T17:30:00Z",
+  "generatedAt": "2026-09-20T21:30:00Z",
   "title": "Design System: shooter_ad (DPS Golf)",
   "extensions": {
     "colorMeta": {
@@ -318,6 +318,21 @@
           "#c9f7ee",
           "#e8fcf8"
         ]
+      },
+      "titan-tag": {
+        "role": "secondary",
+        "displayName": "Titan Tag",
+        "canonical": "#d9b8f0",
+        "tonalRamp": [
+          "#150919",
+          "#2b1138",
+          "#4b1e62",
+          "#6b2b8c",
+          "#8f55ab",
+          "#bf8fdc",
+          "#d9b8f0",
+          "#e9d5ff"
+        ]
       }
     },
     "typographyMeta": {
@@ -345,25 +360,29 @@
         "displayName": "Button",
         "purpose": "The one filled button per screen."
       },
+      "button-secondary": {
+        "displayName": "Secondary Button",
+        "purpose": "The word on every secondary, danger and segment card at 15px bold tracking 1.2; 14px on the pause tabs, the guide's topics and PAUSE."
+      },
       "body": {
         "displayName": "Body",
         "purpose": "Start-screen copy; regular weight, line spacing 5."
       },
       "note": {
         "displayName": "Note",
-        "purpose": "The 16px step: the pause page's wrapped axis note, the end screen's detail line and score captions; bold for ruler heads and the DPS · PAR line."
+        "purpose": "The 16px step: the end screen's detail line and the DETAILS working; bold for ruler heads and the DPS · PAR line. The pause axis note and guide text are 17px text-working, wrapped to 488px."
       },
       "link": {
         "displayName": "Link",
-        "purpose": "Text links and tappable lines on a 44px hit bar (17px on the start screen and pause tabs; 16px and 15px on the end screen)."
+        "purpose": "No text links remain (2026-09-20); kept as the token the secondary button word is sized from."
       },
       "caption": {
         "displayName": "Caption",
-        "purpose": "Sits under the value it names; 15px after the Phone Floor (2026-09-20)."
+        "purpose": "Sits under the value it names; 15px after the Phone Floor. Hints and versions 14px small; the 13px floor for WAVES SURVIVED, the tally caption, the end version, the DPS line's caption and the TITAN tag."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Uppercase tracked data labels on rail, strip, pause heads and the card tile's axis word (14px, tracking 1.4-2; never scaled)."
+        "purpose": "Uppercase tracked data labels on rail (14px, tracking 1.4; subs tracking 1), strip (1.2), pause heads (1.5) and the card tile's axis word (tracking 2; never scaled)."
       },
       "code": {
         "displayName": "Match Code",
@@ -418,7 +437,7 @@
       },
       {
         "name": "cell-flash",
-        "value": "500ms from scale 1.25",
+        "value": "500ms from scale 1.15",
         "purpose": "A strip cell's main when its value changes."
       },
       {
@@ -490,9 +509,33 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one filled button per screen, in the card's shape: START MATCH (380x64), RESUME, REPLAY THIS MATCH (300x56).",
+      "description": "The one filled button per screen, in the card's shape: START MATCH (380x64), RESUME / BACK, REPLAY THIS MATCH (300x56). The word stays in the button's own green.",
       "html": "<button class=\"ds-btn-primary\">START MATCH</button>",
       "css": ".ds-btn-primary { position: relative; width: 300px; height: 56px; background: rgba(62,207,122,0.2); color: #3ecf7a; border: 2px solid rgba(62,207,122,0.9); border-top: 4px solid #3ecf7a; border-radius: 0; font: 700 22px system-ui, sans-serif; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; } .ds-btn-primary:hover, .ds-btn-primary:focus-visible { background: rgba(62,207,122,0.3); outline: none; } .ds-btn-primary:active { background: rgba(62,207,122,0.4); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every other action (ENTER A CODE, NEW MATCH, HOW TO PLAY, COPY LINK, SOUND ON): the card's shape at the dim weight in link teal - fill 0.07, 1.5px stroke at 0.5, roof at 0.6, 15px bold tracking 1.2.",
+      "html": "<button class=\"ds-btn-secondary\">ENTER A CODE</button>",
+      "css": ".ds-btn-secondary { --c: 107,232,212; position: relative; width: 184px; height: 44px; box-sizing: border-box; background: rgba(var(--c),0.07); color: rgb(var(--c)); border: 1.5px solid rgba(var(--c),0.5); border-top: 4px solid rgba(var(--c),0.6); border-radius: 0; font: 700 15px system-ui, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; cursor: pointer; } .ds-btn-secondary:hover, .ds-btn-secondary:focus-visible { background: rgba(var(--c),0.15); outline: none; } .ds-btn-secondary:active { background: rgba(var(--c),0.29); border-color: rgb(var(--c)); }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "RESTART: the secondary weight in bad red, a row beneath RESUME beside SOUND so a thumb reaching for RESUME cannot throw the run away.",
+      "html": "<button class=\"ds-btn-danger\">RESTART</button>",
+      "css": ".ds-btn-danger { --c: 255,71,87; position: relative; width: 184px; height: 44px; box-sizing: border-box; background: rgba(var(--c),0.07); color: rgb(var(--c)); border: 1.5px solid rgba(var(--c),0.5); border-top: 4px solid rgba(var(--c),0.6); border-radius: 0; font: 700 15px system-ui, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; cursor: pointer; } .ds-btn-danger:hover, .ds-btn-danger:focus-visible { background: rgba(var(--c),0.15); outline: none; } .ds-btn-danger:active { background: rgba(var(--c),0.29); border-color: rgb(var(--c)); }"
+    },
+    {
+      "name": "Segmented Row",
+      "kind": "nav",
+      "refersTo": "button-segment-lit",
+      "description": "A row of secondary cards with one lit at the primary weight, its word in text white: NORMAL / HARD (184x44, 8px gap; HARD in the warning orange) and the pause tabs BASICS / BONUSES / DETAILS (164x44, 4px gap) in code cyan. The guide's twelve topics work the same way in their own colours.",
+      "html": "<div class=\"ds-seg\"><button class=\"ds-seg-item ds-seg-lit\">NORMAL</button><button class=\"ds-seg-item\" style=\"--c: 255,123,84\">HARD</button></div>",
+      "css": ".ds-seg { display: flex; gap: 8px; } .ds-seg-item { --c: 159,232,255; width: 184px; height: 44px; box-sizing: border-box; background: rgba(var(--c),0.07); color: rgb(var(--c)); border: 1.5px solid rgba(var(--c),0.5); border-top: 4px solid rgba(var(--c),0.6); border-radius: 0; font: 700 15px system-ui, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; cursor: pointer; } .ds-seg-item:hover, .ds-seg-item:focus-visible { background: rgba(var(--c),0.15); outline: none; } .ds-seg-lit { background: rgba(var(--c),0.2); color: #e8ecf8; border: 2px solid rgba(var(--c),0.9); border-top: 4px solid rgb(var(--c)); } .ds-seg-lit:hover { background: rgba(var(--c),0.28); }"
     },
     {
       "name": "Card Tile",
@@ -506,25 +549,9 @@
       "name": "Pause Button",
       "kind": "button",
       "refersTo": "button-pause",
-      "description": "The in-field control at the top right; panel backing so the stream reads through nothing.",
+      "description": "The in-field control in the rail's right-hand 80px: the secondary weight in caption grey, 68x44, on a panel backing at 0.96 so the stream reads through nothing. Hit-tested by GameScene.",
       "html": "<button class=\"ds-btn-pause\">PAUSE</button>",
-      "css": ".ds-btn-pause { width: 88px; height: 44px; background: rgba(11,15,28,0.96); color: #8f9ab5; border: 1px solid rgba(111,123,153,0.9); border-radius: 0; font: 700 12px system-ui, sans-serif; letter-spacing: 1.5px; cursor: pointer; } .ds-btn-pause:hover, .ds-btn-pause:focus-visible { color: #e8ecf8; outline: none; }"
-    },
-    {
-      "name": "Text Link",
-      "kind": "nav",
-      "refersTo": "text-link",
-      "description": "A teal 15px line on an invisible 300x44 hit bar; no underline.",
-      "html": "<a class=\"ds-link\" href=\"#\">tap here to copy link</a>",
-      "css": ".ds-link { display: inline-flex; align-items: center; justify-content: center; width: 300px; height: 44px; color: #6be8d4; font: 400 15px system-ui, sans-serif; text-decoration: none; } .ds-link:hover, .ds-link:focus-visible { color: #9fe8ff; outline: none; }"
-    },
-    {
-      "name": "Tappable Line",
-      "kind": "nav",
-      "refersTo": "tappable-line",
-      "description": "A caption-colour line that toggles state (SOUND, difficulty), with its hint below.",
-      "html": "<div class=\"ds-tap\"><span class=\"ds-tap-line\">NORMAL</span><span class=\"ds-tap-hint\">tap to change difficulty</span></div>",
-      "css": ".ds-tap { display: flex; flex-direction: column; align-items: center; width: 300px; cursor: pointer; } .ds-tap-line { display: flex; align-items: center; height: 44px; color: #8f9ab5; font: 700 15px system-ui, sans-serif; letter-spacing: 1px; } .ds-tap-hint { color: #6f7b99; font: 400 13px system-ui, sans-serif; } .ds-tap:hover .ds-tap-line { color: #e8ecf8; }"
+      "css": ".ds-btn-pause { --c: 143,154,181; width: 68px; height: 44px; box-sizing: border-box; background: rgba(11,15,28,0.96); background-image: linear-gradient(rgba(var(--c),0.07), rgba(var(--c),0.07)); color: rgb(var(--c)); border: 1.5px solid rgba(var(--c),0.5); border-top: 4px solid rgba(var(--c),0.6); border-radius: 0; font: 700 14px system-ui, sans-serif; letter-spacing: 1.2px; cursor: pointer; } .ds-btn-pause:hover, .ds-btn-pause:focus-visible { background-image: linear-gradient(rgba(var(--c),0.15), rgba(var(--c),0.15)); outline: none; }"
     },
     {
       "name": "Gate Card",
@@ -546,25 +573,25 @@
       "name": "Rail Cell",
       "kind": "custom",
       "refersTo": "rail-cell",
-      "description": "One of four rail columns: tracked label over a 23px value over an 11px sub.",
-      "html": "<div class=\"ds-rail\"><span class=\"ds-rail-label\">DPS</span><span class=\"ds-rail-value\">43</span><span class=\"ds-rail-sub\">87% PAR</span></div>",
-      "css": ".ds-rail { width: 135px; height: 72px; background: rgba(10,12,20,0.96); display: flex; flex-direction: column; align-items: center; padding-top: 8px; font-family: system-ui, sans-serif; font-weight: 700; } .ds-rail-label { font-size: 11px; letter-spacing: 1.4px; color: #6f7b99; } .ds-rail-value { font-size: 23px; color: #ffd166; line-height: 1.1; } .ds-rail-sub { font-size: 11px; letter-spacing: 1px; color: #ffd166; }"
+      "description": "One of four 115px rail columns (WAVE / YOUR DPS / PAR DPS / SENSE): 14px tracked label over a 23px value over a 14px bold sub (N KILLS, N% PAR, BEST PLAY, N% MARKED).",
+      "html": "<div class=\"ds-rail\"><span class=\"ds-rail-label\">YOUR DPS</span><span class=\"ds-rail-value\">43</span><span class=\"ds-rail-sub\">87% PAR</span></div>",
+      "css": ".ds-rail { width: 115px; height: 72px; background: rgba(10,12,20,0.96); display: flex; flex-direction: column; align-items: center; padding-top: 9px; box-sizing: border-box; font-family: system-ui, sans-serif; font-weight: 700; } .ds-rail-label { font-size: 14px; letter-spacing: 1.4px; color: #6f7b99; } .ds-rail-value { font-size: 23px; color: #ffd166; line-height: 1.1; } .ds-rail-sub { font-size: 14px; letter-spacing: 1px; color: #ffd166; }"
     },
     {
       "name": "Strip Cell",
       "kind": "chip",
       "refersTo": "strip-cell",
-      "description": "A bonus-strip cell: axis-coloured label, 26px main, 15px sub, 1px hairline divider.",
+      "description": "A bonus-strip cell: axis-coloured 14px label, 26px main, 17px bold sub (blank at identity; the ARMY cell has none), 1px hairline divider.",
       "html": "<div class=\"ds-strip\"><span class=\"ds-strip-label\">DMG</span><span class=\"ds-strip-main\">+15%</span><span class=\"ds-strip-sub\">×1.30</span></div>",
-      "css": ".ds-strip { width: 128px; height: 96px; background: rgba(11,15,28,0.96); border-left: 1px solid #2a3350; padding: 12px 0 0 18px; box-sizing: border-box; display: flex; flex-direction: column; font-family: system-ui, sans-serif; font-weight: 700; } .ds-strip-label { font-size: 12px; letter-spacing: 1.2px; color: #ff6b4a; } .ds-strip-main { font-size: 26px; color: #f2f6ff; line-height: 1.2; } .ds-strip-sub { font-size: 15px; color: #8b99bb; }"
+      "css": ".ds-strip { width: 128px; height: 94px; background: rgba(11,15,28,0.96); border-left: 1px solid #2a3350; padding: 10px 0 0 18px; box-sizing: border-box; display: flex; flex-direction: column; font-family: system-ui, sans-serif; font-weight: 700; } .ds-strip-label { font-size: 14px; letter-spacing: 1.2px; color: #ff6b4a; } .ds-strip-main { font-size: 26px; color: #f2f6ff; line-height: 1.2; } .ds-strip-sub { font-size: 17px; color: #8b99bb; }"
     },
     {
       "name": "Match Code",
       "kind": "custom",
       "refersTo": "code",
-      "description": "The shareable code between two hairlines with its caption under it.",
-      "html": "<div class=\"ds-code\"><div class=\"ds-code-rule\"></div><div class=\"ds-code-text\">2TNB-BGS-N</div><div class=\"ds-code-cap\">match code · sent to you</div><div class=\"ds-code-rule\"></div></div>",
-      "css": ".ds-code { width: 380px; text-align: center; background: #05070f; padding: 8px 0; } .ds-code-rule { height: 1px; background: #2a3350; } .ds-code-text { margin: 28px 0 6px; color: #9fe8ff; font: 700 40px ui-monospace, SFMono-Regular, Menlo, monospace; } .ds-code-cap { margin-bottom: 28px; color: #8f9ab5; font: 400 13px system-ui, sans-serif; }"
+      "description": "The shareable code under a hairline with its caption beneath (15px on the start screen, 14px on the end screen; warning orange on a hard run).",
+      "html": "<div class=\"ds-code\"><div class=\"ds-code-rule\"></div><div class=\"ds-code-text\">2TNB-BGS-N</div><div class=\"ds-code-cap\">match code · sent to you</div></div>",
+      "css": ".ds-code { width: 380px; text-align: center; background: #05070f; padding: 0 0 8px; } .ds-code-rule { height: 1px; background: #2a3350; } .ds-code-text { margin: 28px 0 6px; color: #9fe8ff; font: 700 40px ui-monospace, SFMono-Regular, Menlo, monospace; } .ds-code-cap { color: #8f9ab5; font: 400 15px system-ui, sans-serif; }"
     }
   ],
   "narrative": {

@@ -23,7 +23,11 @@ const VALUE = '#e8ecf8';
  * squad - so the rail is now "the run" (wave, you against par, your read on
  * the offers) and the strip is "the squad".
  */
-const COLUMNS = ['WAVE', 'DPS', 'PAR', 'SENSE'] as const;
+// The words a first-time player reads, with the game's own in them: YOUR
+// DPS is damage per second, PAR DPS the shadow player's, and the PAR
+// column's sub-line says whose it is (the author, 2026-09-20: nothing on
+// screen may assume the reader knows what PAR is).
+const COLUMNS = ['WAVE', 'YOUR DPS', 'PAR DPS', 'SENSE'] as const;
 
 /**
  * Par DPS is on screen permanently rather than saved for the death readout.
@@ -87,6 +91,7 @@ export class TopRail {
       .setColor(h.sense > 0 ? hex(AXIS_COLOR.sense) : '#4d5670');
 
     this.subs[0].setText(`${compact(h.kills)} KILLS`);
+    this.subs[2].setText('BEST PLAY');
     // Past 999% the exact number has stopped being information, and the column
     // is 135px wide.
     const percent = Math.round(ratio * 100);

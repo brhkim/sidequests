@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, VIEW } from '../../config';
-import { CardTile, cardButton } from './CardTile';
-import { CAPTION, compact, FONT, GRADE_COLOR, hex, MONO, SMALL } from './types';
+import { CardTile, cardButton, type CardButton } from './CardTile';
+import { CAPTION, compact, FONT, GRADE_COLOR, hex, LINK, MONO, SMALL, WARNING } from './types';
 import type { MatchMode } from '../../systems/MatchCode';
 
 export interface EndPayload {
@@ -27,8 +27,6 @@ export interface EndPayload {
  */
 export const REPLAY_BUTTON = { x: VIEW.width / 2, y: 836, width: 300, height: 56 } as const;
 
-const LINK = '#6be8d4';
-
 /**
  * The end screen, laid out as the thing people actually share.
  *
@@ -45,6 +43,11 @@ const LINK = '#6be8d4';
  * screen's HEADING - the same 28px step PAUSED uses - not a tracked label
  * over the number. Waves survived stays the headline number, with the
  * decision score beneath it (notes.md); PRODUCT.md records the choice.
+ *
+ * Captions are in plain words (the author, 2026-09-20): "of the best
+ * picks" rather than "of optimal play", "peak damage / sec" rather than
+ * "peak DPS". The grade words stay, because they are what the wash said
+ * during the run. COPY LINK and NEW MATCH are card buttons.
  */
 export class EndScreen {
   private readonly root: Phaser.GameObjects.Container;
@@ -56,7 +59,7 @@ export class EndScreen {
   private readonly detail: Phaser.GameObjects.Text;
   private readonly code: Phaser.GameObjects.Text;
   private readonly codeCaption: Phaser.GameObjects.Text;
-  private readonly copyLabel: Phaser.GameObjects.Text;
+  private readonly copy: CardButton;
   private readonly version: Phaser.GameObjects.Text;
   private link = '';
   private countTween: Phaser.Tweens.Tween | null = null;
@@ -65,6 +68,7 @@ export class EndScreen {
     const cx = VIEW.width / 2;
     const parts: Phaser.GameObjects.GameObject[] = [];
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { parts.push(o); return o; };
+    const addAll = (os: Phaser.GameObjects.GameObject[]) => { for (const o of os) add(o); };
     const text = (y: number, size: number, color: string, bold = true, tracking = 0) =>
       add(scene.add.text(cx, y, '', {
         fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: bold ? 'bold' : 'normal', align: 'center',
@@ -89,14 +93,14 @@ export class EndScreen {
     this.optimal = add(scene.add.text(cx - 110, 346, '', {
       fontFamily: FONT, fontSize: '44px', color: COLORS.text, fontStyle: 'bold',
     }).setOrigin(0.5));
-    add(scene.add.text(cx - 110, 384, 'OF OPTIMAL PLAY', {
-      fontFamily: FONT, fontSize: '16px', color: SMALL,
+    add(scene.add.text(cx - 110, 384, 'OF THE GROWTH ON OFFER', {
+      fontFamily: FONT, fontSize: '15px', color: SMALL,
     }).setOrigin(0.5));
     this.peak = add(scene.add.text(cx + 110, 346, '', {
       fontFamily: FONT, fontSize: '44px', color: COLORS.text, fontStyle: 'bold',
     }).setOrigin(0.5));
-    add(scene.add.text(cx + 110, 384, 'PEAK DPS', {
-      fontFamily: FONT, fontSize: '16px', color: SMALL,
+    add(scene.add.text(cx + 110, 384, 'PEAK DAMAGE / SEC', {
+      fontFamily: FONT, fontSize: '15px', color: SMALL,
     }).setOrigin(0.5));
 
     // The scorecard: five card footprints in the grade colours, the pick
@@ -111,47 +115,40 @@ export class EndScreen {
       for (const p of tile.parts) add(p);
       this.tally.push(tile);
     });
+    add(scene.add.text(cx, 490, 'every card you took, graded against the best of its three', {
+      fontFamily: FONT, fontSize: '13px', color: SMALL,
+    }).setOrigin(0.5));
 
-    this.detail = text(520, 16, CAPTION, false);
+    this.detail = text(522, 16, CAPTION, false);
 
-    add(scene.add.rectangle(cx, 572, 420, 1, 0x2a3350));
+    add(scene.add.rectangle(cx, 566, 420, 1, 0x2a3350));
 
     // Large on purpose. This is the half of the screenshot that makes the run
     // playable by somebody else rather than merely a claim. The caption names
     // the difficulty, because a hard run is not the same match as a normal one
     // on the same seed and a reader should not have to decode base32 to see it.
-    this.code = add(scene.add.text(cx, 620, '', {
+    this.code = add(scene.add.text(cx, 610, '', {
       fontFamily: MONO, fontSize: '40px', color: '#9fe8ff', fontStyle: 'bold',
     }).setOrigin(0.5));
-    this.codeCaption = text(664, 13, CAPTION, false);
+    this.codeCaption = text(650, 14, CAPTION, false);
 
-    // Tappable lines get a fixed hit BAR behind them rather than the text's own
-    // bounds: the label changes length when it changes state, and a text
-    // sized target moves out from under the finger that just tapped it.
-    this.copyLabel = text(712, 16, LINK, false).setText('tap here to copy link');
-    const copyHit = add(scene.add.rectangle(cx, 712, 300, 44, 0xffffff, 0.001)
-      .setInteractive({ useHandCursor: true }));
-    copyHit.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      p.event.stopPropagation();
-      this.copyLink();
-    });
+    // Copy, as a button. The label changes with the result, and the card
+    // keeps its size under it.
+    this.copy = cardButton(scene, cx, 700, 240, 44, LINK, 'COPY LINK', 15, 'secondary')
+      .bind(() => this.copyLink());
+    addAll(this.copy.parts);
 
     // Seeds only compare within a version. Without this people compare scores
     // from different games and conclude the leaderboard is broken.
-    this.version = text(756, 12, SMALL, false);
+    this.version = text(750, 13, SMALL, false);
 
     // Replay, as a BUTTON rather than a tap anywhere, in the card's shape
     // like every primary action. Not interactive here: GameScene owns the hit
     // test (see REPLAY_BUTTON) and SPACE still works.
-    for (const p of cardButton(scene, cx, REPLAY_BUTTON.y, REPLAY_BUTTON.width, REPLAY_BUTTON.height,
-      0x3ecf7a, 'REPLAY THIS MATCH').parts) add(p);
-    text(900, 15, LINK, false).setText('or start a new match');
-    const freshHit = add(scene.add.rectangle(cx, 900, 300, 44, 0xffffff, 0.001)
-      .setInteractive({ useHandCursor: true }));
-    freshHit.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      p.event.stopPropagation();
-      onNewMatch();
-    });
+    addAll(cardButton(scene, cx, REPLAY_BUTTON.y, REPLAY_BUTTON.width, REPLAY_BUTTON.height,
+      0x3ecf7a, 'REPLAY THIS MATCH').parts);
+    addAll(cardButton(scene, cx, 900, 300, 44, LINK, 'NEW MATCH', 15, 'secondary')
+      .bind(onNewMatch).parts);
 
     this.root = scene.add.container(0, 0, parts).setDepth(50).setVisible(false);
   }
@@ -163,20 +160,20 @@ export class EndScreen {
    * A failure is expected, not exceptional, and says so without alarm.
    */
   private copyLink(): void {
-    const done = (msg: string) => this.copyLabel.setText(msg);
+    const done = (msg: string) => this.copy.setLabel(msg);
     try {
       navigator.clipboard.writeText(this.link)
-        .then(() => done('link copied'))
-        .catch(() => done('type the code above'));
+        .then(() => done('LINK COPIED'))
+        .catch(() => done('TYPE THE CODE ABOVE'));
     } catch {
-      done('type the code above');
+      done('TYPE THE CODE ABOVE');
     }
   }
 
   show(p: EndPayload, link: string): void {
     this.link = link;
-    this.copyLabel.setText('tap here to copy link');
-    this.title.setText(p.cause === 'titan' ? 'THE TITAN LANDED' : 'OVERRUN');
+    this.copy.setLabel('COPY LINK');
+    this.title.setText(p.cause === 'titan' ? 'THE TITAN LANDED' : 'YOUR SQUAD WAS OVERRUN');
     // The headline counts up to its number: the screen's one authored
     // motion (the author's call, 2026-09-20). Scene clock, wall time, and
     // nothing the simulation touches - the run is already over.
@@ -201,13 +198,15 @@ export class EndScreen {
 
     this.detail.setText(
       p.decisions > 0
-        ? `${p.decisions} decisions  ·  ${p.kills} enemies destroyed`
+        ? `${p.decisions} offer${p.decisions === 1 ? '' : 's'}  ·  ${p.kills} enemies destroyed`
         : `${p.kills} enemies destroyed`,
     );
     this.code.setText(p.code);
     const hard = p.mode === 'hard';
-    this.codeCaption.setText(hard ? 'same match  ·  HARD  ·  type this in' : 'same match  ·  type this in');
-    this.codeCaption.setColor(hard ? '#ff7b54' : CAPTION);
+    this.codeCaption.setText(hard
+      ? 'match code  ·  HARD  ·  type it in to play this exact run'
+      : 'match code  ·  type it in to play this exact run');
+    this.codeCaption.setColor(hard ? WARNING : CAPTION);
     this.version.setText(`v${p.version}  ·  scores compare within a version`);
 
     // Enters rather than cuts: the death beat has just darkened the field.

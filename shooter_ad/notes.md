@@ -268,9 +268,22 @@ the decision, but need increasing precision in movement to do so despite the
 noise of everything going on - and so they can fully miss a bonus. This was a
 bug fixed a while ago (a gap at wave 1 let a player slide between two blocks
 by accident) and is now part of the design instead: zero until wave 4, 6px a
-wave from wave 5, capped at 72px from wave 16, where a 180px lane holds a
-108px gate. Hard mode starts it five waves in like the other judgment levers.
+wave from wave 5, to 72px at wave 16, where a 180px lane holds a 108px
+gate. Hard mode starts it five waves in like the other judgment levers.
 A missed offer shows `MISS` at the lane line and is graded as the worst pick.
+
+**It no longer flattens there** (the author, 2026-09-20, 0.8: "scale up two
+more times, similar curve as-is, in two more increments for 5 waves rather
+than flattening out completely"). A second stage runs from wave 16 to wave
+26 at 2.5px a wave, ending at 97px of dead space and an 83px gate - the
+leader within ±41px. The late slope is shallower than the first on purpose:
+6px a wave for ten more waves would leave a 48px card that cannot hold its
+own axis word, so the shape is kept and the size is what the label allows;
+`GATES.minWidth` fell 100 to 80 with it. Gate speed got the same treatment
+with no compromise: the 0.075-a-wave rise that used to cap at ×2.5 (wave
+21) now runs to ×3.25 at wave 31, a ~2.8s descent. `npm run model` asserts
+both caps land on those waves and that the curve does not flatten after
+the first cap.
 
 To keep every label legible at the narrowest width the cards became taller
 and the label two-line - magnitude over axis - rather than the numbers
@@ -660,6 +673,13 @@ never the play space. Everything else - the grade wash, MISS, rescue and
 contact labels, the wave banner, the Titan bar, the death beat - is a typed
 `moment` from the simulation, so audio and rendering read one account.
 
+**The Titan's bar is a third row under both panels** (2026-09-20): it sat
+in the 12px fade between the rail and the strip, where the author read it
+as lost in the middle of the two, and before that on the field beside
+PAUSE. Now, while a boss lives, a full-width panel row appears directly
+under the strip's bottom hairline with the 10px purple bar and its TITAN
+tag, so the deadline reads as its own line rather than as a seam.
+
 **Directly beneath the rail** is *the squad*: every input to the DPS
 product and nothing else — **ARMY** (power and rank), DMG pool and mult, RATE
 pool and mult, GUNS, PIERCE — in the order the pause screen's DETAILS page
@@ -816,13 +836,34 @@ SEVERELY punished. The math only gets harder. The bonuses only scroll at you
 faster. Have fun!* It sits above the match code, because a player who does not
 know they are being tested on arithmetic reads every offer as noise.
 
-Beneath the code: **enter a code** (a native prompt — the medium is a
+Beneath the code: **ENTER A CODE** (a native prompt — the medium is a
 screenshot, and a code you can read off a photo but cannot type in anywhere is
-decoration) and **new match**. Both re-seed every consumer of the generator at
+decoration) and **NEW MATCH**. Both re-seed every consumer of the generator at
 once. A restart now replays the *same* match from its first draw; it used to
 carry the stream on under the old code, so the "same match" on the end screen
 was one nobody could reproduce. The end screen offers both: tap to replay, or
 start a new match.
+
+**Buttons look like buttons, and the game explains itself to a stranger**
+(the author, 2026-09-20: "why is there so many just text buttons?", "a lot
+of our text explanations rely on players already knowing the game
+terminology like RISK and Par", "there needs to be more explanation in
+places that users can find"). Every control on the three screens is a card
+button - the gate card's shape in three weights: the one filled ARMY-green
+primary per screen, link-teal secondaries (ENTER A CODE, NEW MATCH, HOW TO
+PLAY, COPY LINK, SOUND), loss-red RESTART - with hover and pressed states,
+and the difficulty is two segments with the chosen one lit. The pause
+screen has three pages: **HOW TO PLAY**, twelve tappable topics (the goal,
+the cards, the sum, the top panels, taking damage, the Titan, rescues,
+PAR, RISK, the score, match codes, hard mode) each explained in plain
+words that never use a term before saying what it means; **BONUSES**, the
+ruler and the eight tiles, every note rewritten the same way; **DETAILS**,
+the DPS working. The start screen's HOW TO PLAY opens the same screen
+before a run exists, against the start state's numbers, with BACK in place
+of RESUME. The rail says YOUR DPS and PAR DPS with BEST PLAY under the
+latter; the end screen says OF THE BEST PICKS and PEAK DAMAGE / SEC. The
+demo offer on the start screen deals a different offer on every pass, six
+in rotation, so the whole vocabulary is seen. The pitch is still verbatim.
 
 ## Rescue cages are the catch-up, and they cost something
 
@@ -833,7 +874,15 @@ shadow player too would move the curve by exactly what the cage gave back.
 
 It rolls once per wave duration at a **40% chance** (was 75%): the author
 found it appearing too often, and early on it made keeping up with par
-trivial. Frequency is the lever rather than size because the size is already
+trivial. **For two versions the 40% was a figure on paper** (found 0.8,
+2026-09-20, from the author's "rescues still feel way too common; I think
+there's some glitch"): the roll's clock restarted only on a success, so a
+failed roll was rolled again on the next step - sixty times a second -
+until one passed, and a cage arrived within ~40ms of every deadline. The
+baseline build, watched: cages at 17.0 / 32.2 / 47.5 / 61.7s on every seed,
+one per wave. The clock now restarts on every roll; `npm run balance`
+prints cages per minute from a counter in the stats registry, so the
+frequency is a measured number rather than a constant. Frequency is the lever rather than size because the size is already
 a share of the run. Par is unaffected by rescue in every way that matters to
 the grade: a pick is graded against the army the player actually holds when
 the offer arrives, never against par's, so extra army from a rescue simply
@@ -852,10 +901,12 @@ against a `×ARMY` card is only decidable if you know what you hold, and a
 gift arriving mid-decision changes the answer), and the streak in particular
 removed agency - power that arrives for standing in the stream is not
 power that was chosen. Every unit the player holds now came through a gate
-or out of a cage. The one number that had to move with it: the army starts
-at **5** rather than 1, because with wave-clear army gone a start of 1 made
-the first leaked Grunt at ~30s the end of the run on three seeds in five, and
-5 is what a player held through wave 2 before.
+or out of a cage. The army started at **5** for a session on the argument
+that a start of 1 made the first leaked Grunt at ~30s the end of the run
+for the bot on three seeds in five; the author took the harder open anyway
+(2026-09-20, 0.9): **it starts at 1**. Measured, seeds 1-5 at skill 0.7:
+median survival 50.0s at 5, 34.9s at 1; standing 1.00 either way. The one
+body you start with is the run until the first gate.
 
 Its HP is **a fifth of the Titan that would spawn now** (the boss's own
 budget, so it scales with par the way the boss does): about 2.65 seconds of

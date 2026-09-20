@@ -240,6 +240,14 @@ await holdPower(24);
     g.squad.progress.power = 1;
     g.squad.rebuild();
   });
+  // A forced moment needs a body to force. The wave-16 army the dead-space
+  // frame left behind clears the board in a blink, so on some seeds no
+  // enemy is live at this instant (seed 5 at startPower 1, 0.9); wait for
+  // the spawner rather than fail on the board's phase.
+  await page.waitForFunction(
+    () => window.game.scene.getScene('Game').enemies.items.some((x) => x.active && x.type.id !== 'titan'),
+    null, { timeout: 5000, polling: 16 },
+  ).catch(() => {});
   const ok = await withEnemy('e.x = g.squad.x; e.y = g.squad.y - 2; e.hp = e.maxHp = 1e9;');
   if (!ok) errors.push('death: no live enemy to move');
   await page.waitForFunction(() => window.__overAt !== null, null, { timeout: 5000, polling: 10 })

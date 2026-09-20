@@ -38,6 +38,9 @@ interface Ruler {
  * the tapped tile does; it opens on ARMY and follows the finger, so the
  * teaching is one sentence at a time rather than ten at once. The three RISK
  * axes say so on the tile.
+ *
+ * Every note is written for somebody who has not read HOW TO PLAY (the
+ * author, 2026-09-20): a term is explained where it is used.
  */
 export class PauseBonuses {
   readonly root: Phaser.GameObjects.Container;
@@ -54,8 +57,8 @@ export class PauseBonuses {
     const b: Phaser.GameObjects.GameObject[] = [];
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { b.push(o); return o; };
 
-    add(scene.add.text(cx, 98, 'stat  =  base × (1 + pool) × mult', {
-      fontFamily: FONT, fontSize: '16px', color: SMALL,
+    add(scene.add.text(cx, 104, 'a +% card adds to a pool you keep  ·  a × card multiplies', {
+      fontFamily: FONT, fontSize: '15px', color: '#9fe8ff', align: 'center',
     }).setOrigin(0.5, 0));
 
     // Two rulers side by side, because damage and rate are separate pools and
@@ -64,26 +67,23 @@ export class PauseBonuses {
     for (const [i, axis] of (['damage', 'rate'] as const).entries()) {
       const x = 26 + i * 254;
       const color = AXIS_COLOR[axis];
-      const head = add(scene.add.text(x, 118, '', {
+      const head = add(scene.add.text(x, 134, '', {
         fontFamily: FONT, fontSize: '16px', color: hex(color), fontStyle: 'bold',
       }).setOrigin(0, 0));
-      const divide = add(scene.add.text(x, 138, '', {
+      const divide = add(scene.add.text(x, 154, '', {
         fontFamily: FONT, fontSize: '14px', color: CAPTION,
       }).setOrigin(0, 0));
-      const lines = SAMPLE_ROOTS.map((_, r) => add(scene.add.text(x, 160 + r * 22, '', {
+      const lines = SAMPLE_ROOTS.map((_, r) => add(scene.add.text(x, 176 + r * 22, '', {
         fontFamily: MONO, fontSize: '17px', color: '#e8ecf8', fontStyle: 'bold',
       }).setOrigin(0, 0)));
       this.rulers.push({ head, divide, lines });
     }
 
-    add(scene.add.text(cx, 232, 'Neither form is better — convert, then take the bigger one.', {
+    add(scene.add.text(cx, 246, 'Neither kind is better. Convert, then take the bigger one.', {
       fontFamily: FONT, fontSize: '15px', color: '#9fe8ff', align: 'center',
     }).setOrigin(0.5, 0));
-    add(scene.add.text(cx, 252, 'as a pool grows, the same × needs a bigger +% to match it', {
-      fontFamily: FONT, fontSize: '14px', color: SMALL, align: 'center',
-    }).setOrigin(0.5, 0));
 
-    add(scene.add.rectangle(cx, 276, VIEW.width - 52, 1, 0x2a3350));
+    add(scene.add.rectangle(cx, 284, VIEW.width - 52, 1, 0x2a3350));
 
     // The grid: four tiles a row, two rows, in DPS order then the RISK three.
     AXES.forEach((axis, i) => {
@@ -101,19 +101,22 @@ export class PauseBonuses {
     // One line of teaching at a time, under the grid, headed by the axis;
     // the hint that says how sits between the grid and the line it explains.
     const gridBottom = GRID_Y + 2 * TILE.height + GRID_GAP;
-    add(scene.add.text(cx, gridBottom + 8, 'tap a card for what it does', {
+    add(scene.add.text(cx, gridBottom + 6, 'tap a card for what it does', {
       fontFamily: FONT, fontSize: '14px', color: SMALL,
     }).setOrigin(0.5, 0));
-    const noteY = gridBottom + 34;
+    const noteY = gridBottom + 30;
     this.noteHead = add(scene.add.text(26, noteY, '', {
       fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(0, 0).setLetterSpacing(1.5));
     this.note = add(scene.add.text(26, noteY + 22, '', {
-      fontFamily: FONT, fontSize: '16px', color: CAPTION, wordWrap: { width: VIEW.width - 52 },
+      fontFamily: FONT, fontSize: '17px', color: '#c9d2ea', wordWrap: { width: VIEW.width - 52 },
     }).setOrigin(0, 0).setLineSpacing(4));
 
     // Your DPS against par, in the standing colour the rail uses for it.
-    this.standing = add(scene.add.text(cx, 648, '', {
+    add(scene.add.text(cx, 664, 'your damage per second  ·  the shadow player\'s', {
+      fontFamily: FONT, fontSize: '13px', color: SMALL,
+    }).setOrigin(0.5, 0));
+    this.standing = add(scene.add.text(cx, 682, '', {
       fontFamily: FONT, fontSize: '16px', color: SMALL, fontStyle: 'bold',
     }).setOrigin(0.5, 0));
 
@@ -129,15 +132,15 @@ export class PauseBonuses {
   private setRuler(index: number, word: string, pool: number): void {
     const r = this.rulers[index];
     const factor = 1 + pool;
-    r.head.setText(`${word} POOL  +${Math.round(pool * 100)}%`);
+    r.head.setText(`YOUR ${word} POOL  +${Math.round(pool * 100)}%`);
     // At an empty pool the two forms are literally the same offer, which is
     // worth saying outright - the ruler alone looks like a rounding coincidence.
     r.divide.setText(pool > 0
-      ? `a shown +%  ÷ ${factor.toFixed(2)}  →  its ×`
-      : 'at +0% both forms are identical');
+      ? `a +% card ÷ ${factor.toFixed(2)}  =  its ×`
+      : 'at +0% both kinds are the same');
     SAMPLE_ROOTS.forEach((rootValue, i) => {
       const percent = Math.round((rootValue - 1) * factor * 100);
-      r.lines[i].setText(`+${percent}%  ≡  ×${rootValue.toFixed(2)}`);
+      r.lines[i].setText(`+${percent}%  =  ×${rootValue.toFixed(2)}`);
     });
   }
 
@@ -161,28 +164,28 @@ export class PauseBonuses {
 
     const mult12 = Math.max(1, Math.round(h.power * 0.2));
     this.setTile(0, compact(h.power), 'ARMY', true,
-      `Your power: ${h.units}/${SQUAD.ringCap} bodies at rank ${h.tierName}. Every army bonus is a share of what you hold, so ×1.2 ARMY here = +${compact(mult12)}.`);
+      `Your soldiers. ${h.units} of ${SQUAD.ringCap} are on screen; power past that makes each one stronger. An ARMY card adds soldiers as a share of what you hold, so ×1.2 ARMY right now = +${compact(mult12)}.`);
     this.setTile(1, `+${Math.round(h.damageBonus * 100)}%`,
       h.damageMult > 1 ? `DMG ${formatMult(h.damageMult)}` : 'DMG',
       h.damageBonus > 0 || h.damageMult > 1,
-      'Every +% DMG adds into the pool, which multiplies base damage; every × DMG stacks into the mult, and the pool scales that too.');
+      `Damage per shot. A +% DMG card adds to your damage pool (now +${Math.round(h.damageBonus * 100)}%); a × DMG card multiplies on top of it (now ${formatMult(h.damageMult)}). Both raise the same number.`);
     this.setTile(2, `+${Math.round(h.rateBonus * 100)}%`,
       h.rateMult > 1 ? `RATE ${formatMult(h.rateMult)}` : 'RATE',
       h.rateBonus > 0 || h.rateMult > 1,
-      'Every +% RATE adds into the pool, which multiplies fire rate; every × RATE stacks into the mult, and the pool scales that too.');
+      `Shots per second. Works exactly like DMG: a +% RATE card adds to the rate pool (now +${Math.round(h.rateBonus * 100)}%), a × RATE card multiplies on top (now ${formatMult(h.rateMult)}).`);
     this.setTile(3, String(h.guns), 'GUNS', h.guns > 1,
-      'Shots per volley, so DPS × guns. Past 3 held, +N GUNS offers grow with what you hold.');
+      `Shots fired at once. ${h.guns === 1 ? 'Two guns is double the damage.' : `${h.guns} guns is ${h.guns}× the damage.`} Past 3 held, a card offers +2 or more so it stays worth taking.`);
     this.setTile(4, String(h.pierce), 'PIERCE', h.pierce > 0,
-      `Bodies one shot goes through, worth ${formatMult(h.pierceMult)} now. Past 3 held, +N PIERCE offers grow. Worth nothing against one body: the Titan.`);
+      `Enemies one shot passes through. Each level is worth half a hit more (${formatMult(h.pierceMult)} right now). Worth nothing against a lone body like the Titan.`);
     this.setTile(5, formatMult(h.moveMult), 'MOVE RISK', h.moveMult > 1,
-      'Squad speed. RISK: no DPS and par never takes it. It buys reaching the card you judged best; the run counts it as no growth.');
+      'How fast your squad walks. Adds no damage, so it is a RISK: it helps you reach the card you want, but the shadow player (PAR) never takes it and the score counts it as no growth.');
     const time = Math.round((1 / h.gateSpeedMult - 1) * 100);
     this.setTile(6, `+${time}%`, 'TIME RISK', time > 0,
-      'Offers fall slower. RISK: no DPS and par never takes it. It buys seconds to do the sum; the run counts it as no growth.');
+      `Cards fall ${time > 0 ? `${time}% ` : ''}slower, so you have longer to compare them. Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
     const chances = Array.from({ length: MAX_SENSE }, (_, i) => Math.round(senseChance(i + 1) * 100));
     this.tiles[7].setPips(h.sense);
     this.setTile(7, '', `SENSE ${Math.round(h.senseChance * 100)}%`, h.sense > 0,
-      `${Math.round(h.senseChance * 100)}% of offers arrive with the best card marked (${chances.join(' / ')}% at 1 / 2 / 3 held). RISK: no DPS and par never takes it.`);
+      `${Math.round(h.senseChance * 100)}% of offers arrive with the best card outlined in white (${chances.join(' / ')}% at 1 / 2 / 3 held). Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
     this.select(this.selected);
   }
 }

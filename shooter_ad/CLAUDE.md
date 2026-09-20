@@ -118,7 +118,9 @@ at the bottom; the pause button sits in the rail's right-hand
 0.7, so the field is as tall as it was), the pause button and the three
 screens, and dispatches the `moment` stream to
 `hud/EdgeFlash` (damage, at the screen edges, sized by `share`),
-`hud/BossBar` (the Titan's HP under the rail from `HudPayload.titan`) and
+`hud/BossBar` (the Titan's HP in its own panel row directly under the
+strip from `HudPayload.titan`, since 2026-09-20; it sat in the fade between
+the rail and the strip before) and
 `hud/WaveBanner`. Field-space feedback is `scenes/fx/FieldFx` inside
 `render/FieldRender`: the grade wash (`PERFECT` / `GOOD` / `BAD`, or `RISK` for a MOVE / TIME / SENSE pick, in
 the card's own footprint, held then lifted - the one authored motion), `MISS`
@@ -136,6 +138,23 @@ at least 44px, and the end screen restarts only from `REPLAY_BUTTON`, which
 `GameScene.bindInput` hit-tests - a tap anywhere else leaves the shareable
 screenshot alone. The pause screen's SOUND line emits `mutetoggle` and
 follows the `muted` answer; it never asserts a state audio is not in.
+
+**Every control is a card button, and the pause screen has a HOW TO PLAY
+page** (2026-09-20, the author's UX round). `cardButton` in `hud/CardTile`
+takes a variant - `primary` (filled, one per screen), `secondary` (link
+teal), `danger` (RESTART) - and `bind` wires the tap with hover and
+pressed fills; `segmented` is a row of those with one lit (difficulty on
+the start screen, the three pause tabs). `hud/PauseGuide` is twelve topic
+buttons and one explanation at a time, in words that do not assume PAR,
+RISK or DPS are known; `PauseScreen.show(h, 'guide')` opens the same
+screen from the start screen's HOW TO PLAY at depth 65 (over the start
+screen; 55 when pausing), with BACK for RESUME and no RESTART. GameScene
+publishes one HUD frame in `announceMatch` so that page has the start
+state's numbers. The rail's columns are WAVE / YOUR DPS / PAR DPS / SENSE
+with BEST PLAY under PAR. Instrument anchors moved with the words: ENTER
+A CODE, NEW MATCH (start and end), the NORMAL / HARD segments (the lit
+one's text is `#e8ecf8`), HOW TO PLAY, BACK; `npm run endscreen` presses
+them all and asserts the demo offer changes between passes.
 
 **The three screens are built from the gate card** (impeccable, 2026-09-20,
 code-led; rendering only, no `systems/` change). `hud/CardTile.ts` is the
@@ -550,7 +569,7 @@ people compare off a screenshot, so the two must not share an identity.
 ### Gate approach speed is the judgment-axis difficulty lever
 
 `GATES.speedPerWave` raises how fast offers descend, capped at
-`GATES.maxSpeedMult`. Later waves do not hand you a harder sum, they give you
+`GATES.maxSpeedMult` (3.25 from 0.8, reached at wave 31; it was 2.5 at 21). Later waves do not hand you a harder sum, they give you
 less time to do it in - deliberately separate from enemy pressure, which is
 closed-loop against par and never keys off the wave number. `+TIME` divides it
 back down for the rest of the run.
@@ -566,9 +585,16 @@ From wave 5 (judgment wave) each gate is narrower than its lane, and the band
 between neighbours belongs to no option: `GATES.deadSpace` is `{ fromWave: 4,
 perWave: 6, max: 72 }`, read through `Progression.gateDeadSpace(wave)` beside
 `waveGateSpeedMult`, so a 180px lane holds a 174px gate at wave 5, 144px on
-the second Titan at wave 10, and 108px from wave 16 on - the leader must then
+the second Titan at wave 10, and 108px at wave 16 - the leader must then
 be within ±54px of a card's centre. It keys off `judgmentWave` like speed and
-legibility, so hard mode starts at 12px and caps at real wave 11. The width
+legibility, so hard mode starts at 12px. **From 0.8 the curve has a second
+stage** (the author's ask): `latePerWave` 2.5 from wave 16 to `lateMax` 97
+at wave 26 (hard: 21), an 83px gate, the leader within ±41px; `minWidth`
+fell 100 to 80 because the axis word needs ~76px and the magnitude already
+shrinks. Gate speed likewise runs to `maxSpeedMult` 3.25 at wave 31 instead
+of 2.5 at 21. `gateDeadSpace` adds the two stages; `npm run model` asserts
+the first cap at wave 16, no flattening after it, and the two final caps at
+waves 26 and 31. The width
 IS the hit test (`checkGates` and `FieldRender.findTarget` both read
 `g.width`) and the card is drawn exactly as wide as it hits; `GATES.gap` is
 the drawn inset on top of that, so what the eye sees as a gap is dead space
@@ -1347,6 +1373,21 @@ cue must peak between -40 and -1 dBFS. `window.__audio` on every page has
 `play` (the event path, with a synthetic clock `t`), `voice` (direct),
 `tick`, `render`, `cues`, `stats`, `setMuted`, `stopAll`, `voicesOf`.
 
+### Rescue cages roll once per wave, and for two versions they did not
+
+`Enemies.updateCages` rolls `CAGE.chancePerWave` when its accumulator
+passes the wave duration. Until 0.8 the accumulator was reset only when
+the roll SUCCEEDED, so a failed roll was re-rolled on the very next step,
+sixty times a second, until one passed - a cage within ~40ms of every
+deadline, whatever the constant said. Watched on the 0.7 build with a
+scratch page script: cages at 17.0 / 32.2 / 47.5 / 61.7s on every seed.
+The clock now restarts on every roll (the failure path returns after
+drifting the live cages), `cagesSpawned` is counted into the `stats`
+registry as `cages`, and `npm run balance` prints `cages/min` with the
+per-seed counts. Read that line after touching anything near the roll: it
+is the first instrument this project has had for the frequency, and the
+bug lived two versions because there was none.
+
 ## Extending content
 
 - **Enemy**: append to `ENEMIES` in `data/enemies.ts` with a `tier` (what it
@@ -1377,4 +1418,7 @@ cue must peak between -40 and -1 dBFS. `window.__audio` on every page has
   at the author's request on 2026-09-20, on both the player's side and par's
   (`Difficulty.observeSpawn` credits par with the kill and nothing else) -
   see `notes.md`, "No automatic army". `SQUAD.startPower` went 1 to 5 with
-  it. Any new source must be a choice the player makes.
+  it and back to **1** at the author's ask (0.9): a lone unit, the first
+  leak ends the run, and `npm run verify` had to stop sweeping and stand
+  under the lowest enemy to kill anything. Any new source must be a choice
+  the player makes.

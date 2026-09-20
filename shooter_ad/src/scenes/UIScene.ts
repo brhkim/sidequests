@@ -8,7 +8,8 @@ import { EndScreen, type EndPayload } from './hud/EndScreen';
 import { PauseScreen, PAUSE_BUTTON } from './hud/PauseScreen';
 import { StartScreen, type StartPayload } from './hud/StartScreen';
 import { TopRail } from './hud/TopRail';
-import { CAPTION, FONT, GRADE_COLOR, type HudPayload } from './hud/types';
+import { cardButton } from './hud/CardTile';
+import { GRADE_COLOR, type HudPayload } from './hud/types';
 import { WaveBanner } from './hud/WaveBanner';
 
 const RED = 0xff5566;
@@ -74,11 +75,16 @@ export class UIScene extends Phaser.Scene {
       // Same ownership for the seed: a typed code or a request for a fresh
       // one is a request, and the code that comes back is the truth.
       (match) => this.game.events.emit('matchrequest', match),
+      // HOW TO PLAY: the pause screen's pages over the start screen, from
+      // the start-state frame GameScene publishes with `showstart`.
+      () => { if (this.lastHud) this.pause.show(this.lastHud, 'guide'); },
     );
 
     this.pause = new PauseScreen(
       this,
-      () => this.game.events.emit('setpaused', false),
+      // RESUME asks the game to unpause; BACK from the guide only closes
+      // the screen, because nothing was paused.
+      (mode) => { if (mode === 'guide') this.pause.hide(); else this.game.events.emit('setpaused', false); },
       () => this.game.events.emit('restartrequest'),
       // Audio owns the truth about mute; it answers with `muted`.
       () => this.game.events.emit('mutetoggle'),
@@ -106,11 +112,12 @@ export class UIScene extends Phaser.Scene {
    */
   private drawPauseButton(): void {
     const { x, y, width, height } = PAUSE_BUTTON;
-    this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.96)
-      .setStrokeStyle(1, 0x6f7b99, 0.9).setDepth(40);
-    this.add.text(x, y, 'PAUSE', {
-      fontFamily: FONT, fontSize: '14px', color: CAPTION, fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(40).setLetterSpacing(1.5);
+    // The card shape every other button has, on the panel's own backing so
+    // the stream never reads through it; not bound - GameScene hit-tests it.
+    this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.96).setDepth(40);
+    for (const p of cardButton(this, x, y, width, height, 0x8f9ab5, 'PAUSE', 14, 'secondary').parts) {
+      (p as Phaser.GameObjects.Rectangle).setDepth(40);
+    }
   }
 
   private onHud(h: HudPayload): void {

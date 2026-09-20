@@ -80,6 +80,13 @@ export class CardTile {
     return this;
   }
 
+  /** Re-tints the card to another axis; the start screen's demo cycles offers. */
+  setColor(color: number): this {
+    this.color = color;
+    this.roof.setFillStyle(color, 1);
+    return this.setHeld(this.held);
+  }
+
   /** Filled pips for the count held, on a tile made with pips. */
   setPips(count: number): this {
     this.pips.forEach((pip, i) => pip.setFillStyle(0xe8ecf8, i < count ? 0.9 : 0));
@@ -118,18 +125,105 @@ export class CardTile {
 }
 
 /**
- * A button in the card's shape: roof, tinted body, stroke, one word. The
- * filled primary action is ARMY green. Returns the parts (for a container)
- * and the hit rectangle to bind.
+ * The three weights a button comes in. Every one is the card's shape - roof,
+ * tinted body, stroke, one word - so a control never has to be recognised
+ * as a control: it is the same object the player has been walking under.
+ *
+ * - **primary**: the one filled action per screen (START MATCH, RESUME,
+ *   REPLAY THIS MATCH), ARMY green.
+ * - **secondary**: every other action (ENTER A CODE, NEW MATCH, HOW TO
+ *   PLAY, COPY LINK, SOUND), link teal, a lighter fill and stroke.
+ * - **danger**: RESTART, loss red, the secondary weight.
+ *
+ * `setActive` is for a segmented control (difficulty, the pause tabs): the
+ * chosen segment wears the primary weight in its own colour and the others
+ * the secondary weight - one lit card in a row of dim ones, which is the
+ * field's own picture of "the one you are under".
  */
+export type ButtonVariant = 'primary' | 'secondary' | 'danger';
+
+const WEIGHT = {
+  lit: { fill: 0.2, stroke: 0.9, strokeWidth: 2, roof: 1, text: '#e8ecf8' },
+  dim: { fill: 0.07, stroke: 0.5, strokeWidth: 1.5, roof: 0.6, text: '' },
+} as const;
+
+export interface CardButton {
+  readonly parts: Phaser.GameObjects.GameObject[];
+  /** The body: bind the tap here (or hit-test it from GameScene). */
+  readonly hit: Phaser.GameObjects.Rectangle;
+  readonly label: Phaser.GameObjects.Text;
+  setLabel(text: string): CardButton;
+  setActive(on: boolean): CardButton;
+  setColor(color: number): CardButton;
+  /** Wires the tap with pressed and hover feedback; the handler runs on pointerdown. */
+  bind(on: () => void): CardButton;
+}
+
 export function cardButton(
   scene: Phaser.Scene, x: number, y: number, width: number, height: number,
-  color: number, label: string, fontSize = 22,
-): { parts: Phaser.GameObjects.GameObject[]; hit: Phaser.GameObjects.Rectangle } {
+  color: number, label: string, fontSize = 22, variant: ButtonVariant = 'primary',
+): CardButton {
   const body = scene.add.rectangle(x, y, width, height, color, 0.2).setStrokeStyle(2, color, 0.9);
   const roof = scene.add.rectangle(x, y - height / 2, width, TILE.roof, color, 1).setOrigin(0.5, 0);
   const text = scene.add.text(x, y + 1, label, {
     fontFamily: FONT, fontSize: `${fontSize}px`, color: hex(color), fontStyle: 'bold',
-  }).setOrigin(0.5).setLetterSpacing(1);
-  return { parts: [body, roof, text], hit: body };
+  }).setOrigin(0.5).setLetterSpacing(fontSize >= 20 ? 1 : 1.2);
+  let tint = color;
+  let active = variant === 'primary';
+  let pressed = false;
+  let hovered = false;
+  const paint = () => {
+    const w = active ? WEIGHT.lit : WEIGHT.dim;
+    const fill = pressed ? w.fill + 0.22 : hovered ? w.fill + 0.08 : w.fill;
+    body.setFillStyle(tint, fill).setStrokeStyle(w.strokeWidth, tint, pressed ? 1 : w.stroke);
+    roof.setAlpha(w.roof);
+    // A lit segment reads in text white; a resting button in its own colour.
+    text.setColor(active && variant !== 'primary' ? w.text : hex(tint));
+  };
+  const button: CardButton = {
+    parts: [body, roof, text], hit: body, label: text,
+    setLabel(t) { text.setText(t); return button; },
+    setActive(on) { active = on; paint(); return button; },
+    setColor(c) { tint = c; paint(); return button; },
+    bind(on) {
+      body.setInteractive({ useHandCursor: true });
+      body.on('pointerover', () => { hovered = true; paint(); });
+      body.on('pointerout', () => { hovered = false; pressed = false; paint(); });
+      body.on('pointerup', () => { pressed = false; paint(); });
+      body.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        p.event.stopPropagation();
+        pressed = true; paint();
+        // The screen this button is on usually hides on the tap; the
+        // pressed look must not be what it shows when it comes back.
+        scene.time.delayedCall(140, () => { pressed = false; paint(); });
+        on();
+      });
+      return button;
+    },
+  };
+  paint();
+  return button;
+}
+
+/**
+ * A row of segments, one lit: the difficulty choice and the pause tabs.
+ * Each segment is a card button; `set` lights the chosen key. Colours are
+ * per segment so a choice can carry its meaning (HARD in the warning
+ * orange, the tabs in code cyan).
+ */
+export function segmented<K extends string>(
+  scene: Phaser.Scene, cx: number, y: number, width: number, height: number, gap: number,
+  items: readonly { key: K; label: string; color: number }[], fontSize: number,
+  onPick: (key: K) => void,
+): { parts: Phaser.GameObjects.GameObject[]; set(key: K): void } {
+  const total = items.length * width + (items.length - 1) * gap;
+  const buttons = items.map((item, i) => {
+    const x = cx - total / 2 + width / 2 + i * (width + gap);
+    return cardButton(scene, x, y, width, height, item.color, item.label, fontSize, 'secondary')
+      .bind(() => onPick(item.key));
+  });
+  return {
+    parts: buttons.flatMap((b) => b.parts),
+    set(key) { buttons.forEach((b, i) => b.setActive(items[i].key === key)); },
+  };
 }

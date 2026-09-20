@@ -70,14 +70,14 @@ export const SQUAD = {
    */
   moveSpeed: 260,
   /**
-   * Five, not one. The army used to start at 1 and take +4 for clearing
-   * wave 1 at 16s; with wave-clear army gone (the author's call - every unit
-   * held is chosen at a gate or shot out of a cage) a start of 1 made the
-   * first leaked Grunt at ~30s the end of the run on three seeds in five.
-   * Five is what a player held through wave 2 before, so the early game is
-   * as durable as it was, and par starts here too.
+   * One: the author's call (2026-09-20, 0.9). It went 1 to 5 for a
+   * session when wave-clear army was removed, on the argument that a start
+   * of 1 made the first leaked Grunt at ~30s the end of the run for the
+   * probe bot on three seeds in five; the author took the harder open.
+   * Every unit past the first is chosen at a gate or shot out of a cage,
+   * and par starts here too.
    */
-  startPower: 5,
+  startPower: 1,
   /**
    * OVERFLOW GUARD, not a balance constant. The rank ladder has no last row
    * (see data/tiers.ts), so there is no power at which an army bonus stops
@@ -464,11 +464,13 @@ export const GATES = {
    */
   speedPerWave: 0.075,
   /**
-   * Ceiling on that rise. At 2.5 a late offer descends in ~3.2s rather than 8s,
-   * which is about as short as three labels can be read in at all. Past that
-   * the game stops testing judgment and starts testing reflexes.
+   * Ceiling on that rise. It was 2.5, reached at wave 21, on the argument
+   * that ~3.2s is as short as three labels can be read in. The author's
+   * call (2026-09-20, 0.8) is two more five-wave steps of the same slope
+   * rather than a flat line: 3.25, reached at wave 31 (hard: 26), a ~2.8s
+   * descent. Past it the game is testing reflexes, and that is the point.
    */
-  maxSpeedMult: 2.5,
+  maxSpeedMult: 3.25,
   /**
    * Card height, and the vertical hit window with it. 88 holds two lines - the
    * magnitude over the axis - so a label stays readable on the narrowest card
@@ -496,15 +498,22 @@ export const GATES = {
    * wave 16 a lane holds a 108px gate and the leader must be within ±54px of
    * its centre; the card is drawn exactly as wide as it hits.
    *
-   * `max` is derived from `minWidth`: the widest magnitude a card must hold
-   * (`+9999%`, two-line, see `magnitudeSize`) needs ~100px, so the lane can
-   * lose at most 80. 72 is the last multiple of `perWave` that leaves the
-   * card above that floor with a margin, and `minWidth` clamps regardless so
-   * a future lane count cannot squeeze a card past legibility.
+   * The first stage reaches `max` (72px, a 108px gate) at wave 16. It used
+   * to flatten there; the author's call (2026-09-20, 0.8) is two more
+   * five-wave steps rather than a plateau, so a second stage continues at
+   * `latePerWave` from wave 16 to `lateMax` at wave 26 (hard: 21). The late
+   * slope is shallower than the first because 6px a wave for ten more waves
+   * would leave a 48px card, which cannot hold its own label: 2.5px a wave
+   * ends at 97px of dead space, an 83px gate, and the leader within ±41px.
+   *
+   * `lateMax` is derived from `minWidth`: the axis word (`PIERCE`, 14px
+   * tracked) needs ~76px and the magnitude already shrinks to fit, so the
+   * lane can lose at most 100. `minWidth` clamps regardless so a future lane
+   * count cannot squeeze a card past legibility.
    */
-  deadSpace: { fromWave: 4, perWave: 6, max: 72 },
+  deadSpace: { fromWave: 4, perWave: 6, max: 72, latePerWave: 2.5, lateMax: 97 },
   /** A gate is never narrower than this, whatever the dead space asks. */
-  minWidth: 100,
+  minWidth: 80,
   /**
    * GUN and PIERCE are whole numbers, so they cannot draw a root the way the
    * pools do - and a flat `+1` shrinks as you stack them: the fourth gun is
