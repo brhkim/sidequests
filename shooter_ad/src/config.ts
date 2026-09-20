@@ -7,15 +7,25 @@ import { BULLET_BASE } from './data/tiers';
 
 export const VIEW = { width: 540, height: 960 } as const;
 
-/** Bottom strip the squad moves along. */
+/**
+ * Bottom strip the squad moves along.
+ *
+ * The lane and the line moved down 88px on 2026-09-20 when the bonus strip
+ * moved up under the rail: the strip is 94px tall, so the field had lost
+ * that much at the top and gained an empty band at the bottom. The squad
+ * now sits where the strip used to be, the line is 10px off the bottom
+ * edge, and the visible descent (strip's bottom edge to the lane) is 722px,
+ * within 6px of what it was. That lengthens every descent by 88px - about
+ * 11% more time per offer at wave 1 - so it is a balance change, v0.7.
+ */
 export const ARENA = {
   /** y of the squad's centre line. */
-  laneY: 800,
+  laneY: 888,
   /** Horizontal travel limits for the squad centre. */
   minX: 70,
   maxX: VIEW.width - 70,
   /** Enemies crossing this line beside the army charge it as a contact does. */
-  breachY: 862,
+  breachY: 950,
   /** Enemies spawn above the top edge. */
   spawnY: -40,
   /**
@@ -543,7 +553,12 @@ export const RISK_AXES = ['move', 'time', 'sense'] as const;
  */
 export const SENSE = {
   /** Chance an offer is sensed, indexed by sense held. Length sets the cap. */
-  chance: [0, 0.25, 0.4, 0.5],
+  /**
+   * 25 / 50 / 75 (was 25 / 40 / 50): the author's call. SENSE is a RISK axis,
+   * worth nothing to par, so what the player buys with the pick has to be
+   * worth the gamble on its own.
+   */
+  chance: [0, 0.25, 0.5, 0.75],
 } as const;
 
 export const CAGE = {
@@ -570,6 +585,18 @@ export const CAGE = {
    * with par the way the boss does instead of with the wave's `hpMult`.
    */
   hpTitanFraction: 0.2,
+} as const;
+
+/**
+ * Anonymous analytics (GoatCounter; see `src/analytics/Analytics.ts`).
+ *
+ * `site` is the GoatCounter site code - the `NAME` in
+ * `https://NAME.goatcounter.com` - and is public by nature, so it lives here
+ * rather than in a secret. Empty means OFF: nothing is loaded, nothing is
+ * sent. Instrument pages (`?seed=`) never send whatever this says.
+ */
+export const ANALYTICS = {
+  site: '',
 } as const;
 
 /**

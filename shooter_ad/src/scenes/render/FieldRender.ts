@@ -25,7 +25,8 @@ export interface FieldWorld {
 }
 
 /** Ground band: where contact happens, drawn as a floor rather than a strip. */
-const GROUND_TOP = 740;
+/** Where the ground band begins: a full ring's front rank, 60px above the lane. */
+const GROUND_TOP = ARENA.laneY - 60;
 /** A body below this line is about to breach; its tick brightens as it nears. */
 const TICK_FROM = 772;
 

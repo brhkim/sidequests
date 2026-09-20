@@ -307,3 +307,40 @@ Status: `landed`. The strip sits at y 72-166 directly under the rail; the
 pause button moved into the rail's right-hand 80px (below both it landed on
 the right-hand gate card); the ground continues in a darker step below the
 breach line where the strip used to be.
+
+## 3. Second round (verbatim)
+
+> Okay great. Let's roll option 1 out.
+
+Status: `landed`, awaiting the site code. `src/analytics/Analytics.ts`
+(GoatCounter) is installed from `main.ts` like audio; it ships OFF because
+`ANALYTICS.site` is empty. To turn it on: create a site at goatcounter.com
+(free), put its code in `ANALYTICS.site`, rebuild. Nothing else to do; no
+key, no cookies, no banner. Counts: pageviews, `run/start`,
+`run/end/<mode>/wave-NN`, `run/time/<bucket>`.
+
+> It looks like the DPS status bar moved up but the rest of the screen
+> elements did not move down accordingly, is that right? We need to move it,
+> as well as the "endzone" line carefully.
+
+Status: `landed`, v0.7. Correct - only the strip had moved. The lane went
+800 -> 888 and the line 862 -> 950 (the strip is 94px; 88 keeps the line
+10px off the bottom edge), so the visible descent is 722px against 728
+before the strip moved. Every offset inside the field (ring, ground band,
+MISS, contact geometry) is unchanged; every descent is 88px longer, which is
+why it is a version bump.
+
+> RISK should count against the optimal percentage, it's an investment by
+> the player.
+
+Status: `done` (already so): a RISK pick's delta is zero, so the compounded
+percentage treats it as no growth against the best option's growth.
+
+> Let's also bump sense to 25, 50, 75 -- we do need to reward the player for
+> doing it
+
+Status: `landed`, v0.7. `SENSE.chance` is `[0, 0.25, 0.5, 0.75]`.
+
+> And yes, let's start talking about the UI decisions please
+
+Status: `open` - discussion opened in the session summary; nothing built.

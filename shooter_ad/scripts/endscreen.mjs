@@ -92,7 +92,7 @@ for (const run of RUNS) {
   await page.goto(`http://127.0.0.1:${port}/?seed=${run.seed}${modeParam}`, { waitUntil: 'load' });
 
   const box = await page.locator('canvas').boundingBox();
-  const laneY = box.y + box.height * 0.84;
+  const laneY = box.y + box.height * 0.925;
   await page.mouse.move(box.x + box.width / 2, laneY);
   await page.mouse.down();
 
@@ -214,7 +214,7 @@ for (const shot of PAUSE_SHOTS) {
   await page.goto(`http://127.0.0.1:${port}/?seed=11`, { waitUntil: 'load' });
 
   const box = await page.locator('canvas').boundingBox();
-  const laneY = box.y + box.height * 0.84;
+  const laneY = box.y + box.height * 0.925;
   await page.mouse.move(box.x + box.width / 2, laneY);
   await page.mouse.down();
   const chosen = new Map();

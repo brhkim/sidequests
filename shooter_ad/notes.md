@@ -202,7 +202,8 @@ and the threshold makes that explicit rather than incidental.
 
 The one bonus that changes neither damage nor reach. Each level raises the
 chance that an offer arrives **sensed** — with its best option marked on
-screen — to 25%, 40% and 50%, and it stops being offered once three are held.
+screen — to 25%, 50% and 75% (raised from 25 / 40 / 50 in 0.7: a RISK axis
+has to pay for itself), and it stops being offered once three are held.
 The roll is made when the offer is rolled, from the seeded generator, so a
 match code reproduces which offers were sensed; *which* option is marked is
 recomputed live against the state the player is in now, by the same
@@ -676,7 +677,11 @@ conversion meant flicking the eyes from the bottom of the screen to the rail
 and back. Under the rail the two readouts are one glance, the run above the
 squad, and the thumb covers nothing but ground. The cost is 94px of an
 offer's descent hidden behind the panel at the top of the screen, where it is
-furthest from mattering. In the same pass every text size under 18px on the
+furthest from mattering - and then, at the author's ask, the lane and the
+breach line moved down by the same 88px (v0.7), so the field is as tall as
+it was and the squad stands where the strip used to be; every descent is
+88px longer, which is the balance change. In the same pass every text size
+under 18px on the
 HUD and the three screens went up two to three points: at `Scale.FIT` on a
 390px-wide phone the canvas is drawn at 0.72, and the 11px labels the author
 had been reading were 8px.

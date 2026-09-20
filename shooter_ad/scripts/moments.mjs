@@ -130,7 +130,7 @@ const holdPower = (n) => page.evaluate((p) => {
 }, n);
 await holdPower(24);
 {
-  const ok = await withEnemy('e.x = Math.min(470, g.squad.x + 160); e.y = 870; e.hp = e.maxHp = 1e9;');
+  const ok = await withEnemy('e.x = Math.min(470, g.squad.x + 160); e.y = g.squad.y + 70; e.hp = e.maxHp = 1e9;');
   if (!ok) errors.push('breach: no live enemy to move');
   await page.waitForTimeout(120);
   await shoot('moment-breach');

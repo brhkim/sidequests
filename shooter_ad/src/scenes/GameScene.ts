@@ -837,6 +837,7 @@ export class GameScene extends Phaser.Scene {
     this.game.events.emit('gameover', {
       cause,
       wave: this.enemies.wave.index,
+      elapsed: Number(this.elapsed.toFixed(1)),
       kills: this.kills,
       optimal: this.log.fractionOfOptimal,
       peakDps: Math.round(this.peakDps),

@@ -112,10 +112,11 @@ because a feedback change that reached the simulation would pass this.
 
 **HUD and feedback, as built.** `UIScene` draws the rail, the strip
 (directly beneath the rail since 2026-09-20 - `BonusStrip.TOP` is
-`RAIL_HEIGHT`, `STRIP_HEIGHT` 94, the pause button below both at y 192 -
-because on a phone the thumb covered it at the bottom; the ground now
-continues in a darker step below the breach line where it used to sit), the
-pause button and the three screens, and dispatches the `moment` stream to
+`RAIL_HEIGHT`, `STRIP_HEIGHT` 94 - because on a phone the thumb covered it
+at the bottom; the pause button sits in the rail's right-hand
+`RAIL_PAUSE_WIDTH` and the lane and breach line moved down 88px with it in
+0.7, so the field is as tall as it was), the pause button and the three
+screens, and dispatches the `moment` stream to
 `hud/EdgeFlash` (damage, at the screen edges, sized by `share`),
 `hud/BossBar` (the Titan's HP under the rail from `HudPayload.titan`) and
 `hud/WaveBanner`. Field-space feedback is `scenes/fx/FieldFx` inside
@@ -811,7 +812,9 @@ delivers, which is the failure `deliverableDps` once existed for.
 ### `+SENSE` is a roll at spawn and a mark computed live
 
 `Gates.spawnOffer` draws ONE extra number from the seeded generator per offer,
-always, whatever sense is held, and compares it with `senseChance(sense)` -
+always, whatever sense is held, and compares it with `senseChance(sense)`
+(25 / 50 / 75% at one, two, three held; the author raised it from 25 / 40 /
+50 in 0.7 because SENSE is a RISK axis and the pick has to pay for itself) -
 so the stream advances identically on every run of a seed and a player's
 sense level cannot shift the enemies and offers that follow. That decides
 whether the offer is *sensed*. Which of its three options wears the mark is
@@ -822,13 +825,10 @@ and at arrival it is the option the `DecisionLog` will grade best - the two
 cannot disagree because they are one call. The pulse reads the simulated
 clock for its phase and touches nothing.
 
-Sense is priced in `progressValue` as `senseFactor` beside `accessFactor` -
-judgment beside access - and nowhere in the difficulty budget. It is capped
-by the length of `SENSE.chance`, filtered out of the candidate pool at the cap
-(`rollOffer`), and the rail draws it as pips. `Upgrades.sense` exists on par
-too; par sometimes takes it, exactly as it sometimes takes MOVE, and that
-softens the curve by the same small amount `npm run model` reports for
-access picks.
+Sense is a RISK axis: priced at zero, never in the difficulty budget, never
+taken by par beside a damage option (see "Scoring prices DPS and nothing
+else"). It is capped by the length of `SENSE.chance`, filtered out of the
+candidate pool at the cap (`rollOffer`), and the rail draws it as pips.
 
 ### A match is re-seedable, and a restart replays it
 
@@ -1092,7 +1092,10 @@ Four rules, each with a reason:
   was consumed, and `npm run titan` prints it: a boss that lands does so ON
   THE SQUAD at roughly 85% of its descent, not at the line.
 
-Contact lands earlier than a breach did. A full ring's front rank sits at
+Contact lands earlier than a breach did. (The figures in this paragraph
+were measured at lane 800 / line 862; in 0.7 both moved down 88px to 888 /
+950 with the strip's move to the top, and every offset between them is
+unchanged.) A full ring's front rank sits at
 y ~755 and a lone leader at 800, so a Grunt (r 11) is consumed at y ~736 or
 ~781 against 862 for the line - 81 to 126px sooner, which is 2.4-3.7s of a
 Grunt's descent, 1.5s of a Runner's, 4.7s of a Shielder's, 0.8s of a Bomber's
@@ -1231,6 +1234,19 @@ contact mark, a flashing cage) and `roster-late.png` (`hud-late`).
 errored; the two questions to put to the stills are whether every type can
 be named from silhouette with colour ignored, and whether any enemy bullet
 could be taken for a Runner.
+
+### Analytics
+
+`src/analytics/Analytics.ts` is GoatCounter, installed from `main.ts` the
+way audio is: it reads `game.events` and nothing else, no scene knows it
+exists, and nothing in it can reach the simulation. `ANALYTICS.site` in
+config is the GoatCounter site code (public by nature; empty means OFF, and
+it ships empty until the author creates the site). Instrument pages
+(`?seed=`) never send. It counts a pageview, then three events per run as
+paths - `run/start`, `run/end/<mode>/wave-NN` (title: the cause), and
+`run/time/<bucket>` from the `elapsed` the end payload now carries (under
+30s, 30s-1m, 1-2m, 2-4m, 4-8m, over 8m) - because GoatCounter stores counts,
+not values. Every call is in try/catch; a blocked script costs nothing.
 
 ### Audio
 

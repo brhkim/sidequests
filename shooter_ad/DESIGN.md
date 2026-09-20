@@ -315,9 +315,12 @@ A fixed 540x960 logical canvas under `Scale.FIT`; nothing is responsive. Top
 to bottom: rail (0-72, four equal columns WAVE / DPS / PAR / SENSE, label at
 11px over a 23px value over an 11px sub); standing bar (6px at y 72 with a
 3x12 white tick at the target fraction; a 12px fade strip under it carries
-the Titan bar at y 77); field; lane band (680-940); ground band (740-862)
-with its 1px top edge and a 24px breach glow to the line at 862, and a
+the Titan bar at y 77); field; lane band (768-960); ground band (828-950)
+with its 1px top edge and a 24px breach glow to the line at 950, and a
 darker step of ground (`0x0e1220`) from the line to the bottom edge. The
+lane (888) and the line (950) moved down 88px with the strip's move up, so
+the visible descent from the strip's edge to the lane is 722px, what it was
+when the strip sat at the bottom. The
 strip sits directly under the rail (72-166, five cells 100/128/128/92/92
 wide, 18px inset, 1px dividers 12px below the top, a 1px hairline along its
 bottom edge) - moved up from 864-960 on 2026-09-20 because a thumb on a

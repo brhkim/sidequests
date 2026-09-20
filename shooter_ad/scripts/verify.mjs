@@ -102,7 +102,7 @@ if (await page.evaluate(() => window.game.scene.getScene('Game').waiting)) {
   process.exit(1);
 }
 
-const laneY = box.y + box.height * 0.84;
+const laneY = box.y + box.height * 0.925;
 await page.mouse.move(box.x + box.width / 2, laneY);
 await page.mouse.down();
 

@@ -6,7 +6,7 @@ Paste everything below the line into a fresh session.
 
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo,
 on branch `claude/laughing-feynman-ghh9r3` (no PR open). The version tag went
-0.5 to 0.6 this session: every seed is a different match again. The session
+0.5 to 0.6 and then 0.7 this session: every seed is a different match again. The session
 of 2026-09-20 landed the author's balance and scoring decisions and moved the
 HUD for the phone; §3 lists what changed. Nothing is blocked. §4 is what the
 author still has to decide, §5 what nobody has verified.
@@ -58,7 +58,7 @@ takes the best DPS option every time and collects nothing else. Four
 judgment levers rise with the wave: descent speed, root granularity, raw
 rounding, and dead space between the gates.
 
-## 3. What changed this session (version 0.6)
+## 3. What changed this session (versions 0.6 and 0.7)
 
 All of it is the author's decision, recorded verbatim in `ASKS.md`.
 
@@ -87,9 +87,13 @@ All of it is the author's decision, recorded verbatim in `ASKS.md`.
    the `stats` registry.
 6. **The bonus strip sits directly under the rail** (y 72-166); the pause
    button is in the rail's right-hand 80px (`RAIL_PAUSE_WIDTH`,
-   `PAUSE_BUTTON` at 500,33); the ground continues in a darker step below
-   the breach line. Every HUD and screen text size under 18px went up two
-   to three points (`DESIGN.md`, "The Phone Floor").
+   `PAUSE_BUTTON` at 500,33). Every HUD and screen text size under 18px
+   went up two to three points (`DESIGN.md`, "The Phone Floor").
+7. **(0.7) The lane and the breach line moved down 88px** to 888 / 950 so
+   the field is as tall as it was; every descent is 88px longer.
+8. **(0.7) SENSE marks 25 / 50 / 75%** of offers at one, two, three held.
+9. **(0.7) Anonymous analytics** (`src/analytics/Analytics.ts`, GoatCounter)
+   ships OFF: `ANALYTICS.site` is empty until the author creates the site.
 
 **Measured**, `npm run balance` seeds 1-5, skill 0.7, before on a snapshot of
 `36c65ca` and after with everything above:
@@ -98,25 +102,27 @@ All of it is the author's decision, recorded verbatim in `ASKS.md`.
 | --- | --- | --- | --- | --- | --- | --- |
 | before (0.5) | 41.6 / 42.1 / 42.9 / 44.2 / 81s | 42.9s | 78% | 0.87 | 1.4 | 15.4 |
 | after (0.6) | 36.5 / 38.4 / 41.3 / 66.8 / 71.6s | 41.3s | 100% | 1.00 | 4.4 | 9.0 |
+| after (0.7) | 37.3 / 43.7 / 50.2 / 52.9 / 58.3s | 50.2s | 90% | 1.00 | 2.1 | 13.4 |
 
 Read the standing as the interesting number: with par no longer collecting
 wave-clear and streak army, and no longer spending picks on access, the bot
 that takes the best DPS option sits exactly ON par. Optimal reads 100% on
 three seeds because a risk pick scores zero and the bot never reaches for
 one. `npm run repeat` reads 0.00% spread. Before the start went to 5 the
-after median was 31.7s with three seeds dying at the first leak.
+after median was 31.7s with three seeds dying at the first leak. The 0.7
+row is the 88px longer descent (and SENSE 25/50/75, which the bot never
+takes): about 11% more time per offer at wave 1, and the median moved 9s.
+`npm run moments` failed once on the death-beat timing under headless load
+and passed on the rerun; read that check as flaky, not the beat.
 
 ## 4. What the author still has to decide
 
-- **Anonymous analytics.** Options were raised in the session summary
-  (a privacy-first counter with custom events; a tiny serverless endpoint for
-  scores; a hosted database for a leaderboard). Nothing built.
+- **The GoatCounter site code.** The hook is built and off; the author
+  creates the site and puts its code in `ANALYTICS.site`.
 - **The UI design pass.** The author's ask #2 (screens are barebones and
   text-heavy) is open by agreement. It needs a comp-first pass with the
   impeccable skill on the three screens, not more polish of the current
   layout.
-- **Whether a RISK pick should count in the optimal percentage.** It does
-  (zero growth). Excluding it is a two-line change in `fractionOfOptimal`.
 - **`startPower` 5.** My number; revert to 1 for the harder open.
 
 ## 5. Known gaps — name these as unverified if you report on them
