@@ -6,7 +6,8 @@ Paste everything below the line into a fresh session.
 
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo,
 on branch `claude/laughing-feynman-ghh9r3` (no PR open; the branch is ahead
-of `main` by two sessions' work). The version tag is **0.8**; a seed only
+of `main` by two sessions' work, the last three commits being this
+session: `816586e`, `2a35cbc`, `99368ee`). The version tag is **0.8**; a seed only
 compares with another 0.8 run. Nothing is blocked. §4 is what the author
 still has to do or decide, §5 what nobody has verified.
 
@@ -31,8 +32,11 @@ Read in this order:
    paragraphs under "Dead space is the fourth judgment lever" and "Gate
    approach speed", and "Every control is a card button, and the pause
    screen has a HOW TO PLAY page" under HUD-as-built.
-6. `shooter_ad/DESIGN.md` — the design system as shipped; the direction
-   contract for the screens is `.impeccable/surfaces/src-scenes-hud-startscreen-ts.md`.
+6. `shooter_ad/DESIGN.md` — the design system as shipped, re-derived from
+   the build by the impeccable documenter at the end of this session (the
+   three button weights, the segmented rows, the BASICS grid, every screen's
+   coordinates); the direction contract for the screens is
+   `.impeccable/surfaces/src-scenes-hud-startscreen-ts.md`.
 7. `git log --oneline -10` — the commit messages carry the reasoning and the
    measurements.
 
@@ -93,20 +97,45 @@ Every item is the author's ask, recorded verbatim in `ASKS.md`.
    `ASKS.md` §4 and all taken. `npm run endscreen` presses every
    new control, opens the guide, and asserts the demo swap.
 
-**Measured**, `npm run balance`, skill 0.7 (see §3 of the session report in
-the final commit message for the five-seed table; the cage rate is the
-number to read - the 0.7 build was one cage per wave on every seed).
-`npm run repeat` reads 0.00%. `npm run neutral` against a 0.7 snapshot
-FAILS on 4/5 seeds, as a balance change must.
+5. **The finish review and the documenter ran** (the two impeccable
+   agents). The review's verdict was fix then ship; its eight fixes are all
+   in (`ASKS.md` §4): 12px between START MATCH and HOW TO PLAY, the NORMAL
+   segment in code cyan so START MATCH is the one green card, the guide's
+   tab named BASICS under the HOW TO PLAY heading, a hairline under the tab
+   row, explanation text at 17px working white, OF THE GROWTH ON OFFER, a
+   PAR gloss on DETAILS, the BONUSES header stating the conversion twice.
+   The documenter's one drift finding - tabs and topics at 40px, under the
+   44px tap floor - was fixed in code. The author's last ask, the rank word
+   under the strip's ARMY cell, is gone.
+
+**Measured**, `npm run balance` seeds 1-5, skill 0.7, before on a snapshot
+of the 0.7 build (`dc4c59a`) and after:
+
+| | survival | median | optimal | standing | cages |
+| --- | --- | --- | --- | --- | --- |
+| 0.7 | 37.3 / 43.7 / 50.2 / 52.9 / 58.3s | 50.2s | 90% | 1.00 | one per wave, every seed |
+| 0.8 | 34.6 / 39.5 / 50.0 / 50.2 / 53.4s | 50.0s | 93% | 1.00 | 1 / 1 / 1 / 1 / 2 per run (1.52/min) |
+
+The 0.7 cage column is from a scratch page script that watched
+`enemies.cages` (the 0.7 build has no `cages` stat, so `PROBE_DIST` against
+it reads zero by construction); the 0.8 column is `stats.cages`. Survival
+did not move; the bot never aims at a cage, so it never collected the
+extra ones. `npm run repeat` reads 0.00%. `npm run neutral` against the
+0.7 snapshot FAILS on 4/5 seeds, as a balance change must. `verify`,
+`model`, `moments`, `hud` and `endscreen` all pass on `99368ee`.
 
 ## 4. What the author still has to do or decide
 
 - **The late dead-space slope.** 2.5px/wave from wave 16 is my reading of
   "similar curve" against a card that has to hold its label. If the full
   6px/wave is wanted, the label has to shrink or go one-line.
-- **Play it on a phone.** The buttons' pressed states, the guide, the Titan
-  row, the rail's new words, the second-stage curves (past wave 16 - the
+- **Play it on a phone.** The buttons' pressed states, the guide (twelve
+  topics of copy nobody but me has read), the Titan row, the rail's new
+  words, the demo rotation, the second-stage curves (past wave 16 - the
   bot never gets there) are all unplayed.
+- **Whether the guide's numbers should be generated.** `×1.35 against
+  +47%` and `25 / 50 / 75%` in the topic copy are today's config, typed by
+  hand; a config change will silently date them.
 - **Deploy and look at the GoatCounter dashboard** (still unobserved).
 - **`startPower` 5.** Still my number from last session.
 
@@ -126,8 +155,15 @@ FAILS on 4/5 seeds, as a balance change must.
   today and are not generated from it.
 - **The RISK wash, `pickRisk` and analytics** remain as last session left
   them: unforced, unheard, unobserved end to end.
-- DESIGN.md is re-derived by the documenter at the end of the session;
-  read it against the stills rather than trusting it.
+- **DESIGN.md is the documenter's reading of the build**, not a plan; read
+  it against the stills. One thing it left as unverified: the field-feedback
+  bullet still mentions a `+N ARMY` float "for streaks", and streaks were
+  removed on 2026-09-20 - check `scenes/fx/FieldFx` before repeating it.
+- **Hover and pressed states exist only in code**; no still shows one.
+- **The cage watch script was not kept** (`scripts/_cages.mjs`, deleted);
+  `stats.cages` and `cages/min` in `npm run balance` are the instrument
+  now. If the frequency is questioned again, watch a long run, not a
+  40-70s one.
 
 ## 6. Ground rules
 
