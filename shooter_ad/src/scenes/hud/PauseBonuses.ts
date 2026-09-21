@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { SQUAD, VIEW } from '../../config';
 import { AXIS_COLOR, type BonusAxis } from '../../data/gates';
-import { MAX_ECHO, MAX_SENSE, MAX_SHIELD, senseChance } from '../../systems/Progression';
-import { ECHO, SHIELD } from '../../config';
+import { MAX_ECHO, MAX_MOVE, MAX_SENSE, MAX_SHIELD, senseChance } from '../../systems/Progression';
+import { ECHO, MOVE, SHIELD } from '../../config';
 import { CardTile } from './CardTile';
 import { standingColor } from './TopRail';
 import { CAPTION, compact, FONT, formatMult, hex, MONO, SMALL, type HudPayload } from './types';
@@ -190,19 +190,20 @@ export class PauseBonuses {
     this.setTile(4, String(h.pierce), 'PIERCE', h.pierce > 0,
       `Enemies one shot passes through. Each level is worth half a hit more (${formatMult(h.pierceMult)} right now). Worth nothing against a lone body like the Titan.`);
     this.setTile(5, String(h.echo), 'ECHO', h.echo > 0,
-      `Ghost armies beside yours that fire exactly what you fire: one to the left at 1 held, one each side at ${MAX_ECHO}. They take no damage and block nothing; a ghost pushed off the edge fires into nothing. PAR counts each as ${Math.round(ECHO.value * 100)}% of your army (${formatMult(h.echoMult)} right now).`);
-    this.setTile(6, formatMult(h.moveMult), 'MOVE RISK', h.moveMult > 1,
-      'How fast your squad walks. Adds no damage, so it is a RISK: it helps you reach the card you want, but the shadow player (PAR) never takes it and the score counts it as no growth.');
+      `Ghost armies beside yours that fire what you fire: a half-size one on the left at 1 held, one on the right at 2, then each grows to full at 3 and 4 (${MAX_ECHO} max). They take no damage and block nothing; a ghost pushed off the edge fires into nothing. PAR counts a full one as ${Math.round(ECHO.value * 100)}% of your army (${formatMult(h.echoMult)} right now).`);
+    const moveLadder = MOVE.mult.slice(1).map((m) => formatMult(m)).join(' / ');
+    this.setTile(6, formatMult(h.moveMult), 'MOVE INVEST', h.move > 0,
+      `How fast your squad walks: ${moveLadder} at 1 / 2 / 3 held (${h.move} of ${MAX_MOVE}). Adds no damage, so it is an INVEST card: it helps you reach the card you want, but the shadow player (PAR) never takes it and the score counts it as no growth.`);
     const time = Math.round((1 / h.gateSpeedMult - 1) * 100);
-    this.setTile(7, `+${time}%`, 'TIME RISK', time > 0,
-      `Cards fall ${time > 0 ? `${time}% ` : ''}slower, so you have longer to compare them. Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
+    this.setTile(7, `+${time}%`, 'TIME INVEST', time > 0,
+      `Cards fall ${time > 0 ? `${time}% ` : ''}slower, so you have longer to compare them. Adds no damage, so it is an INVEST card: PAR never takes it and the score counts it as no growth.`);
     const chances = Array.from({ length: MAX_SENSE }, (_, i) => Math.round(senseChance(i + 1) * 100));
     this.tiles[8].setPips(h.sense);
     this.setTile(8, '', `SENSE ${Math.round(h.senseChance * 100)}%`, h.sense > 0,
-      `${Math.round(h.senseChance * 100)}% of offers arrive with the best card outlined in white (${chances.join(' / ')}% at 1 / 2 / 3 held). Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
+      `${Math.round(h.senseChance * 100)}% of offers arrive with the best card outlined in white (${chances.join(' / ')}% at 1 / 2 / 3 held). Adds no damage, so it is an INVEST card: PAR never takes it and the score counts it as no growth.`);
     const perLevel = SHIELD.blocksPerLevel;
-    this.setTile(9, h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0', 'SHIELD RISK', h.shield > 0,
-      `Blocks enemy shots, and enemies that touch your ring, before they cost you soldiers: ${perLevel} blocks every ${SHIELD.windowSeconds}s per level held (${h.shield} of ${MAX_SHIELD}; ${h.shieldReady} ready now). A shell or a body is one block; one that walks past you is not blocked. Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
+    this.setTile(9, h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0', 'SHIELD INVEST', h.shield > 0,
+      `Blocks enemy shots, and enemies that touch your ring, before they cost you soldiers: ${perLevel} blocks every ${SHIELD.windowSeconds}s per level held (${h.shield} of ${MAX_SHIELD}; ${h.shieldReady} ready now). A shell or a body is one block; one that walks past you is not blocked. Adds no damage, so it is an INVEST card: PAR never takes it and the score counts it as no growth.`);
     this.select(this.selected);
   }
 }

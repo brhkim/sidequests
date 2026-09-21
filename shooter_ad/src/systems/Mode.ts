@@ -19,9 +19,10 @@ import { matchFromQuery, type MatchMode } from './MatchCode';
  * hard mode with a regime change.
  *
  * `waveOffset: 5` means a hard run's first offer descends at wave 6 speed
- * (x1.375) and draws from the wave-6 root table - every 0.05 in the range
- * rather than six round values. The top legibility tier arrives at real wave 6
- * instead of 11, and gate speed caps at real wave 16 instead of 21.
+ * (x1.32) and draws from the wave-6 root table - the tenths rather than
+ * three round values. The finest legibility tier arrives at real wave 20
+ * instead of 25, dead space caps at 25 instead of 30, gate speed at 35
+ * instead of 40, and the cards sway from 26 instead of 31 (1.7).
  *
  * ## Why the mode is module state rather than a parameter
  *

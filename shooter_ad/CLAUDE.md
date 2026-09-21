@@ -31,6 +31,7 @@ npm run titan      # parks a squad under the boss and reports where on its desce
 npm run roster     # photographs every enemy type, the cage, every gun's volley, hits and kills
 npm run rescue     # forces a cage open at seven army sizes; asserts the reward and its label
 npm run rail       # forces the rail's widest state; fails if two neighbouring texts touch
+npm run sway       # injects waves 30 / 31 / 36 / 41; asserts the cards sway inside their lane, with tracks
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -543,9 +544,10 @@ factors gone, par's valuation and the budget are the same number.
 `systems/Mode.ts` holds the active mode and one number: `waveOffset`. Hard mode
 sets it to 5, and `judgmentWave(wave) = wave + offset` feeds exactly two things
 — `waveGateSpeedMult` and the legibility tier `rollOffer` draws from. A hard
-run's first offer therefore descends at wave-6 speed (×1.375) and draws from
-the wave-6 root table; the top legibility tier arrives at real wave 6 instead of
-11, and gate speed caps at real wave 16 instead of 21.
+run's first offer therefore descends at wave-6 speed (×1.32) and draws from
+the wave-6 root table (the tenths); the finest legibility tier arrives at
+real wave 20 instead of 25, dead space caps at 25 instead of 30, gate speed
+at 35 instead of 40, and sway begins at 26 instead of 31 (the 1.7 curve).
 
 Three things are deliberately NOT mode-dependent, and `npm run model` fails if
 any of them becomes so:
@@ -573,7 +575,9 @@ people compare off a screenshot, so the two must not share an identity.
 ### Gate approach speed is the judgment-axis difficulty lever
 
 `GATES.speedPerWave` raises how fast offers descend, capped at
-`GATES.maxSpeedMult` (3.25 from 0.8, reached at wave 31; it was 2.5 at 21). Later waves do not hand you a harder sum, they give you
+`GATES.maxSpeedMult` (**3.5 at `speedCapWave` 40 since 1.7**, rolling
+continuously from wave 2 at a derived ~0.064 a wave; it was 3.25 at 31 and
+2.5 at 21 before). Later waves do not hand you a harder sum, they give you
 less time to do it in - deliberately separate from enemy pressure, which is
 closed-loop against par and never keys off the wave number. `+TIME` divides it
 back down for the rest of the run.
@@ -581,24 +585,62 @@ back down for the rest of the run.
 Squad movement is rate-limited in `Squad.update`. Under a pointer it used to
 assign the finger's x directly, so the squad teleported, travel was free and the
 whole movement economy was inert. `SQUAD.moveSpeed` came down from 620 to 260
-when the movement bonuses landed; set it high again and `x MOVE` buys nothing.
+when the movement bonuses landed, and to **195** in 1.6 (the author: a
+quarter off); set it high again and `+MOVE` buys nothing. **MOVE is three
+levels since 1.6**: `Upgrades.move` 0 to `MAX_MOVE` (3), `MOVE.mult` in
+config the ladder x1 / x1.5 / x2 / x2.5, `Progression.moveMultiplier` the
+one reader, `moveSpeed(u)` = base x that. The card is `+MOVE` (form `raw`,
+value 1), filtered out of the pool at the cap through `OfferContext.move`
+like SENSE, SHIELD and ECHO; `HudPayload` carries `move` and the derived
+`moveMult`. `npm run model` asserts all of it.
+
+### Gate sway is the fifth judgment lever
+
+From judgment wave 31 (normal; hard 26) - the bracket after the one in
+which dead space reaches `max` at wave 30 (1.7: "introduced in brackets
+after the difficulty section of the last width adjustment") - each card
+drifts left and right inside its lane. `GATES.sway` is `{ fromWave: 30,
+tierWaves: 5, periods: [0.5, 1, 1.5] }`, read through
+`Progression.gateSway(wave)` (periods per descent and the amplitude, half
+the dead space) and `swayOffset(y, periods, amplitude)` (a sine of the
+card's descent progress: centre at spawn, `periods` cycles by the lane
+line). `Gates.spawnOffer` fixes a card's `laneX`, `swayPeriods` and
+`swayAmplitude` at spawn, clamped so `|x - laneX| + width / 2 <= lane / 2`;
+`Gates.update` sets `g.x` from `g.y` every step, so the hit test
+(`checkGates`, `findTarget`) and the drawn card are one position. Nothing
+here reads the RNG or a clock: `npm run repeat` is 0.00%. Because the pace
+is per descent, `+TIME` slows the sway with the fall.
+
+Tiers: 0.5 periods a descent at waves 31-35, 1 at 36-40, 1.5 from 41 on;
+peak lateral speed 49 / 109 / 177px/s against the 195px/s squad. The
+author's ceiling was "up to 1.5x periods of movement across the whole
+length of the screen"; `npm run model` fails if the fastest tier is not
+1.5, if a tier starts on the wrong wave, if the amplitude exceeds half the
+dead space, if a card is off-centre at spawn or at the line, or if the peak
+speed outruns the squad. `render/GateCards` draws a TRACK behind a swaying
+card - `RENDER.gate.track` grey, `trackFill` 0.09, a 1px stroke at
+`trackStroke` 0.28, the lane's width less the gap, at depth 3 under the
+card - and none behind a still one. `npm run sway` injects a late build at
+waves 30 / 31 / 36 / 41 and asserts movement (or none), the lane bound and
+the track count per state, photographing `sway-NN.png`.
 
 ### Dead space is the fourth judgment lever
 
-From wave 5 (judgment wave) each gate is narrower than its lane, and the band
-between neighbours belongs to no option: `GATES.deadSpace` is `{ fromWave: 4,
-perWave: 6, max: 72 }`, read through `Progression.gateDeadSpace(wave)` beside
-`waveGateSpeedMult`, so a 180px lane holds a 174px gate at wave 5, 144px on
-the second Titan at wave 10, and 108px at wave 16 - the leader must then
-be within ±54px of a card's centre. It keys off `judgmentWave` like speed and
-legibility, so hard mode starts at 12px. **From 0.8 the curve has a second
-stage** (the author's ask): `latePerWave` 2.5 from wave 16 to `lateMax` 97
-at wave 26 (hard: 21), an 83px gate, the leader within ±41px; `minWidth`
-fell 100 to 80 because the axis word needs ~76px and the magnitude already
-shrinks. Gate speed likewise runs to `maxSpeedMult` 3.25 at wave 31 instead
-of 2.5 at 21. `gateDeadSpace` adds the two stages; `npm run model` asserts
-the first cap at wave 16, no flattening after it, and the two final caps at
-waves 26 and 31. The width
+From wave 10 (judgment wave) each gate is narrower than its lane, and the
+band between neighbours belongs to no option: `GATES.deadSpace` is
+`{ fromWave: 9, capWave: 30, max: 97 }` since 1.7, read through
+`Progression.gateDeadSpace(wave)` beside `waveGateSpeedMult` - zero through
+wave 9, then one linear slope of ~4.62px a wave to 97px at wave 30 and
+flat after, so a 180px lane holds a 175px gate at wave 10, 129px on the
+fourth Titan at wave 20, and 83px from wave 30 - the leader must then be
+within ±41px of a card's centre. It keys off `judgmentWave` like speed and
+legibility, so hard mode starts it at real wave 5 and caps at 25. `max` is
+what `minWidth` (80) allows: the axis word needs ~76px and the magnitude
+already shrinks. `npm run model` asserts the zero through `fromWave`, the
+constant step, the cap at `capWave` and that `max` never breaches
+`minWidth`. History: 6px a wave from wave 5 to 72px at 16 (0.5), a second
+2.5px stage to 97px at 26 (0.8), the author's one slope from 10 to 30
+(1.7). The width
 IS the hit test (`checkGates` and `FieldRender.findTarget` both read
 `g.width`) and the card is drawn exactly as wide as it hits; `GATES.gap` is
 the drawn inset on top of that, so what the eye sees as a gap is dead space
@@ -950,9 +992,10 @@ sums. For a while every tier was held to the same geometric mean within 0.5%
 (`[1.05, 1.15, 1.25, 1.3, 1.4, 1.5]` matched on both means).
 
 **The schedule is now the author's, and it drifts on purpose.** `LEGIBILITY`
-in `data/roots.ts` is four tiers at waves 1 / 6 / 11 / 16: `[1.1, 1.25,
-1.5]`, the tenths from 1.1, every `.05`, every `.01` (three significant
-figures on raw numbers from wave 16, two before). Round tables inside a fixed
+in `data/roots.ts` is four tiers at waves 1 / 5 / 15 / 25 (1.7; it was
+1 / 6 / 11 / 16): `[1.1, 1.25, 1.5]`, the tenths from 1.1, every `.05`,
+every `.01` (three significant figures on raw numbers from wave 25, two
+before). Round tables inside a fixed
 [1.05, 1.5] cannot share the ladders' mean: measured against the hundredths,
 the tenths sit +1.91% per draw and the first tier +0.38%. The author read
 that and accepted it. `npm run model` prints the drift per tier under
@@ -1134,8 +1177,19 @@ body reaching you is a failure to kill; fire is a tax on standing still.
 ### Contact damage
 
 An enemy touching the army charges it and is destroyed doing so. The price is
-a SHARE of the army held before the step's charges, floored in whole power,
-by the body's `tier` (`CONTACT` in config; the roster names one per type):
+a SHARE of the army, floored in whole power, by the body's `tier` (`CONTACT`
+in config; the roster names one per type). **Since 1.6 the share is of
+`Contact.damageBase(power, peak)` = `max(held, peak x ARMY_DAMAGE.mercy)`**,
+the run's peak army (`Squad.peak`, a lazy high-water mark) declining with
+the army held to half the peak and no further - the author's ask, because
+a share of the army held made every hit cheaper than the last and the
+spiral "surprisingly slow". Enemy fire reads the same base through
+`Contact.bulletCost`. The table below is the `peak === held` case; from a
+peak of 1,000 a Basic contact is 20 / 10 / 10 at 1,000 / 500 / 1 held, a
+bullet 10 / 5 / 5, and `npm run model` prints the decline and counts Basic
+contacts from 1,000 to zero: 225 on the 1.5 rule, 86 on 1.6. The `share`
+on a `contact` / `breach` / `fire` event is still cost over the army held,
+clamped to 1, because it sizes the edge flash and the cue.
 
 | tier | types | share | floor | at 19 | at 100 | at 640 | at 38,912 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1341,6 +1395,34 @@ errored; the two questions to put to the stills are whether every type can
 be named from silhouette with colour ignored, and whether any enemy bullet
 could be taken for a Runner.
 
+### The end screen's plot, and the word INVEST
+
+`EndPayload.series` (1.5) is `{ t, wave, standing }[]`: `GameScene.sample`
+pushes one on the run's first step (in `step`, lazily, because the first
+run never passes through `restart` and `from`'s injected state must be in
+first), one per `wave` event and one in `emitGameOver`. `EndScreen.drawPlot`
+draws it in the `PLOT` frame (270x80 at 62,310) with a dashed PAR line at
+100%, the y axis to `max(1.5, peak)`, and the line in `standingColor` of
+the last point; `PEAK_X` (440) holds peak DPS through `compact`. The
+"% OF THE GROWTH ON OFFER" number is gone from the screen;
+`DecisionLog.fractionOfOptimal` and `stats.optimal` stay for the
+instruments. On screen the zero-DPS grade reads **INVEST** (`GRADE_WORD.risk`,
+the tally's fourth tile, `MOVE INVEST` on the pause tiles, the guide
+topic); the key is still `risk` everywhere in code and stats, and
+`npm run moments` accepts INVEST as a grade word.
+
+### Numbers on screen
+
+`src/format.ts` is the one formatter (1.5): `compact` is whole below 1000
+and three significant figures on the thousands ladder above (`1.02K`,
+`10.2K`, `102K`, `1.02M`, then B / T / Q / Qi / Sx / Sp / Oc / No / Dc),
+`formatMult` is `×1.32` / `×10.2` / `×102` / `×1.02K`, and `compactLabel`
+keeps a value's exact digits below 1000 for text that is also a promise
+(a card's `+12.5%`). `hud/types.ts` re-exports the first two. The rail's
+`% PAR` has no `>999%` cap any more; its WAVE lane took 6px from SENSE
+(88 / 100 / 96 / 94 / 82) when `1.23K KILLS` grew a figure, and `npm run
+rail` holds the 8px. `npm run model` asserts the ladder.
+
 ### Analytics
 
 `src/analytics/Analytics.ts` is GoatCounter, installed from `main.ts` the
@@ -1489,8 +1571,9 @@ cage, so `opened` reads 0 on every probe row: the reward is measured by
 
 - **Enemy**: append to `ENEMIES` in `data/enemies.ts` with a `tier` (what it
   costs on contact - see `CONTACT`). A type with a `gun` is a shooter: half
-  the weight its body would carry, and one new shooter per five waves
-  (Spitter 5, Mortar 10, Lancer 15) is the shooter curve since 1.3 - the
+  the weight its body would carry, and one new shooter per TEN waves
+  (Spitter 5, Mortar 15, Lancer 25 since 1.7; 5 / 10 / 15 in 1.3) is the
+  shooter curve - the
   author chose spawn rates over a live cap so clearing a ranged body is
   rewarded rather than answered. The guns fire every 3 / 4.5 / 6s
   (Spitter / Lancer / Mortar) since 1.3. Movement is a `motion` union with one
@@ -1511,13 +1594,17 @@ cage, so `opened` reads 0 on every probe row: the reward is measured by
   model` asserts the zero. A ninth axis also means a ninth pause tile
   (`PauseBonuses` is a 3x3 grid of 160x64 tiles since 1.1) and, if it has
   live state, a rail column - run `npm run rail` after touching either.
-  **`+ECHO`** (1.4) is the tenth axis and a DAMAGE one: `Upgrades.echo` 0
-  to `ECHO.maxLevel` (2), `echoMultiplier` (`1 + 0.7 x level`) in
-  `squadDps` and out of `singleTargetDps`, `echoCopies` columns in
-  `GameScene.fire` (each honoured bullet spawned once per column, 200px
-  left then right, the same bundle) and in `bundleFactor` so the sim cap
-  holds; the ghosts are `SpriteRender.renderSquad` at `RENDER.echoAlpha`
-  and have no body in `systems/`. The pause grid is 4x3 of 120x64.
+  **`+ECHO`** (1.4, retuned 1.5) is the tenth axis and a DAMAGE one:
+  `Upgrades.echo` 0 to `ECHO.maxLevel` (4), `echoColumns` the ladder
+  (half left, half right, full left, full right - strength is the damage
+  share and the drawn size), `echoMultiplier` (`1 + 0.7 x` strength fired:
+  1.35 / 1.7 / 2.05 / 2.4) in `squadDps` and out of `singleTargetDps`, one
+  spawn per column in `GameScene.fire` (`ECHO.offset` 150px, the same
+  bundle at the column's strength of the damage) and `echoCopies` in
+  `bundleFactor` so the sim cap holds; the ghosts are
+  `SpriteRender.renderSquad` at `RENDER.echoAlpha`, scaled by strength
+  around their own leader, and have no body in `systems/`. The pause grid
+  is 4x3 of 120x64.
   `npm run hud` photographs `hud-echo.png` and `npm run model` asserts the
   price, the cap, the pool filter, the Titan exclusion and that par takes
   it.

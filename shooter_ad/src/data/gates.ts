@@ -1,6 +1,7 @@
 import { drawRoot, formatRoot, legibilityFor, roundSf } from './roots';
 import { judgmentWave } from '../systems/Mode';
-import { discreteAmount, MAX_ECHO, MAX_SENSE, MAX_SHIELD } from '../systems/Progression';
+import { compactLabel } from '../format';
+import { discreteAmount, MAX_ECHO, MAX_MOVE, MAX_SENSE, MAX_SHIELD } from '../systems/Progression';
 
 /**
  * Gates descend as an offer and the player drives through one of them. Every
@@ -42,6 +43,8 @@ export interface OfferContext {
   readonly shield: number;
   /** `+ECHO` held; leaves the pool at `ECHO.maxLevel`. */
   readonly echo: number;
+  /** `+MOVE` held (1.6); leaves the pool at `MAX_MOVE`. */
+  readonly move: number;
 }
 
 /**
@@ -119,7 +122,9 @@ const CANDIDATES: readonly Candidate[] = [
   // ability to reach the bonus you judged best, which is the only reason the
   // rest of this table is worth anything. Offered against a flat `+15% DMG`
   // they are exactly the call the design wants to ask - see notes.md.
-  { axis: 'move',   form: 'mult', weight: 42,  minWave: 1 },
+  // Three levels since 1.6 (x1.5 / x2 / x2.5 of base speed): a `+MOVE`
+  // card like `+SENSE`, filtered out at the cap. It was a root draw.
+  { axis: 'move',   form: 'raw',  weight: 42,  minWave: 1 },
   // `+TIME` only has something to undo once gates have begun speeding up, so
   // it arrives a couple of waves in rather than at the first offer.
   { axis: 'time',   form: 'raw',  weight: 42,  minWave: 3 },
@@ -147,7 +152,7 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
       // Army needs no pool term: the army itself is the base a multiplier
       // would scale, so a share of it is already effect-equivalent.
       const amount = Math.max(1, Math.round(roundSf(ctx.power * (root - 1), sigFigs)));
-      return { axis: 'army', form: 'raw', value: amount, label: `+${amount} ARMY`, color };
+      return { axis: 'army', form: 'raw', value: amount, label: `+${compactLabel(amount)} ARMY`, color };
     }
     case 'rate':
     case 'damage': {
@@ -159,18 +164,18 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
       // label and what the player actually gets can never disagree.
       const pool = c.axis === 'rate' ? ctx.rateBonus : ctx.damageBonus;
       const percent = Math.max(1, roundSf(rawShare(root, pool) * 100, sigFigs));
-      return { axis: c.axis, form: 'raw', value: percent / 100, label: `+${percent}% ${word}`, color };
+      return { axis: c.axis, form: 'raw', value: percent / 100, label: `+${compactLabel(percent)}% ${word}`, color };
     }
     case 'guns': {
       // Whole numbers, sized from the draw once enough are held - a flat +1
       // shrinks from +33% at three guns to nothing by twenty. Both discrete
       // axes convert the same way raw ARMY does: a share of what you hold.
       const n = discreteAmount('guns', ctx.guns, root);
-      return { axis: 'guns', form: 'raw', value: n, label: `+${n} GUN${n === 1 ? '' : 'S'}`, color };
+      return { axis: 'guns', form: 'raw', value: n, label: `+${compactLabel(n)} GUN${n === 1 ? '' : 'S'}`, color };
     }
     case 'pierce': {
       const n = discreteAmount('pierce', ctx.pierce, root);
-      return { axis: 'pierce', form: 'raw', value: n, label: `+${n} PIERCE`, color };
+      return { axis: 'pierce', form: 'raw', value: n, label: `+${compactLabel(n)} PIERCE`, color };
     }
     case 'sense':
       return { axis: 'sense', form: 'raw', value: 1, label: '+SENSE', color };
@@ -179,7 +184,7 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
     case 'shield':
       return { axis: 'shield', form: 'raw', value: 1, label: '+SHIELD', color };
     case 'move':
-      return { axis: 'move', form: 'mult', value: root, label: `×${formatRoot(root)} MOVE`, color };
+      return { axis: 'move', form: 'raw', value: 1, label: '+MOVE', color };
     case 'time': {
       // Worded as a gain, because it is one. "-10% GATE SPEED" reads as a
       // penalty and the bonus would go untaken on grammar alone.
@@ -188,7 +193,7 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
       const percent = Math.max(1, roundSf((root - 1) * 100, sigFigs));
       return {
         axis: 'time', form: 'raw', value: 1 + percent / 100,
-        label: `+${percent}% TIME`, color,
+        label: `+${compactLabel(percent)}% TIME`, color,
       };
     }
   }
@@ -218,7 +223,8 @@ export function rollOffer(
     c.minWave <= wave
     && !(c.axis === 'sense' && ctx.sense >= MAX_SENSE)
     && !(c.axis === 'shield' && ctx.shield >= MAX_SHIELD)
-    && !(c.axis === 'echo' && ctx.echo >= MAX_ECHO));
+    && !(c.axis === 'echo' && ctx.echo >= MAX_ECHO)
+    && !(c.axis === 'move' && (ctx.move ?? 0) >= MAX_MOVE));
   const chosen: GateType[] = [];
   const taken = new Set<Candidate>();
 

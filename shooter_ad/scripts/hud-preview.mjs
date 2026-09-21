@@ -35,9 +35,10 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const STATES = [
   { name: 'hud-early', power: 24, u: { damageBonus: 0.35, damageMult: 1, rateBonus: 0.1, rateMult: 1.2, guns: 1, pierce: 0 } },
   { name: 'hud-mid', power: 640, u: { damageBonus: 2.1, damageMult: 1.32, rateBonus: 0.85, rateMult: 1.1, guns: 2, pierce: 1 } },
-  // Both echoes held (1.4): the ghost rings 200px to either side of the
-  // leader and the three columns they fire, at the state `hud-mid` is.
-  { name: 'hud-echo', power: 640, u: { damageBonus: 2.1, damageMult: 1.32, rateBonus: 0.85, rateMult: 1.1, guns: 2, pierce: 1, echo: 2 } },
+  // ECHO 3 (1.5): a full ghost ring on the left at full size and a half
+  // one on the right at half size, `ECHO.offset` from the leader, and the
+  // three columns they fire, at the state `hud-mid` is.
+  { name: 'hud-echo', power: 640, u: { damageBonus: 2.1, damageMult: 1.32, rateBonus: 0.85, rateMult: 1.1, guns: 2, pierce: 1, echo: 3 } },
   { name: 'hud-stream', power: 4200, u: { damageBonus: 6.4, damageMult: 3.1, rateBonus: 2.4, rateMult: 1.9, guns: 3, pierce: 2 } },
   { name: 'hud-late', power: 38400, u: { damageBonus: 18.4, damageMult: 9.65, rateBonus: 7.2, rateMult: 4.4, guns: 4, pierce: 3 } },
   // The palette loop. `hud-cap` is the last rung of the first cycle - every

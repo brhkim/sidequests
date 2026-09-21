@@ -756,3 +756,195 @@ Status: `landed`, in 1.4. `WEAPON.pierceQ` 0.5 to 0.7: pierce 1 / 2 / 3 are
 1.3 measured 2.2 to 2.5 hits per landing shot at pierce 2 against a claim
 of 2.0. `discreteAmount` now offers `+2 PIERCE` at 3 held where it offered
 `+3`.
+
+## 4. After seeing 1.4 (verbatim)
+
+> 1. ECHOs should be positioned a little bit closer to the main army,
+> they're a bit too far out as-is
+
+Status: `landed`, version **1.5**. `ECHO.offset` 200 to 150 (a full ring
+is ~150px wide, so the ghosts stand a ring apart).
+
+> 2. ECHOs should do only 50% damage, so let's adjust the multiplier to
+> be closer to 1.35x per level rather than the current 1.7x. I think we
+> make it so ECHO level 1 is a 50% left, ECHO level 2 is a 50% right,
+> level 3 is a 100% left, and level 4 is a 100% right
+
+> OH, and the visual for ECHOs should be that the first level on each
+> side is a half-sized army, and then it gets boosted to full-size on the
+> second-level on each side
+
+Status: `landed`, in 1.5. `ECHO.maxLevel` 4; `Progression.echoColumns` is
+the ladder (half left, half right, full left, full right); a column's
+strength is both the share of the damage its shots do and the size its
+ghost is drawn at. Priced `1 + 0.7 x` strength fired: 1.35x / 1.7x /
+2.05x / 2.4x. `hud-echo.png` is now level 3 (full left, half right).
+`npm run model` asserts the ladder and the four prices.
+
+> 3. We actually need to get the numeric representations on the
+> scoreboard (par, dps, army, bonus gates, DPS %, RATE %) all set up for
+> arbitrary numbers. So K, M, B, T, Q, etc. etc. places. We should set it
+> up to be sig figs so once something ticks over from 999 to K it should
+> be represented as like 1.02K% and so on, right? Something along those
+> lines
+
+Status: `landed`, in 1.5. `src/format.ts`: `compact` (whole below 1000,
+three figures with K / M / B / T / Q / Qi / Sx / Sp / Oc / No / Dc above),
+`formatMult`, and `compactLabel` for card text that is also a promise
+(`+12.5%` keeps its digits below 1000). Routed: rail DPS / PAR / `% PAR`
+(the `>999%` cap is gone) / kills, strip ARMY / DMG / RATE / GUNS /
+PIERCE and their multipliers, card labels, the rescue float, the pause
+pages, the end screen. The rail's WAVE lane took 6px from SENSE for
+`1.23K KILLS`; `npm run rail` passes. Not asked, not done: the DETAILS
+page's working lines still show two decimals on small numbers, which is
+what three figures gives them anyway.
+
+## 5. Mid-build (verbatim)
+
+> 1. Let's change the rating of risk to invest for clarity.
+
+Status: `landed`, in 1.5. Every on-screen RISK is INVEST (wash, tally,
+pause tiles `MOVE INVEST` etc., DETAILS line, guide topic). Code and
+stats keep the `risk` key.
+
+> 2. It also seems like in the end screen the percent growth on offer
+> statistic is broken. If I lose and get hit a lot by the end, it just
+> shows 0%. I think we either need to think of a different way of
+> calculating that or we need to show some other way of tracking
+> someone's performance over time.
+
+> I wonder if, instead of showing the percent growth on offer, we could
+> show a plot where the x-axis is time and the y-axis is percent of par
+> (also knowing that the player can be above par), with a dashed line for
+> par and then where the player was at each wave over the course of the
+> game
+
+Status: `landed`, in 1.5. The percentage is off the screen (it still
+prints in `stats.optimal` for the instruments). `GameScene` samples
+`dps / parDps` on the first step, every wave and at the end;
+`EndScreen.drawPlot` is the chart: 270x80 at the left of the old stat
+row, dashed PAR at 100%, y axis to the larger of 150% and the run's peak,
+a dot per wave, line in the rail's standing colour. `end-good.png` /
+`end-poor.png` show it. Why it read 0%: `fractionOfOptimal` compounds
+pick deltas, so a run of mostly INVEST and MISS picks reads near zero
+whatever the army did - a number about the log, not the run.
+
+> Final peak DPS score at the end also needs to be set up with the B M, T
+> Q, etc sigfigs
+
+Status: `landed`, in 1.5. It reads `compact` (it did before; the ladder
+under it changed with ask 3), and sits right of the plot at 36px.
+
+# Author's asks — session of 2026-09-21 (sixth session, MOVE levels, gate sway, damage off the peak)
+
+## 1. Opening brief (verbatim)
+
+> This is getting really great!!! Three features to add/adjust please!
+>
+> 1. I think the player starting move-speed needs to be adjusted downward
+> slightly. Whatever it is right now, let's reduce by 25%. Upgrades should
+> max out at 2.5x base speed, and set up similarly to SENSE with three
+> levels: first boost gets you to 1.5x base speed, next boost to 2x base
+> speed, and next boost to 2.5x base speed
+
+Status: `landed`, version **1.6**. `SQUAD.moveSpeed` 260 to 195. MOVE is a
+level, `Upgrades.move` 0 to 3, on the ladder `MOVE.mult` = x1 / x1.5 / x2 /
+x2.5 (`Progression.moveMultiplier`); the card reads `+MOVE` (it drew a
+root, `x1.05` to `x1.5`, compounding without a cap) and leaves the pool at
+three held like SENSE. The pause tile reads the multiple and the ladder.
+`npm run model` asserts the base, the ladder, the cap, the pool filter and
+that the fastest squad (487.5px/s) is under the 620 that once made travel
+free. Not asked, not done: the weight (42) and wave (1) are unchanged.
+
+> 2. At the higher difficulty levels, once we stop changing the size of the
+> gates, I think we should start to add some slight left-right movement to
+> them (within their "third" of the screen). Start very slow for the first
+> difficulty range above the last width adjustment, and then bump up 2 speed
+> tiers total -- it should never be outrageously fast, but maybe like up to
+> 1.5x periods of movement across the whole length of the screen. The
+> "third" of the area for the gate to move within also needs to be shown by
+> a faint gray bar or something to show its movement limits
+
+Status: `landed`, in 1.6. `GATES.sway`: none until dead space caps
+(judgment wave 26), then three five-wave tiers at **0.5 / 1 / 1.5 periods
+per descent** from waves 27 / 32 / 37 (hard: 22 / 27 / 32), the last held.
+I read "1.5x periods of movement across the whole length of the screen" as
+1.5 full left-right-left cycles over the card's descent of the screen -
+say so if you meant something else. The amplitude is half the lane's dead
+space (+-48.5px), so a card touches its lane edge at the extremes and never
+crosses into a neighbour; the phase is a function of the card's y alone
+(centre at spawn, centre at the line - no RNG, no clock, `npm run repeat`
+0.00%). Peak lateral speed 50 / 110 / 164px/s against a 195px/s squad. The
+track is a caption-grey band the lane's width behind the card, 9% fill and
+a 28% hairline (`RENDER.gate.track*`), drawn only on a card that sways.
+`npm run sway` is the new instrument (`sway-26/27/32/37.png`); `npm run
+model` prints the sway columns on the judgment curve and asserts the
+tiers, the bound, the phase and the speed against the squad's.
+
+> 3. Damage from enemies scales to ARMY which I think means that the death
+> spiral is actually surprisingly slow -- players lose ARMY and then each hit
+> takes away less ARMY progressively. I think the damage from enemy endzone
+> entry and physical touch and bullets should be set at the player's maximum
+> ARMY value and decline only up to 50% from there (mercy clamp) as the
+> player's ARMY decreases with hits from their former max ARMY
+
+Status: `landed`, in 1.6. `Contact.damageBase(power, peak)` =
+`max(held, peak x 0.5)` (`ARMY_DAMAGE.mercy`) is what every share is taken
+of: contact and breach through `contactCost`, bullets through the new
+`bulletCost`. `Squad.peak` is the run's high-water mark. Floors unchanged.
+From a peak of 1,000, a Basic contact is 20 at 1,000 held, 10 at 500 and
+10 at 1 (it was 1); Basic contacts to zero from 1,000: 225 on 1.5, 86 on
+1.6. `npm run from -- --dps=1e5` median survival 64.1s to 52.9s on seeds
+1-3, fire loss per minute up on every seed. The guide's TAKING DAMAGE
+topic says the rule.
+
+> I think these will add some variety and challenge and excitement across
+> the board!
+
+Status: the three are in; none has been played by a human.
+
+## 2. After seeing the 1.6 curve (verbatim)
+
+> The motion should be introduced in brackets after the "difficulty"
+> section of the last width adjustment.
+>
+> Can you walk me through the difficulty gates and waves and where things
+> shift? I think I expected it to be in 5-wave increments
+
+Walked through in chat: speed and dead space moved every wave, legibility
+and the Titans stepped in fives, and 1.6's sway started at 27 across the
+brackets. The author's tuning followed:
+
+> 1. Descent speed, let's get it to x3.5 and have it roll continuously
+> from wave 2 to 40
+
+Status: `landed`, version **1.7**. `GATES.maxSpeedMult` 3.5,
+`speedCapWave` 40 (`speedPerWave` is gone; the slope is derived, ~0.064 a
+wave). Hard mode caps at real wave 35.
+
+> 2. Dead space, let's make it 0 through wave 9, then continue through
+> wave 30 from there progressively
+
+Status: `landed`, in 1.7. `GATES.deadSpace` `{ fromWave: 9, capWave: 30,
+max: 97 }`: one linear slope, ~4.62px a wave from wave 10 to 97px at 30,
+in place of the two stages (6px to 72 at 16, 2.5px to 97 at 26). The cap
+is unchanged at 97px (an 83px card, what the label allows).
+
+> 3. Number legibility, let's change to steps 0-4, then 5-14, then 15-24,
+> then 25-34
+
+Status: `landed`, in 1.7. `LEGIBILITY` minWave 1 / 5 / 15 / 25 (was 1 / 6
+/ 11 / 16). The finest tier holds from 25 on; there is no fifth table for
+35+, so 25-34 and 35+ read the same hundredths ladder.
+
+> 4. New shooter types at 5, 15, 25
+
+Status: `landed`, in 1.7. Spitter 5, Mortar 15, Lancer 25 (`minWave` in
+the roster; the order is unchanged). `npm run model` asserts the three
+waves.
+
+> 5. Sway should then be as you note 31-35, 36-40, 41 onward
+
+Status: `landed`, in 1.7. `GATES.sway.fromWave` 30. Peak lateral speed at
+the last tier is 177px/s on the faster descent (164 in 1.6), still under
+the 195px/s squad; `npm run model` fails if it ever outruns it.

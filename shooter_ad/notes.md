@@ -219,13 +219,20 @@ priced at exactly zero and leaves the pool at the cap.
 
 ### Move speed is the deliberate oddity
 
-`×1.2 MOVE` has no damage value at all. It makes it easier to reach the gate you
+`+MOVE` has no damage value at all. It makes it easier to reach the gate you
 want for the rest of the run — an investment whose return depends on how long
 you survive and how spread out future gates are. Offering it against a flat
 `+15% DMG` is exactly the kind of call this game should be asking.
 
 The squad should therefore start **slow enough that movement is a real
 constraint**, or the bonus is worthless.
+
+**Three levels, and a slower start (2026-09-21, 1.6, the author's ask).**
+Base speed came down a quarter, 260 to 195px/s, and MOVE is a level like
+SENSE rather than a root draw: x1.5 at one held, x2 at two, x2.5 at three,
+and the card leaves the pool at three. The first pick is the big one, the
+axis has a ceiling, and the fastest squad (487.5px/s) still walks slower
+than the 620 that once made travel free.
 
 ### `+SHIELD`: a bonus about surviving fire
 
@@ -287,27 +294,53 @@ of dead space opens between them and grows, so players not only need to make
 the decision, but need increasing precision in movement to do so despite the
 noise of everything going on - and so they can fully miss a bonus. This was a
 bug fixed a while ago (a gap at wave 1 let a player slide between two blocks
-by accident) and is now part of the design instead: zero until wave 4, 6px a
-wave from wave 5, to 72px at wave 16, where a 180px lane holds a 108px
-gate. Hard mode starts it five waves in like the other judgment levers.
-A missed offer shows `MISS` at the lane line and is graded as the worst pick.
+by accident) and is now part of the design instead. Hard mode starts it
+five waves in like the other judgment levers. A missed offer shows `MISS`
+at the lane line and is graded as the worst pick.
 
-**It no longer flattens there** (the author, 2026-09-20, 0.8: "scale up two
-more times, similar curve as-is, in two more increments for 5 waves rather
-than flattening out completely"). A second stage runs from wave 16 to wave
-26 at 2.5px a wave, ending at 97px of dead space and an 83px gate - the
-leader within ±41px. The late slope is shallower than the first on purpose:
-6px a wave for ten more waves would leave a 48px card that cannot hold its
-own axis word, so the shape is kept and the size is what the label allows;
-`GATES.minWidth` fell 100 to 80 with it. Gate speed got the same treatment
-with no compromise: the 0.075-a-wave rise that used to cap at ×2.5 (wave
-21) now runs to ×3.25 at wave 31, a ~2.8s descent. `npm run model` asserts
-both caps land on those waves and that the curve does not flatten after
-the first cap.
+**The curve is the author's (2026-09-21, 1.7): zero through wave 9, then
+one slope to wave 30.** About 4.6px a wave from wave 10 to 97px of dead
+space at wave 30, an 83px gate, the leader within ±41px; flat after. It
+replaces two earlier shapes - 6px a wave from wave 5 to 72px at wave 16
+(0.5), then a shallower second stage to 97px at wave 26 (0.8, "two more
+increments for 5 waves rather than flattening out completely"). 97px is
+what the label allows: the axis word needs ~76px and `GATES.minWidth` is
+80. Gate speed is likewise one continuous rise, from ×1 at wave 1 to
+**×3.5 at wave 40** (1.7; it capped at ×2.5 at 21, then ×3.25 at 31), a
+~2.6s descent at the cap. `npm run model` asserts both caps land on those
+waves and prints the whole curve per wave.
 
 To keep every label legible at the narrowest width the cards became taller
 and the label two-line - magnitude over axis - rather than the numbers
 smaller. A late `+1840% DMG` still reads.
+
+### Gates sway inside their lane
+
+**Built (2026-09-21, 1.6, the author's ask; rewaved in 1.7).** Once the
+cards stop narrowing the next lever is that they MOVE: each card drifts
+left and right inside its own third of the screen, slowly at first and
+then in two more steps, never outrageously - the author's ceiling is "up
+to 1.5x periods of movement across the whole length of the screen", which
+is read as one and a half full cycles over the card's descent. The
+motion starts in the five-wave bracket AFTER the one holding the last
+width change (the author, 1.7): widths finish at wave 30, so 0.5 periods
+a descent from wave 31, 1 from wave 36, 1.5 from wave 41 and held there;
+hard mode five waves earlier like every judgment lever. The swing
+is half the dead space, +-48.5px, so the card touches the lane edge at
+the extremes and never enters a neighbour's lane. The pace is in periods
+per descent rather than seconds on purpose: `+TIME` slows the fall and
+slows the sway with it, and the card is at its lane centre when it spawns
+and when it reaches the line, so no pick is made against a card mid-swing.
+The lane is drawn as a faint grey track behind a swaying card so the eye
+reads the limits and waits for the card to come back rather than chasing
+it. The phase is a function of the card's y and nothing else: a seed still
+replays.
+
+What it asks of the player is the same thing dead space asks, timed: the
+leader has to be under a moving 83px card at the moment it crosses the
+line. The bot steers to the card's live x every step and takes 7 to 11
+gates from wave 41 (`npm run from -- --dps=1e5 --wave=41`); a human has
+not played it.
 
 ---
 
@@ -441,13 +474,14 @@ mechanic changes — only how hard the arithmetic is.
 
 This is the axis that scales furthest, because it never stops being interesting.
 
-**When the decimals appear today.** The author's schedule, four tiers of
-five waves, built 2026-09-20: waves 1-5 draw three values (`1.1, 1.25,
-1.5`); 6-10 the tenths (`1.1` to `1.5`, no `1.25`); 11-15 every `.05`;
-16 on every `.01` with three significant figures, which is when `×1.07` and
-`+1840%` start showing up. Hard mode is five waves ahead: tenths from wave
-1, hundredths from wave 11. `npm run model` prints the whole curve per wave
-under "the judgment curve".
+**When the decimals appear today.** The author's schedule (2026-09-21,
+1.7: "steps 0-4, then 5-14, then 15-24, then 25-34"; it was four tiers of
+five waves at 1 / 6 / 11 / 16 from 2026-09-20): waves 1-4 draw three
+values (`1.1, 1.25, 1.5`); 5-14 the tenths (`1.1` to `1.5`, no `1.25`);
+15-24 every `.05`; 25 on every `.01` with three significant figures, which
+is when `×1.07` and `+1840%` start showing up. Hard mode is five waves
+ahead: tenths from wave 1, hundredths from wave 20. `npm run model` prints
+the whole curve per wave under "the judgment curve".
 
 **"No mechanic changes" was a constraint on the tables' MEAN, and the author
 chose to relax it.** The original coarse table bunched low - 1.32% less per
@@ -1018,30 +1052,101 @@ moves too far left/right that the echoes go off the screen, they should
 just go off the screen (damage wastage, basically) but with no other
 consequence (they can come back)."
 
-As built: `ECHO` in config is `{ maxLevel: 2, offset: 200, value: 0.7 }`.
-Every honoured bullet the army fires is spawned once per column - the
-army's, then 200px left at one held, 200px right too at two - with the
-same bundle, so an echo fires exactly what the army fires and a bullet
-spawned past the edge is culled on its first step (the wastage). The
-columns all count against the simulation's shot cap, so the pool sees no
-more spawns than before. The ghosts are drawn as the ring itself at 38%
-alpha in the army's shirts; nothing in the simulation has a body for
-them, so they take no damage, touch no enemy and meet no dart. Priced at
-`1 + 0.7 × level` (1.7×, 2.4×) through `squadDps`, so par takes it, the
-grade counts it and the budget sees it; `singleTargetDps` leaves it out
-because a ghost 200px to the side lands nothing on a Titan under the
-leader, so the boss is not sized against it. Offered from wave 4 at
-weight 24 (GUNS's), filtered out at two held like SENSE. It is the tenth
-axis: the pause BONUSES grid is 4x3 of 120x64, the DETAILS page has a
-seventh line, and its colour is slate `0x9fb4c8`, a ghost's non-colour.
-Decisions I made rather than asked: the offset (200px, a formation and a
-half), the weight and wave, the colour, and that the price is per echo
-(1.7× at one, 2.4× at two) rather than 1.7× total.
+**Retuned in 1.5, the author's call after seeing it**: "ECHOs should be
+positioned a little bit closer", "ECHOs should do only 50% damage, so
+let's adjust the multiplier to be closer to 1.35x per level ... ECHO
+level 1 is a 50% left, ECHO level 2 is a 50% right, level 3 is a 100%
+left, and level 4 is a 100% right", and "the first level on each side is
+a half-sized army, and then it gets boosted to full-size on the
+second-level on each side".
+
+As built: `ECHO` in config is `{ maxLevel: 4, offset: 150, value: 0.7 }`
+and `Progression.echoColumns(level)` is the ladder - half left, half
+right, full left, full right. Every honoured bullet the army fires is
+spawned once per column with the same bundle at the column's strength of
+the damage (a half echo's shots do half), so an echo fires what the army
+fires, and a bullet spawned past the edge is culled on its first step
+(the wastage). The columns all count against the simulation's shot cap,
+so the pool sees no more spawns than before. The ghosts are drawn as the
+ring itself at 38% alpha in the army's shirts, a half echo at half size
+around its own leader and a full one at full size; nothing in the
+simulation has a body for them, so they take no damage, touch no enemy
+and meet no dart. Priced at `1 + 0.7 ×` the strength fired (1.35× / 1.7×
+/ 2.05× / 2.4× by level) through `squadDps`, so par takes it, the grade
+counts it and the budget sees it; `singleTargetDps` leaves it out because
+a ghost to the side lands nothing on a Titan under the leader, so the
+boss is not sized against it. Offered from wave 4 at weight 24 (GUNS's),
+filtered out at four held like SENSE. It is the tenth axis: the pause
+BONUSES grid is 4x3 of 120x64, the DETAILS page has a seventh line, and
+its colour is slate `0x9fb4c8`, a ghost's non-colour. Decisions I made
+rather than asked: the weight and wave, the colour, and 150px for
+"closer" (a full ring is ~150 wide, so the ghosts stand a ring apart).
+
+## Numbers read at three figures whatever their size
+
+**Decided, 2026-09-21 (1.5), the author's ask** ("get the numeric
+representations on the scoreboard (par, dps, army, bonus gates, DPS %,
+RATE %) all set up for arbitrary numbers. So K, M, B, T, Q, etc. ... sig
+figs so once something ticks over from 999 to K it should be represented
+as like 1.02K%"). `src/format.ts` is the one formatter: whole below 1000,
+then three significant figures on the thousands ladder (`1.02K`, `10.2K`,
+`102K`, `1.02M` ... `Q`, `Qi`, `Sx`, `Sp`, `Oc`, `No`, `Dc`). The rail's
+DPS and PAR, `% PAR` (no `>999%` cap any more), kills, the strip's ARMY
+and pools, every multiplier (`×1.02K`), the cards' `+1.84K% DMG` and
+`+1.84K ARMY`, the rescue float and the pause pages all read it. A card
+label is also a promise, so below 1000 it keeps its exact digits
+(`+12.5%`) and only compacts above. `npm run model` asserts the ladder.
+
+## The end screen plots you against par; RISK reads INVEST
+
+**Decided, 2026-09-21 (1.5), the author's asks.** "Let's change the rating
+of risk to invest for clarity": every word on screen that said RISK now
+says INVEST - the wash over a MOVE / TIME / SENSE / SHIELD pick, the
+tally's fourth footprint, the pause tiles (`MOVE INVEST`), the guide's
+topic. The code keeps `risk` as the key (`RISK_AXES`, `grade: 'risk'`,
+`tally.risk`) so the instruments and the analytics paths are unchanged.
+
+"It also seems like in the end screen the percent growth on offer
+statistic is broken. If I lose and get hit a lot by the end, it just
+shows 0%." It was not broken so much as answering a question nobody was
+asking: `fractionOfOptimal` compounds the picks' deltas, and a pick made
+on an army that has since been shot to pieces still counts what it was
+worth at the time - but a run with mostly missed or INVEST picks reads
+near zero, which is a number about the log, not the run. The author's
+replacement: "a plot where the x-axis is time and the y-axis is percent
+of par (also knowing that the player can be above par), with a dashed
+line for par and then where the player was at each wave". `GameScene`
+samples `dps / parDps` on the run's first step, at every wave and at the
+end (`series` in the gameover payload); `EndScreen.drawPlot` draws a
+270x80 frame at the left of the row where the percentage was, the y axis
+from 0 to the larger of 150% and the run's peak so a player above par is
+above the dashed PAR line, a dot per point, the line in the rail's
+standing colour for the final value; PEAK DAMAGE / SEC sits to its right
+on the three-figure ladder ("Final peak DPS score at the end also needs
+to be set up with the B M, T Q, etc sigfigs" - it reads `compact`).
+`fractionOfOptimal` still exists and `stats.optimal` still prints it for
+the instruments; only the screen stopped showing it.
+
+## Every price on the army is a share of its peak
+
+**2026-09-21 (1.6), the author's ask.** Contact, breach and enemy fire
+were each a share of the army HELD, and the author read the consequence
+in play: "the death spiral is actually surprisingly slow - players lose
+ARMY and then each hit takes away less ARMY progressively". A run at 1,000
+that had fallen to 100 paid a tenth per hit of what it paid at its best,
+and dying took forever. Now every share is of the run's PEAK army,
+declining with the army held only as far as half the peak (the mercy
+clamp) and holding there: `max(held, peak x 0.5)`. From a peak of 1,000 a
+Basic contact is 20 at full strength, 10 at 500 held and still 10 at 1
+held, where it was 1; Basic contacts to zero from 1,000 go from 225 to 86.
+Floors are unchanged, so the opening army is priced as it was. Rescues and
+gates still raise the peak; nothing lowers it inside a run.
 
 ## Enemy fire scales with the army
 
 A landing bullet costs **1% of the army you hold, rounded down, never less
-than one power** (times the gun's damage). A flat half-power tax went dead
+than one power** (times the gun's damage) - of the army's peak, since 1.6,
+declining to half of it; see above. A flat half-power tax went dead
 once armies reached the hundreds, so enemy fire stopped being a reason to move
 exactly when there was the most of it. It is still well under a contact, which
 is 2% to 6% by body size (below): a body reaching you is a failure to kill,
@@ -1054,7 +1159,7 @@ standing near zero, where before they ended at a Titan near par. That is the
 designed consequence for a player who does not move; whether it is right for
 one who does is a question for the author under fire.
 
-### Shooters spawn at half weight, one new type per five waves
+### Shooters spawn at half weight, one new type per ten waves
 
 **Decided, 2026-09-21 (1.3), the author's call.** The fire felt too heavy
 ("between the Mortars and the other shooters, the difficulty curve seems
@@ -1067,10 +1172,11 @@ the waves before them. A cap on LIVE shooters was proposed and declined:
 it would answer every cleared ranged body with another one, where the game
 is that clearing them makes the field quieter. Instead every gun type
 carries **half the weight** its body would (Spitter 15, Mortar 11, Lancer
-12) and they arrive one at a time - **Spitter at wave 5, Mortar at 10,
-Lancer at 15** - so the pool gaining a shooter every five waves is what
-steps the fire up. Shooter share of spawns: 6% at wave 5, 9% from 10, 12%
-from 15, against 12 / 21 / 21% before.
+12) and they arrive one at a time - **Spitter at wave 5, Mortar at 15,
+Lancer at 25** since 1.7 (5 / 10 / 15 in 1.3) - so the pool gaining a
+shooter every ten waves is what steps the fire up. Shooter share of spawns
+(measured on the 1.3 waves): 6% at wave 5, 9% from the Mortar, 12% from
+the Lancer, against 12 / 21 / 21% before.
 
 The guns slowed with it, the author's numbers: the Spitter fires every
 **3s** (was 2.1), the Lancer's trident every **4.5s** (2.6), the Mortar's
@@ -1081,7 +1187,7 @@ shell every **6s** (3.2). The Titan's fan stays at 3.4s.
 **Added 2026-09-21 (1.1), the author's ask** ("one of the enemies to have a
 'Big bullet' type; a slower red bullet rather than just the many small
 bullets ... twice as much relative damage"). The **Mortar** is a new
-medium-tier type from wave 10 (wave 6 until 1.3): a squat stone-grey pot that drifts a little
+medium-tier type from wave 15 (wave 6 until 1.3, 10 until 1.7): a squat stone-grey pot that drifts a little
 and lobs one aimed **shell** every 6s (3.2s until 1.3) - scarlet, nearly twice a dart's
 radius, half a dart's speed, and `damage: 2`, so it costs twice the 1% share
 a dart does (2 power at the floor, 2% of the army past 200). The point is

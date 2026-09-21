@@ -30,14 +30,17 @@ const VALUE = '#e8ecf8';
 // 1.1: the other bonus about the player rather than the squad's damage,
 // and the one whose state (charges ready) changes under fire, so it has
 // to be on screen. Five lanes of unequal width - WAVE needs the least, the
-// two DPS columns and SENSE the most (`>999% PAR`, `BEST PLAY` and `75%
+// two DPS columns and SENSE the most (`867K% PAR`, `BEST PLAY` and `75%
 // MARKED` are the widest sub-lines) - and the labels and sub-lines came
 // down a point (14 to 13px, the sub-lines untracked) so no two neighbours
 // touch. `npm run rail` forces the widest state of every column and fails
-// under 8px between neighbours; that is the check, not a still.
+// under 8px between neighbours; that is the check, not a still. WAVE took
+// 6px from SHIELD (`READY` is the narrowest sub-line) in 1.5 when `1.23K
+// KILLS` grew a figure; taking it from PAR or SENSE pulled `BEST PLAY`
+// and `75% MARKED` to 7px.
 const COLUMNS = ['WAVE', 'YOUR DPS', 'PAR DPS', 'SENSE', 'SHIELD'] as const;
 const LANES: Record<(typeof COLUMNS)[number], number> = {
-  WAVE: 82, 'YOUR DPS': 100, 'PAR DPS': 96, SENSE: 100, SHIELD: 82,
+  WAVE: 88, 'YOUR DPS': 100, 'PAR DPS': 96, SENSE: 100, SHIELD: 76,
 };
 const AXIS_OF: Partial<Record<(typeof COLUMNS)[number], number>> = {
   SENSE: AXIS_COLOR.sense, SHIELD: AXIS_COLOR.shield,
@@ -107,10 +110,9 @@ export class TopRail {
 
     this.subs[0].setText(`${compact(h.kills)} KILLS`);
     this.subs[2].setText('BEST PLAY');
-    // Past 999% the exact number has stopped being information, and the column
-    // is 100px wide.
-    const percent = Math.round(ratio * 100);
-    this.subs[1].setText(percent > 999 ? '>999% PAR' : `${percent}% PAR`).setColor(color);
+    // Three figures at any size (`1.02K% PAR`); `npm run rail` holds the
+    // 100px column against the widest of them.
+    this.subs[1].setText(`${compact(ratio * 100)}% PAR`).setColor(color);
     this.subs[3].setText(h.sense > 0 ? `${Math.round(h.senseChance * 100)}% MARKED` : '')
       .setColor(hex(AXIS_COLOR.sense));
     // Charges ready over the pool's size - `4/6` - rather than pips: six

@@ -181,7 +181,7 @@ export const ENEMIES: readonly EnemyType[] = [
     // Indigo, deliberately: the old rose was a shade off the enemy-bullet
     // magenta, and a Lancer read as one of its own darts at a glance.
     color: 0x6a5acd, accent: 0xe8e2ff,
-    radius: 13, hp: 22, speed: 38, tier: 'medium', armor: 0.1, weight: 12, minWave: 15,
+    radius: 13, hp: 22, speed: 38, tier: 'medium', armor: 0.1, weight: 12, minWave: 25,
     gun: { interval: 4.5, count: 3, spread: 0.42, speed: 185, damage: 1, aimed: false },
   },
   {
@@ -194,7 +194,7 @@ export const ENEMIES: readonly EnemyType[] = [
     // Stone grey, a hue no other body wears; the accent is the loaded shell
     // glowing in its muzzle, in the shell's own scarlet.
     color: 0xa39a8e, accent: 0xff3b3b,
-    radius: 14, hp: 30, speed: 24, tier: 'medium', armor: 0.1, weight: 11, minWave: 10,
+    radius: 14, hp: 30, speed: 24, tier: 'medium', armor: 0.1, weight: 11, minWave: 15,
     gun: { interval: 6, count: 1, spread: 0, speed: 105, damage: 2, aimed: true, shell: true },
   },
   {

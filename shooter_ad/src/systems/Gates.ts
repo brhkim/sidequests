@@ -1,10 +1,16 @@
 import { ARENA, GATES, VIEW } from '../config';
 import { rollOffer, type GateType, type OfferContext } from '../data/gates';
-import { gateDeadSpace, gateSpeed, senseChance, type Upgrades } from './Progression';
+import { gateDeadSpace, gateSpeed, gateSway, senseChance, swayOffset, type Upgrades } from './Progression';
 
 export interface Gate {
+  /** Where the card IS this step: `laneX` plus its sway. The hit test reads it. */
   x: number; y: number;
   width: number;
+  /** The lane's centre, which the card sways about. */
+  laneX: number;
+  /** Sway at spawn: periods over the descent and the swing in px (0 = still). */
+  swayPeriods: number;
+  swayAmplitude: number;
   type: GateType;
   /** Offer id, so taking one gate consumes the others beside it. */
   pair: number;
@@ -71,6 +77,10 @@ export class Gates {
     for (const g of this.items) {
       if (!g.active) continue;
       g.y += speed * dt;
+      // Sway (1.6): the card's x is a function of its y, so the position
+      // the hit test reads is the one drawn, and nothing here consumes the
+      // stream or a clock.
+      g.x = g.laneX + swayOffset(g.y, g.swayPeriods, g.swayAmplitude);
       if (g.y > VIEW.height + GATES.height) g.active = false;
     }
     this.creditArrivedOffers();
@@ -140,15 +150,24 @@ export class Gates {
     // (`checkGates`, `findTarget`), and the card is drawn to it.
     const lane = VIEW.width / offer.length;
     const width = Math.max(GATES.minWidth, lane - gateDeadSpace(wave));
+    // Sway (1.6) is fixed for the offer's life at spawn, like its width: an
+    // offer rolled at wave 31 sways at wave 31's pace to the line. The
+    // amplitude is bounded by what the lane actually leaves this card.
+    const sway = gateSway(wave);
+    const amplitude = Math.min(sway.amplitude, Math.max(0, (lane - width) / 2));
     for (let i = 0; i < offer.length; i++) {
       const x = i * lane + lane / 2;
-      this.push({ x, width, type: offer[i], pair, index: i, sensed });
+      this.push({
+        x, laneX: x, width, type: offer[i], pair, index: i, sensed,
+        swayPeriods: amplitude > 0 ? sway.periods : 0, swayAmplitude: amplitude,
+      });
     }
   }
 
   private push(
     spec: {
-      x: number; width: number; type: GateType; pair: number; index: number; sensed: boolean;
+      x: number; laneX: number; width: number; type: GateType; pair: number; index: number; sensed: boolean;
+      swayPeriods: number; swayAmplitude: number;
     },
   ): void {
     const gate: Gate = { ...spec, y: -GATES.height, active: true };

@@ -106,7 +106,7 @@ console.log(`  power ${Math.round(start.power)}  (${tierRow(tierFor(share)).name
   + `  wave ${start.wave}`);
 console.log(`  dmg +${Math.round(u.damageBonus * 100)}% x${u.damageMult.toFixed(2)}`
   + `  rate +${Math.round(u.rateBonus * 100)}% x${u.rateMult.toFixed(2)}`
-  + `  guns ${u.guns}  pierce ${u.pierce}  move x${u.moveMult.toFixed(2)}  time x${(1 / u.gateSpeedMult).toFixed(2)}`);
+  + `  guns ${u.guns}  pierce ${u.pierce}  move ${u.move}  time x${(1 / u.gateSpeedMult).toFixed(2)}`);
 console.log(`  DPS ${squadDps(progress).toExponential(2)}  shots/s ${Math.round(shotsPerSecond(progress))}`
   + `  bundle x${bundleFactor(progress).toFixed(1)}`);
 

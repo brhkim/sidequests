@@ -3,6 +3,7 @@ import { ARENA, COLORS, GATES, RENDER, VIEW } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
 import type { SimEvent } from '../../systems/SimEvents';
 import { FONT, GRADE_COLOR, GRADE_WORD, type Grade } from '../hud/types';
+import { compact } from '../../format';
 import { FloatingLabels } from './FloatingLabels';
 
 const WASHES = 4;
@@ -56,7 +57,7 @@ export class FieldFx {
           this.labels.spawn(e.x, e.y - 60, 'MISS', RED, { size: 18, tracking: 3, rise: 24, duration: 800, hold: 200 });
           break;
         case 'rescue':
-          this.labels.spawn(e.x, e.y - 20, `+${e.amount} ARMY`, AXIS_COLOR.army, { size: 20, stroke: 4, rise: 40, duration: 800 });
+          this.labels.spawn(e.x, e.y - 20, `+${compact(e.amount)} ARMY`, AXIS_COLOR.army, { size: 20, stroke: 4, rise: 40, duration: 800 });
           break;
         case 'contact':
           if (!e.titan) this.labels.spawn(e.x, e.y - 12, `-${e.cost}`, RED, { size: 16, rise: 26, duration: 700 });

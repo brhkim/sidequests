@@ -47,6 +47,17 @@ export class Squad {
   }
 
   get power(): number { return this.progress.power; }
+  /**
+   * The most power this squad has held (1.6). Every charge on the army is a
+   * share of this, floored at `ARMY_DAMAGE.mercy` of it (`Contact.damageBase`),
+   * so losing soldiers does not make the next hit cheaper. Read lazily so a
+   * power set from outside (`from`, the instruments) is seen at once.
+   */
+  get peak(): number {
+    if (this.progress.power > this.peakPower) this.peakPower = this.progress.power;
+    return this.peakPower;
+  }
+  private peakPower = 0;
   get upgrades(): Upgrades { return this.progress.upgrades; }
   get alive(): boolean { return this.progress.power > 0; }
   /**

@@ -8,6 +8,7 @@ import { cageReward } from '../../systems/Progression';
 import type { SimEvent } from '../../systems/SimEvents';
 import { FieldFx } from '../fx/FieldFx';
 import { FONT, hex } from '../hud/types';
+import { compact } from '../../format';
 import { RAIL_HEIGHT } from '../hud/TopRail';
 import { GateCards, type GateTarget } from './GateCards';
 
@@ -176,7 +177,7 @@ export class FieldRender {
       o.fillStyle(0x000000, 0.5).fillRect(c.x - CAGE.radius, barY, CAGE.radius * 2, 5);
       o.fillStyle(COLORS.cage, 0.95).fillRect(c.x - CAGE.radius, barY, CAGE.radius * 2 * (c.hp / c.maxHp), 5);
       const t = this.rewards[used] ?? this.makeReward();
-      const text = `+${reward}`;
+      const text = `+${compact(reward)}`;
       if (t.text !== text) t.setText(text);
       t.setPosition(c.x, barY - 3).setVisible(true);
       used++;

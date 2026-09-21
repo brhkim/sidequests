@@ -104,8 +104,12 @@ export const SQUAD = {
    * Under a pointer the squad used to teleport to the finger, so travel was
    * free and none of the above was true. `Squad.update` now advances toward the
    * pointer at this speed instead.
+   *
+   * 195 since 1.6: the author's ask, "reduce by 25%" from 260. `x MOVE` is
+   * now three levels (`MOVE.mult`), so the fastest a squad ever walks is
+   * 2.5x this, 487.5px/s - still under the 620 that made travel free.
    */
-  moveSpeed: 260,
+  moveSpeed: 195,
   /**
    * One: the author's call (2026-09-20, 0.9). It went 1 to 5 for a
    * session when wave-clear army was removed, on the argument that a start
@@ -277,6 +281,25 @@ export const ENEMY_FIRE = {
    */
   powerShare: 0.01,
   minCost: 1,
+} as const;
+
+/**
+ * What every charge on the army is a share OF (1.6, the author's ask).
+ *
+ * Contact, breach and enemy fire are each a share of the army. Until 1.6
+ * that share was of the army HELD, so every hit made the next one cheaper:
+ * an army knocked from 1,000 to 100 paid a tenth per hit of what it had
+ * paid at its peak, and the death spiral was "surprisingly slow". The
+ * base is now the army's PEAK this run, declining with the army held only
+ * as far as `mercy` of the peak: `max(held, peak x mercy)`. At full
+ * strength a hit costs what it always did; an army at half its peak or
+ * below pays half its peak's price per hit, and no less. Floors are
+ * unchanged. `Contact.damageBase` is the one function; `npm run model`
+ * prints the decline.
+ */
+export const ARMY_DAMAGE = {
+  /** Lowest the base falls to, as a share of the run's peak army. */
+  mercy: 0.5,
 } as const;
 
 /**
@@ -499,10 +522,13 @@ export const SIM = {
 export const GATES = {
   /** Seconds between offers descending. */
   interval: 7.5,
-  /** Approach speed at wave 1. Rises with the wave - see `speedPerWave`. */
+  /** Approach speed at wave 1. Rises with the wave - see `maxSpeedMult`. */
   speed: 108,
   /**
-   * Fractional rise in approach speed per wave past the first.
+   * The rise in approach speed: linear from x1 at wave 1 to `maxSpeedMult`
+   * at `speedCapWave` (judgment waves), then flat. The per-wave slope is
+   * derived, `(maxSpeedMult - 1) / (speedCapWave - 1)`, in
+   * `Progression.waveGateSpeedMult`.
    *
    * THE primary difficulty lever on the judgment axis, and deliberately
    * separate from enemy pressure: later waves do not give you a harder sum,
@@ -510,16 +536,16 @@ export const GATES = {
    * (see systems/Difficulty.ts) and never keys off the wave number; this does,
    * because thinking time is not something a shadow player can be budgeted
    * against.
+   *
+   * History: 0.075 a wave to x2.5 at wave 21 ("~3.2s is as short as three
+   * labels can be read in"); then to x3.25 at wave 31 (0.8, two more
+   * five-wave steps of the same slope); now (1.7, the author's ask) x3.5 at
+   * wave 40 (hard: 35), rolling continuously from wave 2 - about 0.064 a
+   * wave, a ~2.6s descent at the cap. Past it the game is testing reflexes,
+   * and that is the point.
    */
-  speedPerWave: 0.075,
-  /**
-   * Ceiling on that rise. It was 2.5, reached at wave 21, on the argument
-   * that ~3.2s is as short as three labels can be read in. The author's
-   * call (2026-09-20, 0.8) is two more five-wave steps of the same slope
-   * rather than a flat line: 3.25, reached at wave 31 (hard: 26), a ~2.8s
-   * descent. Past it the game is testing reflexes, and that is the point.
-   */
-  maxSpeedMult: 3.25,
+  maxSpeedMult: 3.5,
+  speedCapWave: 40,
   /**
    * Card height, and the vertical hit window with it. 88 holds two lines - the
    * magnitude over the axis - so a label stays readable on the narrowest card
@@ -540,29 +566,49 @@ export const GATES = {
    * collect it through the noise of everything else on the field.
    *
    * Keyed on `judgmentWave`, like speed and legibility, so hard mode gets it
-   * five waves earlier. `fromWave` is the last wave WITHOUT it: zero through
-   * wave 4, then `perWave` more every wave - 6px at wave 5, 12 at 6, 36 on the
-   * second Titan at 10 - capped at `max` from wave 16 (hard: wave 11).
-   * In the player's units: three lanes across 540px are 180px each, so at
-   * wave 16 a lane holds a 108px gate and the leader must be within ±54px of
-   * its centre; the card is drawn exactly as wide as it hits.
+   * five waves earlier. `fromWave` is the last wave WITHOUT it; from the
+   * next wave it rises linearly to `max` at `capWave` and holds. One slope
+   * since 1.7 (the author's ask: "0 through wave 9, then continue through
+   * wave 30 from there progressively"): zero through wave 9, ~4.6px a wave
+   * from wave 10, 97px at wave 30 (hard: 25). In the player's units: three
+   * lanes across 540px are 180px each, so the wave-30 lane holds an 83px
+   * gate and the leader must be within +-41px of its centre; the card is
+   * drawn exactly as wide as it hits. `max` is what `minWidth` allows: the
+   * axis word (`PIERCE`, 14px tracked) needs ~76px and the magnitude
+   * already shrinks to fit, so a 180px lane can lose at most 100.
    *
-   * The first stage reaches `max` (72px, a 108px gate) at wave 16. It used
-   * to flatten there; the author's call (2026-09-20, 0.8) is two more
-   * five-wave steps rather than a plateau, so a second stage continues at
-   * `latePerWave` from wave 16 to `lateMax` at wave 26 (hard: 21). The late
-   * slope is shallower than the first because 6px a wave for ten more waves
-   * would leave a 48px card, which cannot hold its own label: 2.5px a wave
-   * ends at 97px of dead space, an 83px gate, and the leader within ±41px.
-   *
-   * `lateMax` is derived from `minWidth`: the axis word (`PIERCE`, 14px
-   * tracked) needs ~76px and the magnitude already shrinks to fit, so the
-   * lane can lose at most 100. `minWidth` clamps regardless so a future lane
-   * count cannot squeeze a card past legibility.
+   * History: 6px a wave from wave 5 to 72px at wave 16 (0.5), then a second
+   * stage at 2.5px a wave to 97px at wave 26 (0.8).
    */
-  deadSpace: { fromWave: 4, perWave: 6, max: 72, latePerWave: 2.5, lateMax: 97 },
+  deadSpace: { fromWave: 9, capWave: 30, max: 97 },
   /** A gate is never narrower than this, whatever the dead space asks. */
   minWidth: 80,
+  /**
+   * Gate SWAY: once dead space stops growing (judgment wave 30, normal),
+   * each card drifts left and right inside its own lane (1.6, the author's
+   * ask). The fifth judgment lever, and the first that moves the target
+   * rather than shrinking it.
+   *
+   * `fromWave` is the last wave WITHOUT it - the wave dead space reaches
+   * `max`, the end of the width's own five-wave bracket - so sway begins in
+   * the bracket after the last width change (1.7, the author's ask). Its
+   * pace is in PERIODS PER DESCENT: how many full left-right-left cycles a
+   * card completes between its spawn and the lane line, whatever the
+   * descent's speed in seconds. `periods[i]` is the pace of tier i, and a
+   * tier lasts `tierWaves` waves: 0.5 a descent from wave 31 (a slow drift
+   * from one side of the lane to the other and back to centre), 1 from
+   * wave 36, 1.5 from wave 41 and forever after. The phase is a function
+   * of the card's y and nothing else - no RNG, no clock - so a seed still
+   * replays and `+TIME` slows the sway with the descent it slows.
+   *
+   * The amplitude is what the lane leaves: half its dead space, so the
+   * card's edge touches the lane boundary at the extremes and never
+   * crosses into a neighbour. At 97px of dead space that is +-48.5px; at
+   * 1.5 periods over a ~2.6s descent the card's peak lateral speed is
+   * ~175px/s against a 195px/s squad at x1 MOVE. The lane itself is drawn
+   * as a faint grey track behind the card so the limits are visible.
+   */
+  sway: { fromWave: 30, tierWaves: 5, periods: [0.5, 1, 1.5] },
   /**
    * GUN and PIERCE are whole numbers, so they cannot draw a root the way the
    * pools do - and a flat `+1` shrinks as you stack them: the fourth gun is
@@ -604,24 +650,29 @@ export const GATES = {
 export const RISK_AXES = ['move', 'time', 'sense', 'shield'] as const;
 
 /**
- * `+ECHO`: a ghost of the army beside it that fires exactly what the army
- * fires. Level 1 stands to the LEFT, level 2 adds one to the RIGHT (1.4,
- * the author's ask). An echo takes no damage, blocks nothing, meets no
- * enemy bullet and holds no upgrades of its own - it mirrors the army's -
- * and one driven off the edge of the field simply fires into nothing until
- * the army comes back.
+ * `+ECHO`: a ghost of the army beside it that fires what the army fires
+ * (1.4, the author's ask). Four levels since 1.5: a HALF-strength echo on
+ * the left, then one on the right, then the left grows to full strength,
+ * then the right (`Progression.echoColumns`). A half echo fires the army's
+ * shots at half damage and is drawn at half size; a full one is the army
+ * again, drawn full size. An echo takes no damage, blocks nothing, meets
+ * no enemy bullet and holds no upgrades of its own - it mirrors the
+ * army's - and one driven off the edge of the field simply fires into
+ * nothing until the army comes back.
  *
- * Priced at `value` of the army per echo for par and the scoring (`1 + 0.7
- * x level`: 1.7x at one, 2.4x at two), under the 2x / 3x a full mirror would
- * be, because a column 200px to the side spends part of the run off the
- * edge or over empty lane. Against a single body under the leader an echo
- * lands nothing, so `singleTargetDps` and the Titan's budget leave it out.
+ * Priced at `value` of the army per FULL echo for par and the scoring, so
+ * a level is worth 0.35: 1.35x / 1.7x / 2.05x / 2.4x (the author's "closer
+ * to 1.35x per level"). Under the 1.5x / 2x / 2.5x / 3x the columns fire,
+ * because a column to the side spends part of the run off the edge or
+ * over empty lane. Against a single body under the leader an echo lands
+ * nothing, so `singleTargetDps` and the Titan's budget leave it out.
  */
 export const ECHO = {
-  maxLevel: 2,
-  /** Lateral distance from the leader to each echo's leader, px. */
-  offset: 200,
-  /** What one echo is worth to par, as a share of the army's DPS. */
+  maxLevel: 4,
+  /** Lateral distance from the leader to each echo's leader, px. 200 in
+   * 1.4; the author found them "a bit too far out". */
+  offset: 150,
+  /** What one FULL echo is worth to par, as a share of the army's DPS. */
   value: 0.7,
 } as const;
 
@@ -647,6 +698,18 @@ export const SHIELD = {
  * The roll is made once per offer, from the seeded generator, when the offer
  * is rolled - so a match code reproduces which offers were sensed too.
  */
+/**
+ * `x MOVE`: three levels, like SENSE (1.6, the author's ask). `mult[n]` is
+ * the squad's speed at n held as a multiple of `SQUAD.moveSpeed`: x1.5,
+ * x2, x2.5, and the length sets the cap - a `+MOVE` card leaves the pool
+ * at three held. It was a root draw (x1.05 to x1.5) compounding without a
+ * cap; now the first pick is the big one and the axis ends at 2.5x base.
+ * Still a RISK / INVEST axis: no damage number moves, par never takes it.
+ */
+export const MOVE = {
+  mult: [1, 1.5, 2, 2.5],
+} as const;
+
 export const SENSE = {
   /** Chance an offer is sensed, indexed by sense held. Length sets the cap. */
   /**
@@ -764,7 +827,13 @@ export const RENDER = {
    * along the card's top edge - the part of a card that still reads when a
    * bullet stream is crossing it.
    */
-  gate: { fill: 0.16, targetFill: 0.3, roof: 4 },
+  gate: {
+    fill: 0.16, targetFill: 0.3, roof: 4,
+    // The sway track (1.6): the grey band behind a swaying card that shows
+    // the lane it moves within. Caption grey at a whisper, so it reads as
+    // furniture under the coloured card rather than a fourth option.
+    track: 0x8f9ab5, trackFill: 0.09, trackStroke: 0.28,
+  },
   /**
    * Durations, in milliseconds of WALL clock, for the feedback moments. They
    * drive tweens on display objects and are read by nothing the simulation

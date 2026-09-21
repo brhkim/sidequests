@@ -1,4 +1,4 @@
-import { ARENA, CAGE, ECHO, GATES, SENSE, SHIELD, SQUAD, WEAPON } from '../config';
+import { ARENA, CAGE, ECHO, GATES, MOVE, SENSE, SHIELD, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { judgmentWave } from './Mode';
@@ -22,8 +22,10 @@ export interface Upgrades {
   /**
    * The movement economy. Neither term touches damage; both buy REACH - the
    * share of an offer the squad can actually get to before it passes.
+   * `move` is `x MOVE` held, 0 to `MAX_MOVE`; the speed it buys is
+   * `moveMultiplier(move)` (x1.5 / x2 / x2.5 since 1.6).
    */
-  moveMult: number;
+  move: number;
   /** Multiplier ON gate approach speed, so `+TIME` drives it DOWN. */
   gateSpeedMult: number;
   /**
@@ -40,8 +42,9 @@ export interface Upgrades {
   shield: number;
   /**
    * `+ECHO` held, 0 to `ECHO.maxLevel`: ghost armies beside this one that
-   * fire what it fires. A DAMAGE axis, priced at `ECHO.value` of the army
-   * per echo (`echoMultiplier`), so par takes it and the grade counts it.
+   * fire what it fires, half strength then full a side (`echoColumns`). A
+   * DAMAGE axis, priced at `ECHO.value` of the army per full echo
+   * (`echoMultiplier`), so par takes it and the grade counts it.
    */
   echo: number;
 }
@@ -56,25 +59,59 @@ export interface Progress {
 export function freshUpgrades(): Upgrades {
   return {
     damageBonus: 0, damageMult: 1, rateBonus: 0, rateMult: 1, guns: 1, pierce: 0,
-    moveMult: 1, gateSpeedMult: 1, sense: 0, shield: 0, echo: 0,
+    move: 0, gateSpeedMult: 1, sense: 0, shield: 0, echo: 0,
   };
 }
 
 /** Highest echo a squad can hold; offered until it is. */
 export const MAX_ECHO = ECHO.maxLevel;
 
+/** One echo column: which side of the army, and how much of it. */
+export interface EchoColumn {
+  readonly side: -1 | 1;
+  /** Share of the army's damage the column fires, and the size it is drawn. */
+  readonly strength: number;
+}
+
 /**
- * What the echoes are worth beside the army: `1 + value x level`. Under the
- * full mirror (`1 + level`) on purpose - see `ECHO` in config - and the one
- * price par, the grade and the difficulty budget all read.
+ * The echoes a level buys, left before right, half before full: level 1 is
+ * a half echo on the left, 2 adds a half on the right, 3 grows the left to
+ * full, 4 the right. The one table `GameScene.fire`, the renderer and the
+ * price all read.
+ */
+export function echoColumns(echo: number): readonly EchoColumn[] {
+  const level = Math.max(0, Math.min(MAX_ECHO, Math.floor(echo)));
+  const out: EchoColumn[] = [];
+  const left = level >= 3 ? 1 : level >= 1 ? 0.5 : 0;
+  const right = level >= 4 ? 1 : level >= 2 ? 0.5 : 0;
+  if (left > 0) out.push({ side: -1, strength: left });
+  if (right > 0) out.push({ side: 1, strength: right });
+  return out;
+}
+
+/**
+ * What the echoes are worth beside the army: `1 + value x` the strength
+ * they fire in total, so 1.35x / 1.7x / 2.05x / 2.4x by level. Under the
+ * strength itself on purpose - see `ECHO` in config - and the one price
+ * par, the grade and the difficulty budget all read.
  */
 export function echoMultiplier(echo: number): number {
-  return 1 + ECHO.value * Math.max(0, Math.min(MAX_ECHO, Math.floor(echo)));
+  let strength = 0;
+  for (const c of echoColumns(echo)) strength += c.strength;
+  return 1 + ECHO.value * strength;
 }
 
 /** Columns the stream is fired in: the army's plus one per echo held. */
 export function echoCopies(echo: number): number {
-  return 1 + Math.max(0, Math.min(MAX_ECHO, Math.floor(echo)));
+  return 1 + echoColumns(echo).length;
+}
+
+/** Highest move a squad can hold; offered until it is. */
+export const MAX_MOVE = MOVE.mult.length - 1;
+
+/** Squad speed as a multiple of `SQUAD.moveSpeed`, for this much MOVE held. */
+export function moveMultiplier(move: number): number {
+  return MOVE.mult[Math.max(0, Math.min(MAX_MOVE, Math.floor(move)))];
 }
 
 /** Highest shield a squad can hold; offered until it is. */
@@ -158,7 +195,8 @@ export function waveGateSpeedMult(wave: number): number {
   // speed. Par reads it through the same call, so the two cannot disagree
   // about how long a decision was available for.
   const w = judgmentWave(wave);
-  return Math.min(GATES.maxSpeedMult, 1 + Math.max(0, w - 1) * GATES.speedPerWave);
+  const perWave = (GATES.maxSpeedMult - 1) / (GATES.speedCapWave - 1);
+  return Math.min(GATES.maxSpeedMult, 1 + Math.max(0, w - 1) * perWave);
 }
 
 /**
@@ -166,7 +204,7 @@ export function waveGateSpeedMult(wave: number): number {
  * the leader has to be placed rather than merely on the right third of the
  * screen. The fourth judgment lever - see `GATES.deadSpace` for the numbers -
  * and, like the other three, it reads `judgmentWave` so hard mode starts it
- * five waves in. Zero through wave 4 (normal), 6px at wave 5; capped at `max`.
+ * five waves in. Zero through wave 9 (normal), then linear to `max` at `capWave`.
  *
  * NOT priced by `reach`. Reach measures how far the squad can travel while an
  * offer descends, in lane widths; dead space narrows the target inside the
@@ -176,13 +214,11 @@ export function waveGateSpeedMult(wave: number): number {
  * bullets a player has to dodge to get there.
  */
 export function gateDeadSpace(wave: number): number {
-  const { fromWave, perWave, max, latePerWave, lateMax } = GATES.deadSpace;
+  const { fromWave, capWave, max } = GATES.deadSpace;
   const w = judgmentWave(wave);
-  const first = Math.min(max, Math.max(0, w - fromWave) * perWave);
-  // The second stage starts the wave the first reaches its cap.
-  const capWave = fromWave + max / perWave;
-  const late = Math.min(lateMax - max, Math.max(0, w - capWave) * latePerWave);
-  return first + late;
+  if (w <= fromWave) return 0;
+  if (w >= capWave) return max;
+  return max * (w - fromWave) / (capWave - fromWave);
 }
 
 /** Px/s an offer descends at, for this wave and this run's accumulated `+TIME`. */
@@ -192,7 +228,36 @@ export function gateSpeed(wave: number, u: Upgrades): number {
 
 /** Px/s the squad centre may travel. */
 export function moveSpeed(u: Upgrades): number {
-  return SQUAD.moveSpeed * u.moveMult;
+  return SQUAD.moveSpeed * moveMultiplier(u.move);
+}
+
+/**
+ * Gate sway at this wave: how many full left-right-left periods a card
+ * completes over its descent, and how far it swings. Zero until the bracket
+ * after dead space stops growing (`GATES.sway.fromWave`, judgment wave), then one
+ * tier of `GATES.sway.periods` per `tierWaves` waves, the last held for the
+ * rest of the run. The amplitude is half the lane's dead space, so the card
+ * stays inside its own third of the screen and touches the lane edge at
+ * the extremes. Keyed on `judgmentWave` like every other lever.
+ */
+export function gateSway(wave: number): { periods: number; amplitude: number } {
+  const { fromWave, tierWaves, periods } = GATES.sway;
+  const w = judgmentWave(wave);
+  if (w <= fromWave) return { periods: 0, amplitude: 0 };
+  const tier = Math.min(periods.length - 1, Math.floor((w - fromWave - 1) / tierWaves));
+  return { periods: periods[tier], amplitude: gateDeadSpace(wave) / 2 };
+}
+
+/**
+ * A swaying card's offset from its lane centre at `y`: a sine that starts
+ * at centre on spawn and completes `periods` cycles by the lane line. A
+ * function of y and nothing else - no clock, no RNG - so the seed replays
+ * and `+TIME`, which slows the descent, slows the sway with it.
+ */
+export function swayOffset(y: number, periods: number, amplitude: number): number {
+  if (periods === 0 || amplitude === 0) return 0;
+  const progress = (y + GATES.height) / (ARENA.laneY + GATES.height);
+  return amplitude * Math.sin(2 * Math.PI * periods * progress);
 }
 
 /** Seconds from a gate's spawn above the screen to the squad's lane line. */
@@ -337,7 +402,7 @@ export function applyGate(p: Progress, gate: GateType): string {
       u.pierce += gate.value;
       break;
     case 'move':
-      u.moveMult *= gate.value;
+      u.move = Math.min(MAX_MOVE, u.move + gate.value);
       break;
     case 'time':
       // The gate promises slower approach; the stat it moves is the SPEED, so

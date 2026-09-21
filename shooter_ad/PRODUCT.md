@@ -78,6 +78,20 @@ Confirmed for the current round of work (author's answers, 2026-09-19):
   (2026-09-21): a charge pool, one charge per bullet whatever it cost.
 - **The Mortar fires a shell** (2026-09-21): one slow red round, twice a
   dart's cost, nearly twice its size; the one enemy bullet to step out of.
+- **MOVE is three levels** (2026-09-21, 1.6): x1.5 / x2 / x2.5 of a base
+  speed a quarter slower than before; the card leaves the pool at three.
+- **Gates sway inside their lane once they stop narrowing** (2026-09-21,
+  1.6): 0.5 / 1 / 1.5 periods per descent, never leaving their third of
+  the screen, on a faint grey track that shows the limits. From 1.7 the
+  motion begins in the five-wave bracket after the last width change:
+  waves 31 / 36 / 41.
+- **The judgment curve in brackets** (2026-09-21, 1.7): descent speed
+  rolls continuously from wave 2 to ×3.5 at wave 40; dead space is zero
+  through wave 9 and grows to its cap at wave 30; legibility steps at
+  waves 5 / 15 / 25; a new shooter type at 5 / 15 / 25.
+- **Every price on the army is a share of its peak** (2026-09-21, 1.6):
+  contact, breach and fire decline with the army held only to half the
+  run's peak, so losing soldiers never makes the next hit cheaper past that.
 - **No automatic army** (2026-09-20): no wave-clear or streak army, on either
   side. Every unit held was chosen at a gate or shot out of a cage. Cages roll
   at 40% per wave duration.

@@ -92,8 +92,18 @@ for (const [rank, name] of [[0, 'perfect'], [1, 'good'], [2, 'bad']]) {
   // Any grade word proves the wash; the WORD depends on the offer's spread
   // (three near-identical options grade every pick PERFECT), so it is
   // reported rather than asserted.
-  expect(`moment-pick-${name}`, await shownTexts(), ['PERFECT', 'GOOD', 'BAD', 'RISK']);
+  expect(`moment-pick-${name}`, await shownTexts(), ['PERFECT', 'GOOD', 'BAD', 'INVEST']);
 }
+
+// The bot has just taken the WORST of three at an army of 3; on 1.6's seed
+// the standing is 25% of par and breaches end the run before a fourth offer
+// is in reach. Hold 24 from here (the damage frames below hold it again).
+const holdPower = (n) => page.evaluate((p) => {
+  const g = window.game.scene.getScene('Game');
+  g.squad.progress.power = p;
+  g.squad.rebuild();
+}, n);
+await holdPower(24);
 
 // --- a missed offer: its gates are dropped untaken, which the log grades ----
 {
@@ -123,11 +133,6 @@ const withEnemy = (place) => page.evaluate((fn) => {
 // wave-clear army went, is never topped up by the game: on 5 power the
 // contact, the breach, the fire and the Titan's Runners took the run to zero
 // before the dead-space frame. Hold 24 through the damage frames.
-const holdPower = (n) => page.evaluate((p) => {
-  const g = window.game.scene.getScene('Game');
-  g.squad.progress.power = p;
-  g.squad.rebuild();
-}, n);
 await holdPower(24);
 {
   const ok = await withEnemy('e.x = Math.min(470, g.squad.x + 160); e.y = g.squad.y + 70; e.hp = e.maxHp = 1e9;');
@@ -225,10 +230,10 @@ await holdPower(24);
   if (!s.titan) errors.push('titan-bar: no Titan on the board on wave 5');
 }
 
-// --- dead space: a wave-16 offer, where the cards are narrowest ------------
-// Wave 16 is where `GATES.deadSpace` caps (108px cards in 180px lanes), so
-// this is the two-line label at the smallest size it ever renders, with the
-// gaps an offer can be missed through beside it. The wave is set through the
+// --- dead space: a wave-16 offer, where the cards have narrowed -------------
+// Wave 16 is a third of the way down `GATES.deadSpace`'s slope since 1.7
+// (it capped there at 108px until then), so this is the two-line label on a
+// narrowed card with the gaps an offer can be missed through beside it. The wave is set through the
 // same seam `npm run from` uses and the next offer forced rather than waited
 // for. The squad is given a wave-16-sized army first: the wave-16 bodies that
 // arrive in the ~4s the offer takes to descend would otherwise walk a

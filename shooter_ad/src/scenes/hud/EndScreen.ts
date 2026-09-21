@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { COLORS, VIEW } from '../../config';
 import { CardTile, cardButton, type CardButton } from './CardTile';
-import { CAPTION, compact, FONT, GRADE_COLOR, hex, LINK, MONO, SMALL, WARNING } from './types';
+import { CAPTION, compact, FONT, GRADE_COLOR, LINK, MONO, SMALL, WARNING } from './types';
+import { standingColor } from './TopRail';
 import type { MatchMode } from '../../systems/MatchCode';
 
 export interface EndPayload {
@@ -12,6 +13,8 @@ export interface EndPayload {
   readonly optimal: number;
   /** Highest damage output the run reached. */
   readonly peakDps: number;
+  /** You against par, one point per wave and one at the end. */
+  readonly series: readonly { t: number; wave: number; standing: number }[];
   /** Picks by grade, then RISK picks and missed offers in their own columns. */
   readonly tally: { top: number; mid: number; low: number; risk: number; miss: number };
   readonly decisions: number;
@@ -26,6 +29,10 @@ export interface EndPayload {
  * screenshot on the first touch, and a screenshot is the whole medium.
  */
 export const REPLAY_BUTTON = { x: VIEW.width / 2, y: 836, width: 300, height: 56 } as const;
+
+/** The standing plot's frame; the peak DPS stat sits to its right. */
+const PLOT = { x: 62, y: 310, width: 270, height: 80 } as const;
+const PEAK_X = 440;
 
 /**
  * The end screen, laid out as the thing people actually share.
@@ -53,7 +60,8 @@ export class EndScreen {
   private readonly root: Phaser.GameObjects.Container;
   private readonly title: Phaser.GameObjects.Text;
   private readonly wave: Phaser.GameObjects.Text;
-  private readonly optimal: Phaser.GameObjects.Text;
+  private readonly plot: Phaser.GameObjects.Graphics;
+  private readonly plotLabels: Phaser.GameObjects.Text[] = [];
   private readonly peak: Phaser.GameObjects.Text;
   private readonly tally: CardTile[] = [];
   private readonly detail: Phaser.GameObjects.Text;
@@ -87,27 +95,33 @@ export class EndScreen {
     // The two secondary captions sit at Small, untracked: one tracked label
     // marks the lead, three identical ones mark nothing.
 
-    // Two scores side by side: the purest measure of the skill the game
-    // tests, and the number the skill was for. Peak DPS is the author's
-    // ask - the sum is only worth doing if the answer is on the board.
-    this.optimal = add(scene.add.text(cx - 110, 346, '', {
-      fontFamily: FONT, fontSize: '44px', color: COLORS.text, fontStyle: 'bold',
+    // The run against par, as a line: x is time, y is your DPS as a share
+    // of par's, a dashed line at 100% and a dot per wave (1.5, the author's
+    // ask, in place of "% of the growth on offer", which read 0% for a run
+    // that was hit a lot late). Beside it, the number the skill was for:
+    // peak DPS, on the three-figure ladder.
+    this.plot = add(scene.add.graphics());
+    for (let i = 0; i < 3; i++) {
+      this.plotLabels.push(add(scene.add.text(0, 0, '', {
+        fontFamily: FONT, fontSize: '11px', color: SMALL, fontStyle: 'bold',
+      }).setOrigin(1, 0.5)));
+    }
+    add(scene.add.text(PLOT.x + PLOT.width / 2, 400, 'YOU VS PAR, BY WAVE', {
+      fontFamily: FONT, fontSize: '13px', color: SMALL,
     }).setOrigin(0.5));
-    add(scene.add.text(cx - 110, 384, 'OF THE GROWTH ON OFFER', {
-      fontFamily: FONT, fontSize: '15px', color: SMALL,
+    this.peak = add(scene.add.text(PEAK_X, 346, '', {
+      fontFamily: FONT, fontSize: '36px', color: COLORS.text, fontStyle: 'bold',
     }).setOrigin(0.5));
-    this.peak = add(scene.add.text(cx + 110, 346, '', {
-      fontFamily: FONT, fontSize: '44px', color: COLORS.text, fontStyle: 'bold',
-    }).setOrigin(0.5));
-    add(scene.add.text(cx + 110, 384, 'PEAK DAMAGE / SEC', {
-      fontFamily: FONT, fontSize: '15px', color: SMALL,
+    add(scene.add.text(PEAK_X, 384, 'PEAK DAMAGE / SEC', {
+      fontFamily: FONT, fontSize: '13px', color: SMALL,
     }).setOrigin(0.5));
 
     // The scorecard: five card footprints in the grade colours, the pick
     // wash's own vocabulary, each with its count over its word, so the row
-    // reads off a photo. RISK and MISS have their own footprints - a gamble
-    // and a gate driven past are not a wrong sum. A count of zero sits dim.
-    const words = ['PERFECT', 'GOOD', 'BAD', 'RISK', 'MISS'] as const;
+    // reads off a photo. INVEST and MISS have their own footprints - a
+    // gamble and a gate driven past are not a wrong sum. A count of zero
+    // sits dim.
+    const words = ['PERFECT', 'GOOD', 'BAD', 'INVEST', 'MISS'] as const;
     const colors = [GRADE_COLOR.perfect, GRADE_COLOR.good, GRADE_COLOR.bad, GRADE_COLOR.risk, 0x8f9ab5];
     [-192, -96, 0, 96, 192].forEach((dx, i) => {
       const tile = new CardTile(scene, cx + dx, 446, colors[i], 88, 64);
@@ -170,6 +184,44 @@ export class EndScreen {
     }
   }
 
+  /**
+   * The standing line. The y axis runs from 0 to the larger of 150% and the
+   * run's peak, so a player above par is drawn above the dashed par line
+   * rather than clipped to it; x is simulated time. Labels: the top of the
+   * axis, PAR at 100%, and 0.
+   */
+  private drawPlot(series: readonly { t: number; wave: number; standing: number }[]): void {
+    const g = this.plot;
+    g.clear();
+    const pts = series.length > 0 ? series : [{ t: 0, wave: 1, standing: 1 }];
+    const tMax = Math.max(1, pts[pts.length - 1].t);
+    const peak = pts.reduce((m, p) => Math.max(m, p.standing), 0);
+    const yMax = Math.max(1.5, Math.ceil(peak * 2) / 2);
+    const x = (t: number) => PLOT.x + (t / tMax) * PLOT.width;
+    const y = (s: number) => PLOT.y + PLOT.height - (Math.min(s, yMax) / yMax) * PLOT.height;
+    // Frame and the two axes' baselines.
+    g.fillStyle(0x0b1020, 1).fillRect(PLOT.x, PLOT.y, PLOT.width, PLOT.height);
+    g.lineStyle(1, 0x2a3350, 1);
+    g.strokeRect(PLOT.x, PLOT.y, PLOT.width, PLOT.height);
+    // PAR: dashed at 100%.
+    g.lineStyle(1, 0xc9d2ea, 0.8);
+    for (let dx = 0; dx < PLOT.width; dx += 8) {
+      g.lineBetween(PLOT.x + dx, y(1), PLOT.x + Math.min(dx + 4, PLOT.width), y(1));
+    }
+    // The player: a line through every point, a dot at each wave, in the
+    // colour the rail gives that standing.
+    const last = pts[pts.length - 1].standing;
+    const color = Phaser.Display.Color.HexStringToColor(standingColor(last)).color;
+    g.lineStyle(2, color, 1);
+    g.beginPath();
+    pts.forEach((p, i) => (i === 0 ? g.moveTo(x(p.t), y(p.standing)) : g.lineTo(x(p.t), y(p.standing))));
+    g.strokePath();
+    g.fillStyle(color, 1);
+    for (const p of pts) g.fillCircle(x(p.t), y(p.standing), 2.5);
+    const labels = [[yMax, `${Math.round(yMax * 100)}%`], [1, 'PAR'], [0, '0']] as const;
+    labels.forEach(([v, text], i) => this.plotLabels[i].setText(text).setPosition(PLOT.x - 4, y(v)));
+  }
+
   show(p: EndPayload, link: string): void {
     this.link = link;
     this.copy.setLabel('COPY LINK');
@@ -186,14 +238,11 @@ export class EndScreen {
       onComplete: () => { this.wave.setText(String(p.wave)); this.countTween = null; },
     });
 
-    const pct = Math.round(p.optimal * 100);
-    const grade = pct >= 90 ? GRADE_COLOR.perfect : pct >= 70 ? GRADE_COLOR.good : GRADE_COLOR.bad;
-    this.optimal.setText(`${pct}%`).setColor(hex(grade));
-
+    this.drawPlot(p.series);
     this.peak.setText(compact(p.peakDps));
 
     const { top, mid, low, risk, miss } = p.tally;
-    const words = ['PERFECT', 'GOOD', 'BAD', 'RISK', 'MISS'];
+    const words = ['PERFECT', 'GOOD', 'BAD', 'INVEST', 'MISS'];
     [top, mid, low, risk, miss].forEach((n, i) => this.tally[i].set(String(n), words[i]).setHeld(n > 0));
 
     this.detail.setText(
