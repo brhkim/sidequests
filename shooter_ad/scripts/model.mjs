@@ -924,20 +924,25 @@ console.log('\n=== SHIELD: blocks per window per level, never a price ===');
 console.log('\n=== ECHO: a priced ghost army, 0.7 of the army per echo (1.4) ===');
 {
   const { ECHO, WEAPON } = await import('../src/config.ts');
-  const { MAX_ECHO, echoMultiplier, echoCopies, singleTargetDps, bundleFactor, shotsPerSecond } = await import('../src/systems/Progression.ts');
+  const { MAX_ECHO, echoMultiplier, echoCopies, echoColumns, singleTargetDps, bundleFactor, shotsPerSecond } = await import('../src/systems/Progression.ts');
   const { scoreOffer } = await import('../src/systems/Scoring.ts');
-  for (let l = 0; l <= MAX_ECHO; l++) console.log(`  echo ${l}: x${echoMultiplier(l).toFixed(2)} to par, ${echoCopies(l)} columns fired`);
-  expect('ECHO caps at 2 (left, then right)', MAX_ECHO === 2);
-  expect('one echo is priced 1.7x, two 2.4x (the author\'s "roughly 1.7x")', Math.abs(echoMultiplier(1) - 1.7) < 1e-9 && Math.abs(echoMultiplier(2) - 2.4) < 1e-9 && ECHO.value === 0.7);
-  expect('echoMultiplier clamps at the cap', echoMultiplier(5) === echoMultiplier(MAX_ECHO));
-  expect('squadDps prices ECHO', Math.abs(squadDps(state(200, { echo: 1 })) / squadDps(state(200)) - 1.7) < 1e-9);
+  for (let l = 0; l <= MAX_ECHO; l++) {
+    const cols = echoColumns(l).map((c) => `${c.side < 0 ? 'left' : 'right'} ${c.strength}`).join(', ') || 'none';
+    console.log(`  echo ${l}: x${echoMultiplier(l).toFixed(2)} to par, ${echoCopies(l)} columns fired (${cols})`);
+  }
+  expect('ECHO caps at 4 (half left, half right, full left, full right)', MAX_ECHO === 4);
+  const cols = (l) => echoColumns(l).map((c) => `${c.side}:${c.strength}`).join(' ');
+  expect('the ladder is half left, half right, full left, full right', cols(1) === '-1:0.5' && cols(2) === '-1:0.5 1:0.5' && cols(3) === '-1:1 1:0.5' && cols(4) === '-1:1 1:1');
+  expect('a level is priced 0.35: 1.35x / 1.7x / 2.05x / 2.4x', [1.35, 1.7, 2.05, 2.4].every((m, i) => Math.abs(echoMultiplier(i + 1) - m) < 1e-9) && ECHO.value === 0.7);
+  expect('echoMultiplier clamps at the cap', echoMultiplier(7) === echoMultiplier(MAX_ECHO));
+  expect('squadDps prices ECHO', Math.abs(squadDps(state(200, { echo: 1 })) / squadDps(state(200)) - 1.35) < 1e-9);
   expect('singleTargetDps leaves ECHO out (the Titan is under the leader, not the ghost)', Math.abs(singleTargetDps(state(200, { echo: 2 })) - singleTargetDps(state(200))) < 1e-9);
   expect('every column counts against the sim cap', Math.abs(bundleFactor(state(5000, { rateMult: 8, guns: 4, echo: 2 })) - Math.max(1, shotsPerSecond(state(5000, { rateMult: 8, guns: 4 })) * 3 / WEAPON.maxSimShotsPerSecond)) < 1e-9);
   expect('ECHO is not a RISK axis', !new Set(RISK_AXES).has('echo'));
   const scored = scoreOffer(state(200), [gate('damage', 'mult', 1.3), gate('echo', 'raw', 1), gate('rate', 'mult', 1.3)], 6);
   expect('par takes +ECHO over a x1.3 card', scored.best === 1);
   const applied = state(1);
-  for (let i = 0; i < 4; i++) applyGate(applied, gate('echo', 'raw', 1));
+  for (let i = 0; i < 6; i++) applyGate(applied, gate('echo', 'raw', 1));
   expect('applyGate clamps ECHO at the cap', applied.upgrades.echo === MAX_ECHO);
   let h = 13;
   const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
@@ -950,6 +955,17 @@ console.log('\n=== ECHO: a priced ghost army, 0.7 of the army per echo (1.4) ===
   console.log(`  +ECHO in ${(offered / 4).toFixed(0)}% of wave-8 offers at 0 held, 0% at the cap`);
   expect('+ECHO is offered below the cap', offered > 0);
   expect('pierce 1 is 1.7x (q 0.7, the author\'s call in 1.4)', Math.abs(pierceMultiplier(1) - 1.7) < 1e-9);
+}
+
+console.log('\n=== numbers on screen: three figures at any size (1.5) ===');
+{
+  const { compact, compactLabel, formatMult } = await import('../src/format.ts');
+  const cases = [[999, '999'], [999.6, '1.00K'], [1020, '1.02K'], [9995, '10.0K'], [10200, '10.2K'], [102000, '102K'],
+    [1.02e6, '1.02M'], [1.5e9, '1.50B'], [2.5e12, '2.50T'], [7e15, '7.00Q'], [1e18, '1.00Qi'], [1e21, '1.00Sx'], [1e33, '1.00Dc'], [0, '0'], [-1500, '-1.50K']];
+  for (const [v, want] of cases) console.log(`  ${String(v).padStart(8)} -> ${compact(v)}`);
+  expect('compact reads three figures up the thousands ladder', cases.every(([v, want]) => compact(v) === want));
+  expect('a label keeps its digits below 1000 and compacts above', compactLabel(12.5) === '12.5' && compactLabel(1840) === '1.84K');
+  expect('multipliers read x1.32 / x10.2 / x102 / x1.02K', formatMult(1.32) === '×1.32' && formatMult(10.2) === '×10.2' && formatMult(102) === '×102' && formatMult(1020) === '×1.02K');
 }
 
 console.log('\n=== rescue cages and enemy fire scale with the run ===');

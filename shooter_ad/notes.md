@@ -1018,25 +1018,80 @@ moves too far left/right that the echoes go off the screen, they should
 just go off the screen (damage wastage, basically) but with no other
 consequence (they can come back)."
 
-As built: `ECHO` in config is `{ maxLevel: 2, offset: 200, value: 0.7 }`.
-Every honoured bullet the army fires is spawned once per column - the
-army's, then 200px left at one held, 200px right too at two - with the
-same bundle, so an echo fires exactly what the army fires and a bullet
-spawned past the edge is culled on its first step (the wastage). The
-columns all count against the simulation's shot cap, so the pool sees no
-more spawns than before. The ghosts are drawn as the ring itself at 38%
-alpha in the army's shirts; nothing in the simulation has a body for
-them, so they take no damage, touch no enemy and meet no dart. Priced at
-`1 + 0.7 × level` (1.7×, 2.4×) through `squadDps`, so par takes it, the
-grade counts it and the budget sees it; `singleTargetDps` leaves it out
-because a ghost 200px to the side lands nothing on a Titan under the
-leader, so the boss is not sized against it. Offered from wave 4 at
-weight 24 (GUNS's), filtered out at two held like SENSE. It is the tenth
-axis: the pause BONUSES grid is 4x3 of 120x64, the DETAILS page has a
-seventh line, and its colour is slate `0x9fb4c8`, a ghost's non-colour.
-Decisions I made rather than asked: the offset (200px, a formation and a
-half), the weight and wave, the colour, and that the price is per echo
-(1.7× at one, 2.4× at two) rather than 1.7× total.
+**Retuned in 1.5, the author's call after seeing it**: "ECHOs should be
+positioned a little bit closer", "ECHOs should do only 50% damage, so
+let's adjust the multiplier to be closer to 1.35x per level ... ECHO
+level 1 is a 50% left, ECHO level 2 is a 50% right, level 3 is a 100%
+left, and level 4 is a 100% right", and "the first level on each side is
+a half-sized army, and then it gets boosted to full-size on the
+second-level on each side".
+
+As built: `ECHO` in config is `{ maxLevel: 4, offset: 150, value: 0.7 }`
+and `Progression.echoColumns(level)` is the ladder - half left, half
+right, full left, full right. Every honoured bullet the army fires is
+spawned once per column with the same bundle at the column's strength of
+the damage (a half echo's shots do half), so an echo fires what the army
+fires, and a bullet spawned past the edge is culled on its first step
+(the wastage). The columns all count against the simulation's shot cap,
+so the pool sees no more spawns than before. The ghosts are drawn as the
+ring itself at 38% alpha in the army's shirts, a half echo at half size
+around its own leader and a full one at full size; nothing in the
+simulation has a body for them, so they take no damage, touch no enemy
+and meet no dart. Priced at `1 + 0.7 ×` the strength fired (1.35× / 1.7×
+/ 2.05× / 2.4× by level) through `squadDps`, so par takes it, the grade
+counts it and the budget sees it; `singleTargetDps` leaves it out because
+a ghost to the side lands nothing on a Titan under the leader, so the
+boss is not sized against it. Offered from wave 4 at weight 24 (GUNS's),
+filtered out at four held like SENSE. It is the tenth axis: the pause
+BONUSES grid is 4x3 of 120x64, the DETAILS page has a seventh line, and
+its colour is slate `0x9fb4c8`, a ghost's non-colour. Decisions I made
+rather than asked: the weight and wave, the colour, and 150px for
+"closer" (a full ring is ~150 wide, so the ghosts stand a ring apart).
+
+## Numbers read at three figures whatever their size
+
+**Decided, 2026-09-21 (1.5), the author's ask** ("get the numeric
+representations on the scoreboard (par, dps, army, bonus gates, DPS %,
+RATE %) all set up for arbitrary numbers. So K, M, B, T, Q, etc. ... sig
+figs so once something ticks over from 999 to K it should be represented
+as like 1.02K%"). `src/format.ts` is the one formatter: whole below 1000,
+then three significant figures on the thousands ladder (`1.02K`, `10.2K`,
+`102K`, `1.02M` ... `Q`, `Qi`, `Sx`, `Sp`, `Oc`, `No`, `Dc`). The rail's
+DPS and PAR, `% PAR` (no `>999%` cap any more), kills, the strip's ARMY
+and pools, every multiplier (`×1.02K`), the cards' `+1.84K% DMG` and
+`+1.84K ARMY`, the rescue float and the pause pages all read it. A card
+label is also a promise, so below 1000 it keeps its exact digits
+(`+12.5%`) and only compacts above. `npm run model` asserts the ladder.
+
+## The end screen plots you against par; RISK reads INVEST
+
+**Decided, 2026-09-21 (1.5), the author's asks.** "Let's change the rating
+of risk to invest for clarity": every word on screen that said RISK now
+says INVEST - the wash over a MOVE / TIME / SENSE / SHIELD pick, the
+tally's fourth footprint, the pause tiles (`MOVE INVEST`), the guide's
+topic. The code keeps `risk` as the key (`RISK_AXES`, `grade: 'risk'`,
+`tally.risk`) so the instruments and the analytics paths are unchanged.
+
+"It also seems like in the end screen the percent growth on offer
+statistic is broken. If I lose and get hit a lot by the end, it just
+shows 0%." It was not broken so much as answering a question nobody was
+asking: `fractionOfOptimal` compounds the picks' deltas, and a pick made
+on an army that has since been shot to pieces still counts what it was
+worth at the time - but a run with mostly missed or INVEST picks reads
+near zero, which is a number about the log, not the run. The author's
+replacement: "a plot where the x-axis is time and the y-axis is percent
+of par (also knowing that the player can be above par), with a dashed
+line for par and then where the player was at each wave". `GameScene`
+samples `dps / parDps` on the run's first step, at every wave and at the
+end (`series` in the gameover payload); `EndScreen.drawPlot` draws a
+270x80 frame at the left of the row where the percentage was, the y axis
+from 0 to the larger of 150% and the run's peak so a player above par is
+above the dashed PAR line, a dot per point, the line in the rail's
+standing colour for the final value; PEAK DAMAGE / SEC sits to its right
+on the three-figure ladder ("Final peak DPS score at the end also needs
+to be set up with the B M, T Q, etc sigfigs" - it reads `compact`).
+`fractionOfOptimal` still exists and `stats.optimal` still prints it for
+the instruments; only the screen stopped showing it.
 
 ## Enemy fire scales with the army
 

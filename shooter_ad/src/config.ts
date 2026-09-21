@@ -604,24 +604,29 @@ export const GATES = {
 export const RISK_AXES = ['move', 'time', 'sense', 'shield'] as const;
 
 /**
- * `+ECHO`: a ghost of the army beside it that fires exactly what the army
- * fires. Level 1 stands to the LEFT, level 2 adds one to the RIGHT (1.4,
- * the author's ask). An echo takes no damage, blocks nothing, meets no
- * enemy bullet and holds no upgrades of its own - it mirrors the army's -
- * and one driven off the edge of the field simply fires into nothing until
- * the army comes back.
+ * `+ECHO`: a ghost of the army beside it that fires what the army fires
+ * (1.4, the author's ask). Four levels since 1.5: a HALF-strength echo on
+ * the left, then one on the right, then the left grows to full strength,
+ * then the right (`Progression.echoColumns`). A half echo fires the army's
+ * shots at half damage and is drawn at half size; a full one is the army
+ * again, drawn full size. An echo takes no damage, blocks nothing, meets
+ * no enemy bullet and holds no upgrades of its own - it mirrors the
+ * army's - and one driven off the edge of the field simply fires into
+ * nothing until the army comes back.
  *
- * Priced at `value` of the army per echo for par and the scoring (`1 + 0.7
- * x level`: 1.7x at one, 2.4x at two), under the 2x / 3x a full mirror would
- * be, because a column 200px to the side spends part of the run off the
- * edge or over empty lane. Against a single body under the leader an echo
- * lands nothing, so `singleTargetDps` and the Titan's budget leave it out.
+ * Priced at `value` of the army per FULL echo for par and the scoring, so
+ * a level is worth 0.35: 1.35x / 1.7x / 2.05x / 2.4x (the author's "closer
+ * to 1.35x per level"). Under the 1.5x / 2x / 2.5x / 3x the columns fire,
+ * because a column to the side spends part of the run off the edge or
+ * over empty lane. Against a single body under the leader an echo lands
+ * nothing, so `singleTargetDps` and the Titan's budget leave it out.
  */
 export const ECHO = {
-  maxLevel: 2,
-  /** Lateral distance from the leader to each echo's leader, px. */
-  offset: 200,
-  /** What one echo is worth to par, as a share of the army's DPS. */
+  maxLevel: 4,
+  /** Lateral distance from the leader to each echo's leader, px. 200 in
+   * 1.4; the author found them "a bit too far out". */
+  offset: 150,
+  /** What one FULL echo is worth to par, as a share of the army's DPS. */
   value: 0.7,
 } as const;
 

@@ -20,7 +20,7 @@ import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../system
 import { modeFromQuery, setMode } from '../systems/Mode';
 import { VERSION } from '../version';
 import {
-  bundleFactor, cageReward, echoCopies, echoMultiplier, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
+  bundleFactor, cageReward, echoColumns, echoMultiplier, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
 } from '../systems/Progression';
 import { Shield } from '../systems/Shield';
 import { mulberry32 } from '../systems/Rng';
@@ -136,6 +136,13 @@ export class GameScene extends Phaser.Scene {
   private rescuedPower = 0;
   /** Highest damage output the run reached; the end screen's second score. */
   private peakDps = 0;
+  /**
+   * You against par over the run, one point per wave and one at the end:
+   * `standing` is `dps / parDps` at that instant. The end screen plots it
+   * (1.5, the author's ask) in place of the growth-on-offer percentage,
+   * which read 0% for a run that was hit a lot late.
+   */
+  private series: { t: number; wave: number; standing: number }[] = [];
   /**
    * Shots charged against enemy bodies this run. Divided by the shots fired
    * (`Bullets.shotsSpawned`) it is the measured hits per shot - what pierce is
@@ -384,6 +391,7 @@ export class GameScene extends Phaser.Scene {
     this.rescues = 0;
     this.rescuedPower = 0;
     this.peakDps = 0;
+    this.series = [];
     this.shotHits = 0;
     this.shotLandings = 0;
     this.lastX = VIEW.width / 2;
@@ -444,6 +452,9 @@ export class GameScene extends Phaser.Scene {
     this.enemies.playerDps = this.squad.dps;
     this.enemies.targetX = this.squad.x;
     this.enemies.targetY = this.squad.y;
+    // The series' first point, on the run's first step (the first run never
+    // passes through `restart`, and the injected `from` state is in by now).
+    if (this.series.length === 0) this.sample();
     this.fire(dt);
     this.bullets.update(dt);
     this.enemyFire.update(dt);
@@ -466,6 +477,7 @@ export class GameScene extends Phaser.Scene {
       // unreadable. Par is not credited either (see Difficulty).
       const boss = this.enemies.wave.index % WAVE.bossEvery === 0;
       this.sim.push({ kind: 'wave', index: this.enemies.wave.index, titan: boss });
+      this.sample();
       if (boss) {
         this.titanChecks.push({
           standing: Number(this.difficulty.singleTargetStanding(this.squad.progress).toFixed(3)),
@@ -573,12 +585,14 @@ export class GameScene extends Phaser.Scene {
   private fire(dt: number): void {
     const { guns, pierce } = this.squad.upgrades;
     const want = this.squad.shotsPerSecond();
-    // The columns: the army's, then an echo `ECHO.offset` to the LEFT at one
-    // held and one to the RIGHT at two. Each honoured bullet is spawned once
-    // per column with the same bundle, so an echo fires exactly what the
-    // army fires; `bundleFactor` already counts every column against the sim
+    // The columns: the army's, then the echoes `ECHO.offset` to either side
+    // (`echoColumns`: half strength then full, left then right). Each
+    // honoured bullet is spawned once per column with the same bundle at
+    // the column's strength of the damage, so an echo fires what the army
+    // fires; `bundleFactor` already counts every column against the sim
     // cap, so the pool sees no more spawns than it did.
-    const copies = echoCopies(this.squad.upgrades.echo);
+    const echoes = echoColumns(this.squad.upgrades.echo);
+    const copies = 1 + echoes.length;
 
     // Two collapses of the stream, and they are different things.
     //
@@ -667,15 +681,20 @@ export class GameScene extends Phaser.Scene {
           const drawn = this.drawCredit >= 1;
           if (drawn) this.drawCredit -= 1;
           const shots = base + (k < extra ? 1 : 0);
-          for (let c = 0; c < copies; c++) {
-            // 0 the army, 1 the left echo, 2 the right. A bullet spawned
-            // past the edge is culled by `Bullets.update` on its first step:
-            // that is the echo firing into nothing, and it costs no more.
-            const dx = c === 0 ? 0 : c === 1 ? -ECHO.offset : ECHO.offset;
+          this.bullets.spawn(
+            x, u.y - 10,
+            0, -WEAPON.bulletSpeed,
+            perShot, pierce, shots,
+            drawn, density,
+          );
+          for (const e of echoes) {
+            // A bullet spawned past the edge is culled by `Bullets.update`
+            // on its first step: that is the echo firing into nothing, and
+            // it costs no more.
             this.bullets.spawn(
-              x + dx, u.y - 10,
+              x + e.side * ECHO.offset, u.y - 10,
               0, -WEAPON.bulletSpeed,
-              perShot, pierce, shots,
+              perShot * e.strength, pierce, shots,
               drawn, density,
             );
           }
@@ -889,9 +908,19 @@ export class GameScene extends Phaser.Scene {
    * The end screen's whole payload, including the match code, because that
    * screen is a shareable artefact rather than a summary - see hud/EndScreen.
    */
+  /** One point of the standing series, at the current wave and clock. */
+  private sample(): void {
+    this.series.push({
+      t: Number(this.elapsed.toFixed(2)),
+      wave: this.enemies.wave.index,
+      standing: Number(this.difficulty.standing(this.squad.dps).toFixed(3)),
+    });
+  }
+
   private emitGameOver(cause: 'overrun' | 'titan'): void {
     this.cause = cause;
     this.sim.push({ kind: 'over', cause });
+    if (this.series.length === 0 || this.series[this.series.length - 1].t < this.elapsed) this.sample();
     const match = { seed: this.seed, mode: this.mode };
     this.game.events.emit('gameover', {
       cause,
@@ -901,6 +930,7 @@ export class GameScene extends Phaser.Scene {
       optimal: this.log.fractionOfOptimal,
       peakDps: Math.round(this.peakDps),
       tally: this.log.tally,
+      series: this.series,
       contactLoss: Math.round(this.contactLoss),
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),

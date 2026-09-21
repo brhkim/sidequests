@@ -92,7 +92,7 @@ for (const [rank, name] of [[0, 'perfect'], [1, 'good'], [2, 'bad']]) {
   // Any grade word proves the wash; the WORD depends on the offer's spread
   // (three near-identical options grade every pick PERFECT), so it is
   // reported rather than asserted.
-  expect(`moment-pick-${name}`, await shownTexts(), ['PERFECT', 'GOOD', 'BAD', 'RISK']);
+  expect(`moment-pick-${name}`, await shownTexts(), ['PERFECT', 'GOOD', 'BAD', 'INVEST']);
 }
 
 // --- a missed offer: its gates are dropped untaken, which the log grades ----

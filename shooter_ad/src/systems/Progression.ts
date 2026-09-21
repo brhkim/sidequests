@@ -40,8 +40,9 @@ export interface Upgrades {
   shield: number;
   /**
    * `+ECHO` held, 0 to `ECHO.maxLevel`: ghost armies beside this one that
-   * fire what it fires. A DAMAGE axis, priced at `ECHO.value` of the army
-   * per echo (`echoMultiplier`), so par takes it and the grade counts it.
+   * fire what it fires, half strength then full a side (`echoColumns`). A
+   * DAMAGE axis, priced at `ECHO.value` of the army per full echo
+   * (`echoMultiplier`), so par takes it and the grade counts it.
    */
   echo: number;
 }
@@ -63,18 +64,44 @@ export function freshUpgrades(): Upgrades {
 /** Highest echo a squad can hold; offered until it is. */
 export const MAX_ECHO = ECHO.maxLevel;
 
+/** One echo column: which side of the army, and how much of it. */
+export interface EchoColumn {
+  readonly side: -1 | 1;
+  /** Share of the army's damage the column fires, and the size it is drawn. */
+  readonly strength: number;
+}
+
 /**
- * What the echoes are worth beside the army: `1 + value x level`. Under the
- * full mirror (`1 + level`) on purpose - see `ECHO` in config - and the one
- * price par, the grade and the difficulty budget all read.
+ * The echoes a level buys, left before right, half before full: level 1 is
+ * a half echo on the left, 2 adds a half on the right, 3 grows the left to
+ * full, 4 the right. The one table `GameScene.fire`, the renderer and the
+ * price all read.
+ */
+export function echoColumns(echo: number): readonly EchoColumn[] {
+  const level = Math.max(0, Math.min(MAX_ECHO, Math.floor(echo)));
+  const out: EchoColumn[] = [];
+  const left = level >= 3 ? 1 : level >= 1 ? 0.5 : 0;
+  const right = level >= 4 ? 1 : level >= 2 ? 0.5 : 0;
+  if (left > 0) out.push({ side: -1, strength: left });
+  if (right > 0) out.push({ side: 1, strength: right });
+  return out;
+}
+
+/**
+ * What the echoes are worth beside the army: `1 + value x` the strength
+ * they fire in total, so 1.35x / 1.7x / 2.05x / 2.4x by level. Under the
+ * strength itself on purpose - see `ECHO` in config - and the one price
+ * par, the grade and the difficulty budget all read.
  */
 export function echoMultiplier(echo: number): number {
-  return 1 + ECHO.value * Math.max(0, Math.min(MAX_ECHO, Math.floor(echo)));
+  let strength = 0;
+  for (const c of echoColumns(echo)) strength += c.strength;
+  return 1 + ECHO.value * strength;
 }
 
 /** Columns the stream is fired in: the army's plus one per echo held. */
 export function echoCopies(echo: number): number {
-  return 1 + Math.max(0, Math.min(MAX_ECHO, Math.floor(echo)));
+  return 1 + echoColumns(echo).length;
 }
 
 /** Highest shield a squad can hold; offered until it is. */

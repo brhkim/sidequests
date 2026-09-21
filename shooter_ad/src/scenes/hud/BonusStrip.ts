@@ -107,14 +107,14 @@ export class BonusStrip {
     this.set(0, compact(h.power), '', true);
     // Sub-lines are blank at identity. Four columns of `x1.00` is four pieces
     // of furniture the eye has to step over to find the one that changed.
-    this.set(1, `+${Math.round(h.damageBonus * 100)}%`, multOrBlank(h.damageMult),
+    this.set(1, `+${compact(h.damageBonus * 100)}%`, multOrBlank(h.damageMult),
       h.damageBonus > 0 || h.damageMult > 1);
-    this.set(2, `+${Math.round(h.rateBonus * 100)}%`, multOrBlank(h.rateMult),
+    this.set(2, `+${compact(h.rateBonus * 100)}%`, multOrBlank(h.rateMult),
       h.rateBonus > 0 || h.rateMult > 1);
-    this.set(3, String(h.guns), multOrBlank(h.guns), h.guns > 1);
+    this.set(3, compact(h.guns), multOrBlank(h.guns), h.guns > 1);
     // Pierce shows what it is actually worth, from the same valuation par
     // prices it with - a bare `2` says nothing about what a level buys.
-    this.set(4, String(h.pierce), multOrBlank(h.pierceMult), h.pierce > 0);
+    this.set(4, compact(h.pierce), multOrBlank(h.pierceMult), h.pierce > 0);
     this.pending = null;
   }
 

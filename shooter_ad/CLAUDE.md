@@ -1341,6 +1341,34 @@ errored; the two questions to put to the stills are whether every type can
 be named from silhouette with colour ignored, and whether any enemy bullet
 could be taken for a Runner.
 
+### The end screen's plot, and the word INVEST
+
+`EndPayload.series` (1.5) is `{ t, wave, standing }[]`: `GameScene.sample`
+pushes one on the run's first step (in `step`, lazily, because the first
+run never passes through `restart` and `from`'s injected state must be in
+first), one per `wave` event and one in `emitGameOver`. `EndScreen.drawPlot`
+draws it in the `PLOT` frame (270x80 at 62,310) with a dashed PAR line at
+100%, the y axis to `max(1.5, peak)`, and the line in `standingColor` of
+the last point; `PEAK_X` (440) holds peak DPS through `compact`. The
+"% OF THE GROWTH ON OFFER" number is gone from the screen;
+`DecisionLog.fractionOfOptimal` and `stats.optimal` stay for the
+instruments. On screen the zero-DPS grade reads **INVEST** (`GRADE_WORD.risk`,
+the tally's fourth tile, `MOVE INVEST` on the pause tiles, the guide
+topic); the key is still `risk` everywhere in code and stats, and
+`npm run moments` accepts INVEST as a grade word.
+
+### Numbers on screen
+
+`src/format.ts` is the one formatter (1.5): `compact` is whole below 1000
+and three significant figures on the thousands ladder above (`1.02K`,
+`10.2K`, `102K`, `1.02M`, then B / T / Q / Qi / Sx / Sp / Oc / No / Dc),
+`formatMult` is `×1.32` / `×10.2` / `×102` / `×1.02K`, and `compactLabel`
+keeps a value's exact digits below 1000 for text that is also a promise
+(a card's `+12.5%`). `hud/types.ts` re-exports the first two. The rail's
+`% PAR` has no `>999%` cap any more; its WAVE lane took 6px from SENSE
+(88 / 100 / 96 / 94 / 82) when `1.23K KILLS` grew a figure, and `npm run
+rail` holds the 8px. `npm run model` asserts the ladder.
+
 ### Analytics
 
 `src/analytics/Analytics.ts` is GoatCounter, installed from `main.ts` the
@@ -1511,13 +1539,17 @@ cage, so `opened` reads 0 on every probe row: the reward is measured by
   model` asserts the zero. A ninth axis also means a ninth pause tile
   (`PauseBonuses` is a 3x3 grid of 160x64 tiles since 1.1) and, if it has
   live state, a rail column - run `npm run rail` after touching either.
-  **`+ECHO`** (1.4) is the tenth axis and a DAMAGE one: `Upgrades.echo` 0
-  to `ECHO.maxLevel` (2), `echoMultiplier` (`1 + 0.7 x level`) in
-  `squadDps` and out of `singleTargetDps`, `echoCopies` columns in
-  `GameScene.fire` (each honoured bullet spawned once per column, 200px
-  left then right, the same bundle) and in `bundleFactor` so the sim cap
-  holds; the ghosts are `SpriteRender.renderSquad` at `RENDER.echoAlpha`
-  and have no body in `systems/`. The pause grid is 4x3 of 120x64.
+  **`+ECHO`** (1.4, retuned 1.5) is the tenth axis and a DAMAGE one:
+  `Upgrades.echo` 0 to `ECHO.maxLevel` (4), `echoColumns` the ladder
+  (half left, half right, full left, full right - strength is the damage
+  share and the drawn size), `echoMultiplier` (`1 + 0.7 x` strength fired:
+  1.35 / 1.7 / 2.05 / 2.4) in `squadDps` and out of `singleTargetDps`, one
+  spawn per column in `GameScene.fire` (`ECHO.offset` 150px, the same
+  bundle at the column's strength of the damage) and `echoCopies` in
+  `bundleFactor` so the sim cap holds; the ghosts are
+  `SpriteRender.renderSquad` at `RENDER.echoAlpha`, scaled by strength
+  around their own leader, and have no body in `systems/`. The pause grid
+  is 4x3 of 120x64.
   `npm run hud` photographs `hud-echo.png` and `npm run model` asserts the
   price, the cap, the pool filter, the Titan exclusion and that par takes
   it.

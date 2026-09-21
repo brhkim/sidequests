@@ -756,3 +756,81 @@ Status: `landed`, in 1.4. `WEAPON.pierceQ` 0.5 to 0.7: pierce 1 / 2 / 3 are
 1.3 measured 2.2 to 2.5 hits per landing shot at pierce 2 against a claim
 of 2.0. `discreteAmount` now offers `+2 PIERCE` at 3 held where it offered
 `+3`.
+
+## 4. After seeing 1.4 (verbatim)
+
+> 1. ECHOs should be positioned a little bit closer to the main army,
+> they're a bit too far out as-is
+
+Status: `landed`, version **1.5**. `ECHO.offset` 200 to 150 (a full ring
+is ~150px wide, so the ghosts stand a ring apart).
+
+> 2. ECHOs should do only 50% damage, so let's adjust the multiplier to
+> be closer to 1.35x per level rather than the current 1.7x. I think we
+> make it so ECHO level 1 is a 50% left, ECHO level 2 is a 50% right,
+> level 3 is a 100% left, and level 4 is a 100% right
+
+> OH, and the visual for ECHOs should be that the first level on each
+> side is a half-sized army, and then it gets boosted to full-size on the
+> second-level on each side
+
+Status: `landed`, in 1.5. `ECHO.maxLevel` 4; `Progression.echoColumns` is
+the ladder (half left, half right, full left, full right); a column's
+strength is both the share of the damage its shots do and the size its
+ghost is drawn at. Priced `1 + 0.7 x` strength fired: 1.35x / 1.7x /
+2.05x / 2.4x. `hud-echo.png` is now level 3 (full left, half right).
+`npm run model` asserts the ladder and the four prices.
+
+> 3. We actually need to get the numeric representations on the
+> scoreboard (par, dps, army, bonus gates, DPS %, RATE %) all set up for
+> arbitrary numbers. So K, M, B, T, Q, etc. etc. places. We should set it
+> up to be sig figs so once something ticks over from 999 to K it should
+> be represented as like 1.02K% and so on, right? Something along those
+> lines
+
+Status: `landed`, in 1.5. `src/format.ts`: `compact` (whole below 1000,
+three figures with K / M / B / T / Q / Qi / Sx / Sp / Oc / No / Dc above),
+`formatMult`, and `compactLabel` for card text that is also a promise
+(`+12.5%` keeps its digits below 1000). Routed: rail DPS / PAR / `% PAR`
+(the `>999%` cap is gone) / kills, strip ARMY / DMG / RATE / GUNS /
+PIERCE and their multipliers, card labels, the rescue float, the pause
+pages, the end screen. The rail's WAVE lane took 6px from SENSE for
+`1.23K KILLS`; `npm run rail` passes. Not asked, not done: the DETAILS
+page's working lines still show two decimals on small numbers, which is
+what three figures gives them anyway.
+
+## 5. Mid-build (verbatim)
+
+> 1. Let's change the rating of risk to invest for clarity.
+
+Status: `landed`, in 1.5. Every on-screen RISK is INVEST (wash, tally,
+pause tiles `MOVE INVEST` etc., DETAILS line, guide topic). Code and
+stats keep the `risk` key.
+
+> 2. It also seems like in the end screen the percent growth on offer
+> statistic is broken. If I lose and get hit a lot by the end, it just
+> shows 0%. I think we either need to think of a different way of
+> calculating that or we need to show some other way of tracking
+> someone's performance over time.
+
+> I wonder if, instead of showing the percent growth on offer, we could
+> show a plot where the x-axis is time and the y-axis is percent of par
+> (also knowing that the player can be above par), with a dashed line for
+> par and then where the player was at each wave over the course of the
+> game
+
+Status: `landed`, in 1.5. The percentage is off the screen (it still
+prints in `stats.optimal` for the instruments). `GameScene` samples
+`dps / parDps` on the first step, every wave and at the end;
+`EndScreen.drawPlot` is the chart: 270x80 at the left of the old stat
+row, dashed PAR at 100%, y axis to the larger of 150% and the run's peak,
+a dot per wave, line in the rail's standing colour. `end-good.png` /
+`end-poor.png` show it. Why it read 0%: `fractionOfOptimal` compounds
+pick deltas, so a run of mostly INVEST and MISS picks reads near zero
+whatever the army did - a number about the log, not the run.
+
+> Final peak DPS score at the end also needs to be set up with the B M, T
+> Q, etc sigfigs
+
+Status: `landed`, in 1.5. It reads `compact` (it did before; the ladder
+under it changed with ask 3), and sits right of the plot at 36px.
