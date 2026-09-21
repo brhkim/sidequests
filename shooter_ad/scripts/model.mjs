@@ -559,7 +559,7 @@ console.log(`  dead space: 0 through normal wave ${G.deadSpace.fromWave}, +${G.d
 // is sized to never refuse a spawn at the cap.
 // ---------------------------------------------------------------------------
 const { DIFFICULTY, WAVE, WEAPON, ARENA } = await import('../src/config.ts');
-const { poolAverageHp } = await import('../src/data/enemies.ts');
+const { poolAverageHp, titanTravelSeconds } = await import('../src/data/enemies.ts');
 
 console.log('\n=== the enemy budget must not stop scaling with par ===');
 const budgetShare = DIFFICULTY.targetFraction * DIFFICULTY.pressure;
@@ -755,8 +755,7 @@ console.log('\n=== the Titan budget ===');
   const d = new Difficulty();
   const p = state(500, { damageMult: 4, rateMult: 2, guns: 3, pierce: 2 });
   d.seedPar(p);
-  const spawnY = ARENA.spawnY - 40;
-  const travel = (ARENA.breachY - spawnY) / titan.speed;
+  const travel = titanTravelSeconds();
   const hp = d.titanHp(travel, titan.armor);
   const delivered = singleTargetDps(p) * (1 - titan.armor);
   const killAt = hp / delivered / travel;
@@ -862,19 +861,19 @@ console.log('\n=== rescue cages and enemy fire scale with the run ===');
   const { ENEMY_BY_ID } = await import('../src/data/enemies.ts');
   const { Difficulty } = await import('../src/systems/Difficulty.ts');
   const titan = ENEMY_BY_ID.get('titan');
-  const travel = (ARENA.breachY - (ARENA.spawnY - 40)) / titan.speed;
-  console.log('  par DPS   Titan HP    cage HP   cage at par (s)   reward at 20 / 100 / 101 / 5000 power');
+  const travel = titanTravelSeconds();
+  console.log('  par DPS   Titan HP    cage HP   cage at par (s)   reward at 1 / 19 / 30 / 5000 power');
   for (const dps of [3, 1e3, 1e6, 1e9]) {
     const d = new Difficulty();
     const p = state(50, { damageMult: dps / squadDps(state(50)) });
     d.seedPar(p);
     const hp = d.titanHp(travel, titan.armor);
     const cage = hp * CAGE.hpTitanFraction;
-    const reward = (power) => (power > CAGE.shareFrom ? Math.round(power * CAGE.share) : CAGE.reward);
+    const { cageReward: reward } = await import('../src/systems/Progression.ts');
     console.log(
       dps.toExponential(0).padStart(9), hp.toExponential(2).padStart(10), cage.toExponential(2).padStart(10),
       (cage / squadDps(p)).toFixed(2).padStart(17),
-      `+${[20, 100, 101, 5000].map(reward).join(' / +')}`.padStart(32),
+      `+${[1, 19, 30, 5000].map(reward).join(' / +')}`.padStart(32),
     );
   }
   // The cage's cost in seconds of par fire is a constant of the design, not of
@@ -929,6 +928,46 @@ console.log('\n=== contact: what a body costs when it reaches the army ===');
       String(cost('medium', p)).padStart(8), String(cost('large', p)).padStart(8), String(cost('titan', p)).padStart(9),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// The spawn line is the HUD's bottom edge (1.0), and the descent is scaled so
+// the seconds to the breach line are what they were from 40px above the
+// screen. The Titan's HP is priced on those seconds, so it moves by the same
+// small amount the Titan's own 40px lead does and no more.
+{
+  const { HUD_ROWS, CAGE } = await import('../src/config.ts');
+  const { ENEMIES, ENEMY_BY_ID } = await import('../src/data/enemies.ts');
+  const { cageReward } = await import('../src/systems/Progression.ts');
+  const LEGACY_SPAWN = -40;
+  expect('enemies spawn at the HUD\'s bottom edge', ARENA.spawnY === HUD_ROWS.bottom && HUD_ROWS.bottom === 184);
+  expect('retreat stops at the spawn line, never under the HUD', ARENA.spawnY === (await import('../src/config.ts')).MOTION.ceilingY);
+  const legacy = (speed) => (ARENA.breachY - LEGACY_SPAWN) / speed;
+  const now = (speed) => (ARENA.breachY - ARENA.spawnY) / (speed * ARENA.descentScale);
+  const same = ENEMIES.every((e) => Math.abs(now(e.speed) - legacy(e.speed)) < 1e-9)
+    && Math.abs(now(CAGE.speed) - legacy(CAGE.speed)) < 1e-9;
+  expect('every body and the cage reach the line in the seconds they did from -40', same);
+  const titan = ENEMY_BY_ID.get('titan');
+  const before = (ARENA.breachY - (LEGACY_SPAWN - 40)) / titan.speed;
+  const after = titanTravelSeconds();
+  console.log(`  descent scale ${ARENA.descentScale.toFixed(4)};  Titan ${before.toFixed(1)}s -> ${after.toFixed(1)}s on the board, all of it visible`);
+  expect('the Titan\'s descent, and so its HP, moved by under 2%', Math.abs(after / before - 1) < 0.02);
+  const grunt = ENEMY_BY_ID.get('grunt');
+  console.log(`  a Grunt: ${legacy(grunt.speed).toFixed(1)}s to the line, ${((ARENA.spawnY - LEGACY_SPAWN) / grunt.speed).toFixed(1)}s of it under the HUD before 1.0`);
+
+  // A multiplier on the army adds at least one body, for the player and for
+  // par alike, so `x1.1 ARMY` on the opening army of 1 is a real gate.
+  const arm = (power, root) => { const p = state(power); applyGate(p, gate('army', 'mult', root)); return p.power; };
+  expect('x1.1 ARMY on 1 gives 2 (was 1)', arm(1, 1.1) === 2);
+  expect('x1.1 ARMY on 9 gives 10 (round(0.9) = 1 either way)', arm(9, 1.1) === 10);
+  expect('x1.1 ARMY on 100 gives 110', arm(100, 1.1) === 110);
+  expect('x1.5 ARMY on 1 gives 2, on 3 gives 5', arm(1, 1.5) === 2 && arm(3, 1.5) === 5);
+  const offer = [gate('army', 'mult', 1.1), gate('damage', 'raw', 0.05), gate('move', 'mult', 1.2)];
+  const scored = scoreOffer(state(1), offer, 1);
+  expect('par scores x1.1 ARMY on an army of 1 as a real gain, and takes it', scored.options[0].delta > 0.9 && scored.best === 0);
+
+  // A rescue is a tenth of the army, whole, never under 2 (1.0).
+  expect('cage: +2 at 1, +2 at 19, +3 at 30, +10 at 100', cageReward(1) === 2 && cageReward(19) === 2 && cageReward(30) === 3 && cageReward(100) === 10);
 }
 
 console.log('PASS');

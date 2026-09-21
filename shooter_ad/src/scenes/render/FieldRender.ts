@@ -4,6 +4,7 @@ import type { Enemies } from '../../systems/Enemies';
 import type { EnemyBullets } from '../../systems/EnemyBullets';
 import type { Gates } from '../../systems/Gates';
 import type { Squad } from '../../systems/Squad';
+import { cageReward } from '../../systems/Progression';
 import type { SimEvent } from '../../systems/SimEvents';
 import { FieldFx } from '../fx/FieldFx';
 import { FONT, hex } from '../hud/types';
@@ -167,8 +168,7 @@ export class FieldRender {
           .fillRect(crossX - 5, ARENA.laneY + 21, 10, 2);
       }
     }
-    const reward = w.squad.power > CAGE.shareFrom
-      ? Math.round(w.squad.power * CAGE.share) : CAGE.reward;
+    const reward = cageReward(w.squad.power);
     let used = 0;
     for (const c of w.enemies.cages) {
       if (!c.active) continue;

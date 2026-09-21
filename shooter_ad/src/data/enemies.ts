@@ -1,4 +1,4 @@
-import type { EnemyTier } from '../config';
+import { ARENA, type EnemyTier } from '../config';
 
 /**
  * Enemy roster. Adding a type is an append to `ENEMIES` below: pick a `motion`
@@ -209,4 +209,25 @@ export function rollEnemy(wave: number, rng: () => number): EnemyType {
     if (roll <= 0) return e;
   }
   return pool[0] ?? ENEMIES[0];
+}
+
+/**
+ * Where a Titan appears: 40px above the spawn line, so it emerges from under
+ * the HUD rather than popping in whole. `Enemies.titanProgress` measures its
+ * descent from here.
+ */
+export const TITAN_SPAWN_Y = ARENA.spawnY - 40;
+
+/**
+ * Seconds a Titan takes from its spawn to the breach line, at its scaled
+ * speed. The ONE place that arithmetic lives: `Difficulty.titanHp` is priced
+ * on it through `Enemies.titanBudget`, and `npm run model` and `npm run
+ * titan` read it rather than recomputing. Here rather than in `Enemies`
+ * because the instruments load this module under Node's type stripping and
+ * cannot load that one.
+ */
+export function titanTravelSeconds(): number {
+  const boss = ENEMY_BY_ID.get('titan');
+  if (!boss) return 1;
+  return (ARENA.breachY - TITAN_SPAWN_Y) / (boss.speed * ARENA.descentScale);
 }

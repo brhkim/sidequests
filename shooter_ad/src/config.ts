@@ -8,6 +8,30 @@ import { BULLET_BASE } from './data/tiers';
 export const VIEW = { width: 540, height: 960 } as const;
 
 /**
+ * The three HUD rows stacked at the top of the field, in px: the rail, the
+ * bonus strip, and the Titan bar's row. The field is visible only below
+ * `bottom`, and the simulation reads it - bodies SPAWN there (`ARENA.spawnY`)
+ * - so it lives here rather than in the HUD files, which read it from here.
+ */
+export const HUD_ROWS = {
+  rail: 72,
+  strip: 94,
+  titanRow: 18,
+  get bottom(): number { return this.rail + this.strip + this.titanRow; },
+} as const;
+
+/**
+ * Enemy speeds in `data/enemies.ts` (and `CAGE.speed`) are px/s over the
+ * descent the game had before 1.0: from 40px above the screen to the breach
+ * line, 990px. The spawn line moved down to the HUD's bottom edge on
+ * 2026-09-20 (1.0) and the speeds were NOT retuned; `ARENA.descentScale`
+ * shrinks every vertical speed by the same ratio the descent shrank, so a
+ * body takes exactly the seconds to reach the line it took before and is
+ * simply visible for all of them.
+ */
+const LEGACY_DESCENT = 990;
+
+/**
  * Bottom strip the squad moves along.
  *
  * The lane and the line moved down 88px on 2026-09-20 when the bonus strip
@@ -26,8 +50,21 @@ export const ARENA = {
   maxX: VIEW.width - 70,
   /** Enemies crossing this line beside the army charge it as a contact does. */
   breachY: 950,
-  /** Enemies spawn above the top edge. */
-  spawnY: -40,
+  /**
+   * Where enemies and cages appear: the bottom edge of the HUD's three rows,
+   * so a body is on the visible field from its first frame. Until 1.0 this
+   * was -40, above the screen, and the top 224px of every descent - a
+   * Titan's first ~18 seconds - happened under the panels, where the player
+   * could not see it (bullets reached it; eyes did not). The author's call
+   * (2026-09-20, 1.0); the time to the line is unchanged, see `descentScale`.
+   */
+  spawnY: HUD_ROWS.bottom,
+  /**
+   * Multiplies every vertical enemy and cage speed so the shorter descent
+   * takes the same time the old one did. DERIVED from the geometry; nothing
+   * else may set it. `npm run model` asserts the invariant.
+   */
+  get descentScale(): number { return (this.breachY - this.spawnY) / LEGACY_DESCENT; },
   /**
    * Enemies and cages only appear within the band the squad's CENTRE can
    * reach. Spawning to the full view width put targets in columns the central
@@ -190,9 +227,10 @@ export const MOTION = {
   /**
    * Retreating enemies may never rise above this line. Without it a harasser
    * that spawned high could reverse straight back off the top of the screen and
-   * park there, unreachable and un-killable.
+   * park there, unreachable and un-killable. Since 1.0 the line is the
+   * spawn line itself: a body that rose above it would be under the HUD.
    */
-  ceilingY: 90,
+  ceilingY: HUD_ROWS.bottom,
   /**
    * Second bound on retreat: an enemy can never go back above the deepest point
    * it has already reached, minus its own `maxRetreat`. Advance always moves
@@ -576,16 +614,19 @@ export const CAGE = {
   speed: 52,
   radius: 18,
   /**
-   * The reward is flat until the army passes `shareFrom`, then a share of it,
-   * whole: +5 up to 100 power, +5% after, so a cage is worth the same bite of
-   * a run at 20 power and at 20,000. It is the one source of army par does
-   * NOT collect - a rescue is how a player who has fallen behind catches up,
-   * and crediting par with it would move the curve out of reach by exactly
-   * what it was meant to give back.
+   * The reward is a SHARE of the army you hold, whole, never less than
+   * `minReward`: +10% of the army, floor 2. The author's call (2026-09-20,
+   * 1.0), replacing a flat +5 that was five gates' worth at power 1 - DPS is
+   * linear in power below the ring cap, so a first-wave cage was a x6 and
+   * read as standing 2-3 against par. Now a cage is about one small ARMY
+   * gate at every size, and it is priced in the unit the army is spent in:
+   * a landing bullet costs 1% of the army (`ENEMY_FIRE.powerShare`), so a
+   * cage refunds about ten hits, early and late alike. It is the one source
+   * of army par does NOT collect - crediting the shadow player would move
+   * the curve by exactly what the cage gave back.
    */
-  reward: 5,
-  share: 0.05,
-  shareFrom: 100,
+  share: 0.1,
+  minReward: 2,
   /**
    * HP as a fraction of the Titan that would spawn right now (its full budget:
    * `Difficulty.titanHp` at the boss's own descent and armor). A fifth of a

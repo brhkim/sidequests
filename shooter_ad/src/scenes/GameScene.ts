@@ -20,7 +20,7 @@ import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../system
 import { modeFromQuery, setMode } from '../systems/Mode';
 import { VERSION } from '../version';
 import {
-  bundleFactor, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
+  bundleFactor, cageReward, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
 } from '../systems/Progression';
 import { mulberry32 } from '../systems/Rng';
 import { armorAgainst } from '../systems/EnemyMotion';
@@ -128,6 +128,9 @@ export class GameScene extends Phaser.Scene {
   /** Highest power the run reached. The sweep reports it; a run's peak is what
    * says whether the old ceilings were ever within reach of real play. */
   private peakPower = 0;
+  /** Cages opened this run and the army they gave; `npm run balance` prints both. */
+  private rescues = 0;
+  private rescuedPower = 0;
   /** Highest damage output the run reached; the end screen's second score. */
   private peakDps = 0;
   /**
@@ -374,6 +377,8 @@ export class GameScene extends Phaser.Scene {
     this.pendingDamage = 0;
     this.traveled = 0;
     this.peakPower = 0;
+    this.rescues = 0;
+    this.rescuedPower = 0;
     this.peakDps = 0;
     this.shotHits = 0;
     this.shotLandings = 0;
@@ -717,13 +722,12 @@ export class GameScene extends Phaser.Scene {
         c.hitFlash = this.elapsed;
         if (c.hp <= 0) {
           c.active = false;
-          // Flat until the army passes `shareFrom`, a whole share of it after;
-          // par is NOT credited - see CAGE in config. Read off the power held
-          // at the moment the cage opens.
-          const reward = this.squad.power > CAGE.shareFrom
-            ? Math.round(this.squad.power * CAGE.share)
-            : CAGE.reward;
+          // A share of the army held at the moment the cage opens, whole,
+          // floored - see CAGE in config. Par is NOT credited.
+          const reward = cageReward(this.squad.power);
           this.squad.addPower(reward);
+          this.rescues++;
+          this.rescuedPower += reward;
           this.sim.push({ kind: 'rescue', x: c.x, y: c.y, amount: reward });
         }
         if (!b.active) break;
@@ -934,6 +938,8 @@ export class GameScene extends Phaser.Scene {
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
       cages: this.enemies.cagesSpawned,
+      rescues: this.rescues,
+      rescuedPower: this.rescuedPower,
       traveled: Math.round(this.traveled),
       peakPower: Math.floor(this.peakPower),
       peakDps: Math.round(this.peakDps),

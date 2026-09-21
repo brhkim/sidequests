@@ -1,4 +1,4 @@
-import { ARENA, GATES, SENSE, SQUAD, WEAPON } from '../config';
+import { ARENA, CAGE, GATES, SENSE, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { judgmentWave } from './Mode';
@@ -276,10 +276,15 @@ export function applyGate(p: Progress, gate: GateType): string {
   switch (gate.axis) {
     case 'army':
       // Army is a count of bodies: it stays whole, so the number the gate
-      // promised is the number the player can read off the formation.
-      p.power = clampPower(Math.round(gate.form === 'mult'
-        ? p.power * gate.value
-        : p.power + gate.value));
+      // promised is the number the player can read off the formation. A
+      // multiplier adds its share of the army, whole, NEVER LESS THAN ONE
+      // BODY: `x1.1 ARMY` on an army of 1 rounded to 1 and did nothing, and
+      // the open is an army of 1 for a gate or two. The author's call
+      // (2026-09-20, 1.0). Par takes gates through this same function, so
+      // par is priced on the same floor.
+      p.power = clampPower(gate.form === 'mult'
+        ? p.power + Math.max(1, Math.round(p.power * (gate.value - 1)))
+        : Math.round(p.power + gate.value));
       break;
     case 'damage':
       if (gate.form === 'mult') u.damageMult *= gate.value;
@@ -317,4 +322,13 @@ function clampPower(value: number): number {
 /** Deep copy, so the difficulty model can try a gate without committing. */
 export function cloneProgress(p: Progress): Progress {
   return { power: p.power, upgrades: { ...p.upgrades } };
+}
+
+/**
+ * What opening a rescue cage adds to an army of `power`: a whole share of it,
+ * never less than `CAGE.minReward`. Priced here ONCE so the label the cage
+ * carries and the army the open actually grants can never disagree.
+ */
+export function cageReward(power: number): number {
+  return Math.max(CAGE.minReward, Math.round(power * CAGE.share));
 }

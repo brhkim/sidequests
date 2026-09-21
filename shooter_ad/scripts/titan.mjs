@@ -37,8 +37,8 @@ const { squadDps, freshUpgrades, applyGate, singleTargetDps } =
   await import('../src/systems/Progression.ts');
 const { scoreOffer } = await import('../src/systems/Scoring.ts');
 const { rollOffer } = await import('../src/data/gates.ts');
-const { ENEMY_BY_ID } = await import('../src/data/enemies.ts');
-const { GATES, SQUAD, WAVE, DIFFICULTY, ARENA } = await import('../src/config.ts');
+const { ENEMY_BY_ID, titanTravelSeconds } = await import('../src/data/enemies.ts');
+const { GATES, SQUAD, WAVE, DIFFICULTY } = await import('../src/config.ts');
 
 const args = Object.fromEntries(
   process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => {
@@ -52,8 +52,7 @@ const MODE = args.mode ?? 'normal';
 const WAVE_AT = Number(args.wave ?? WAVE.bossEvery - 1);
 
 const titan = ENEMY_BY_ID.get('titan');
-const spawnY = ARENA.spawnY - 40;
-const travelSeconds = (ARENA.breachY - spawnY) / titan.speed;
+const travelSeconds = titanTravelSeconds();
 // Budget: one wave, the descent, and a margin. Simulated seconds.
 const SECONDS = Number(args.seconds ?? Math.ceil(WAVE.baseDuration + travelSeconds + 20));
 

@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { VIEW } from '../../config';
+import { HUD_ROWS, VIEW } from '../../config';
 import { RAIL_HEIGHT } from './TopRail';
 import { AXIS_COLOR } from '../../data/gates';
 import { compact, FONT, formatMult, hex, type HudPayload } from './types';
 
 /** The strip's height; the field begins beneath the rail and the strip. */
-export const STRIP_HEIGHT = 94;
+export const STRIP_HEIGHT = HUD_ROWS.strip;
 
 /**
  * The active-bonus readout, directly beneath the top rail: every input to

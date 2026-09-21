@@ -495,3 +495,81 @@ runs, fewer decisions), standing 1.00, cages 1.72/min. `npm run verify`'s
 sine sweep killed nothing at power 1 and the run ended at the first leak,
 so its pointer now stands under the lowest live enemy (still real mouse
 input); three runs: 18 / 20 / 14 kills, wave 3, alive.
+
+# Author's asks — session of 2026-09-20 (third session, rescues and the spawn line)
+
+Same rules as above: verbatim, in order, a status per ask. Version **1.0**.
+
+## 1. Rescues (verbatim)
+
+> I think we need to tune rescues a bit more. Right now, getting one early
+> on really explodes your DPS versus par. How is it calculated right now?
+> Besides the floor of 5?
+
+Answered: +5 flat until 100 power, 5% after, nothing else; DPS is linear in
+power under the ring cap, so at power 1 a cage was ×6 and about five
+wave-1 gates' worth, standing 2-3 against par.
+
+> The thing is that the army, in and of itself, is its own value because it
+> is the health of the player at the end of the day, and it needs to be
+> protected, particularly given that the player will continuously take chip
+> damage from ranged enemies. My thinking is that we keep it at 5% of army
+> size, but we round it to the floor of 1. What do you think of that?
+
+Answered: yes, with two caveats - at 5% it stops being a catch-up (under the
+smallest gate root) and the cage's HP does not shrink with the reward.
+
+> Okay, let's move it to 10% of player ARMY floor of 2. Keeping it
+> rare-ish at 40% per wave I think balances it well
+
+Status: `landed`. `cageReward(power) = max(2, round(power × 0.10))` in
+`Progression`, read by the open and by the cage's label, so the two cannot
+disagree; `CAGE.reward` / `shareFrom` are gone, `share` 0.1, `minReward`
+2; 40% per wave untouched. `npm run rescue` (new) forces a cage open at
+seven army sizes on the built game: +2 at 1 / 3 / 10 / 19, +3 at 30, +10
+at 100, +100 at 1000 - ×2.67 in DPS at power 1, ×1.10 from 19 on.
+`npm run balance` prints `opened` per seed. The guide's RESCUES topic says
+"a tenth of your army joins you, at least 2" and no longer calls it the
+way back; `notes.md`'s section is retitled "a refund".
+
+## 2. Mid-session (verbatim)
+
+> 1. The stacked status bars at the top now conceal too much of the
+> playfield, and it takes forever for, for example, a Titan to finally be
+> visible after spawning but to be visible to the player. I think we need
+> to constrain the spawn point to be at the bottom of the status bars but
+> then ensure that vertical movement speed scales accordingly (so the game
+> doesn't just immediately get harder with less time to kill enemies, if
+> that makes sense). Titan health should be scaled carefully with this too
+
+Status: `landed`. `ARENA.spawnY` is `HUD_ROWS.bottom` (184; the three HUD
+files read their heights from that block). `ARENA.descentScale` (766/990)
+multiplies every vertical speed once, in `applyMotion` and `driftCages`,
+so every body and the cage reach the line in exactly the seconds they did
+from -40 (asserted per type in `npm run model`). The Titan spawns 40px
+above the line and emerges; its HP is priced on `titanTravelSeconds()`,
+which went 68.7s to 69.4s (+1%), so the boss is the same deadline, now on
+screen for all but 3.4s of it instead of its first 17.6s hidden. Retreat
+ceiling is the spawn line. Gates untouched (their hidden 94px was your
+accepted cost of the strip's move). `npm run behaviour` passes unchanged.
+
+> 2. Army multiplier at low values needs to be adjusted... if I start at 1
+> and pick army x 1.1 it does nothing for me assuming it rounds down. We
+> probably need to FLOOR to 1 and calculate PAR accordingly
+
+Status: `landed`. It rounded to nearest, which at 1 × 1.1 is still 1.
+`applyGate` now adds `max(1, round(power × (root − 1)))` for a `×ARMY`
+gate - the rule raw `+N ARMY` already used - so ×1.1 on 1 gives 2, on 9
+gives 10, on 100 gives 110. Par takes gates through the same function, so
+it is priced and graded on the same floor; `npm run model` asserts par
+scores ×1.1 ARMY on an army of 1 as a real gain and takes it. The guide's
+THE SUM topic says a × ARMY card always adds at least one soldier.
+
+## 3. Measured
+
+See the table in `RESTART.md` §3: `npm run balance` seeds 1-5 at skill
+0.7 on 0.9 and on 1.0, `npm run repeat` 0.00%, `npm run model`, `verify`,
+`moments`, `endscreen`, `hud`, `roster`, `behaviour`, `rescue` all pass.
+The bot never aims at a cage and does not reach wave 16, so the reward is
+measured by `rescue` and the spawn line by `model` and the stills, not by
+survival.
