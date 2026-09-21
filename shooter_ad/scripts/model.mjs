@@ -222,9 +222,9 @@ console.log('\n=== x MOVE, +TIME, +SENSE and +SHIELD are priced at exactly zero 
   let worst = 0;
   for (const wave of [1, 3, 6, 10, 15, 21, 30]) {
     for (const [mv, tm, se, sh] of [[1, 1, 0, 0], [2, 1, 1, 1], [1, 2, 2, 3], [4, 3, 0, 2], [8, 6, 3, 3]]) {
-      const p = state(200, { moveMult: mv, gateSpeedMult: 1 / tm, sense: se, shield: sh });
+      const p = state(200, { move: Math.min(3, mv - 1), gateSpeedMult: 1 / tm, sense: se, shield: sh });
       for (const g of [
-        gate('move', 'mult', 1.05), gate('move', 'mult', 1.5),
+        gate('move', 'raw', 1),
         gate('time', 'raw', 1.05), gate('time', 'raw', 1.5), gate('sense', 'raw', 1),
         gate('shield', 'raw', 1),
       ]) worst = Math.max(worst, Math.abs(priced(p, g, wave)));
@@ -464,24 +464,32 @@ if (LEGIBILITY.length !== 4 || LEGIBILITY.map((t) => t.minWave).join() !== '1,6,
 // and hard mode's wave 1 is exactly normal's wave 1 + offset - the same
 // "started later" property the speed and legibility checks above enforce.
 // ---------------------------------------------------------------------------
-const { gateDeadSpace } = await import('../src/systems/Progression.ts');
-const { WAVE: WAVE_CFG, VIEW } = await import('../src/config.ts');
+const { gateDeadSpace, gateSway, swayOffset } = await import('../src/systems/Progression.ts');
+const { WAVE: WAVE_CFG, VIEW, ARENA: ARENA_CFG, SQUAD: SQUAD_CFG } = await import('../src/config.ts');
 console.log('\n=== the judgment curve, per wave ===');
 const LANE = VIEW.width / G.perOffer;
+// A swaying card's peak lateral speed: amplitude x 2 pi x periods over the
+// descent, in px/s, so it can be read against the squad's own speed.
+const swaySpeed = (wave, u) => {
+  const { periods, amplitude } = gateSway(wave);
+  return amplitude * 2 * Math.PI * periods / gateDescentSeconds(wave, u);
+};
 const curveRow = (wave) => {
   const u = freshUpgrades();
   const tier = legibilityFor(judgmentWave(wave));
   const dead = gateDeadSpace(wave);
+  const sway = gateSway(wave);
   return {
     wave, descent: gateDescentSeconds(wave, u), speed: waveGateSpeedMult(wave),
     roots: tier.roots.length, sigFigs: tier.sigFigs, dead,
     width: Math.max(G.minWidth, LANE - dead), titan: wave % WAVE_CFG.bossEvery === 0,
+    swayPeriods: sway.periods, swayAmp: sway.amplitude, swaySpeed: swaySpeed(wave, u),
   };
 };
 const printCurve = (mode, waves) => {
   setMode(mode);
   console.log(`  ${mode}`);
-  console.log('    wave  descent s  speed x  roots  sig figs  dead px  gate px');
+  console.log('    wave  descent s  speed x  roots  sig figs  dead px  gate px  sway/desc  sway px  sway px/s');
   const rows = waves.map(curveRow);
   for (const r of rows) {
     console.log(
@@ -492,14 +500,17 @@ const printCurve = (mode, waves) => {
       String(r.sigFigs).padStart(9),
       String(r.dead).padStart(8),
       String(r.width).padStart(8),
+      r.swayPeriods.toFixed(1).padStart(10),
+      r.swayAmp.toFixed(1).padStart(8),
+      r.swaySpeed.toFixed(0).padStart(10),
       r.titan ? '  TITAN' : '',
     );
   }
   setMode('normal');
   return rows;
 };
-const curveNormal = printCurve('normal', Array.from({ length: 32 }, (_, i) => i + 1));
-const curveHard = printCurve('hard', Array.from({ length: 27 }, (_, i) => i + 1));
+const curveNormal = printCurve('normal', Array.from({ length: 40 }, (_, i) => i + 1));
+const curveHard = printCurve('hard', Array.from({ length: 35 }, (_, i) => i + 1));
 for (const r of curveNormal.slice(0, 3)) {
   if (r.dead !== 0) throw new Error(`dead space is ${r.dead}px at normal wave ${r.wave}; must be 0 through wave 3`);
 }
@@ -513,7 +524,7 @@ for (const rows of [curveNormal, curveHard]) {
   }
 }
 if (curveNormal[curveNormal.length - 1].dead !== G.deadSpace.lateMax) {
-  throw new Error('dead space never reaches its cap by normal wave 32');
+  throw new Error('dead space never reaches its cap by normal wave 40');
 }
 // Two stages, the author's shape (0.8): the first cap is reached at wave
 // 16 and held for no wave at all - the second stage starts at once and
@@ -534,6 +545,41 @@ if (curveHard[0].dead !== curveNormal[OFFSET].dead) {
 }
 if (LANE - G.deadSpace.lateMax < G.minWidth) {
   throw new Error('GATES.deadSpace.lateMax leaves a card narrower than GATES.minWidth');
+}
+// Sway (1.6): none until dead space has stopped growing, then three tiers
+// of five waves at 0.5 / 1 / 1.5 periods a descent, the last held; the
+// amplitude is half the dead space, so a card never leaves its lane; the
+// phase is a function of y alone, centred at spawn and at the line; and
+// the peak lateral speed stays under the squad's base walk.
+for (const r of curveNormal) {
+  if (r.wave <= deadCapWave && r.swayPeriods !== 0) throw new Error(`sway at wave ${r.wave}, before dead space caps at ${deadCapWave}`);
+  if (r.wave > deadCapWave && r.swayPeriods <= 0) throw new Error(`no sway at wave ${r.wave}, after dead space capped`);
+  if (r.swayAmp > r.dead / 2 + 1e-9) throw new Error(`sway amplitude ${r.swayAmp} exceeds half the dead space at wave ${r.wave}`);
+  if (r.swaySpeed > SQUAD_CFG.moveSpeed) throw new Error(`sway peak speed ${r.swaySpeed.toFixed(0)}px/s outruns the squad at wave ${r.wave}`);
+}
+if (G.sway.fromWave !== deadCapWave) throw new Error(`GATES.sway.fromWave (${G.sway.fromWave}) is not the wave dead space caps (${deadCapWave})`);
+const swayTiers = [...new Set(curveNormal.map((r) => r.swayPeriods).filter((p) => p > 0))];
+if (swayTiers.join() !== G.sway.periods.join()) throw new Error(`sway tiers ${swayTiers} are not ${G.sway.periods}`);
+for (let t = 0; t < G.sway.periods.length; t++) {
+  const first = deadCapWave + 1 + t * G.sway.tierWaves;
+  if (curveNormal[first - 1].swayPeriods !== G.sway.periods[t]) throw new Error(`sway tier ${t} does not start at wave ${first}`);
+  if (t > 0 && curveNormal[first - 2].swayPeriods !== G.sway.periods[t - 1]) throw new Error(`sway tier ${t} starts a wave early`);
+}
+if (Math.max(...G.sway.periods) !== 1.5) throw new Error('the fastest sway is not 1.5 periods a descent (the author\'s ceiling)');
+if (curveHard[0].swayPeriods !== curveNormal[OFFSET].swayPeriods) throw new Error('hard wave 1 sway is not normal wave 1 + offset');
+{
+  const top = curveNormal[curveNormal.length - 1];
+  const spawnY = -G.height, lineY = ARENA_CFG.laneY;
+  const at = (y) => swayOffset(y, top.swayPeriods, top.swayAmp);
+  if (Math.abs(at(spawnY)) > 1e-9) throw new Error('a swaying card does not spawn at its lane centre');
+  if (Math.abs(at(lineY)) > 1e-6) throw new Error('a swaying card is not at its lane centre at the line');
+  let peak = 0;
+  for (let y = spawnY; y <= lineY; y += 1) peak = Math.max(peak, Math.abs(at(y)));
+  if (Math.abs(peak - top.swayAmp) > 0.01) throw new Error(`sway peak ${peak} is not the amplitude ${top.swayAmp}`);
+  if (top.swayAmp + top.width / 2 > LANE / 2 + 1e-9) throw new Error('a swaying card crosses its lane edge');
+  console.log(`  sway: none through normal wave ${deadCapWave}; ${G.sway.periods.join(' / ')} periods a descent from waves`
+    + ` ${G.sway.periods.map((_, t) => deadCapWave + 1 + t * G.sway.tierWaves).join(' / ')}; +-${top.swayAmp}px inside a ${LANE}px lane,`
+    + ` peak ${top.swaySpeed.toFixed(0)}px/s at wave ${top.wave} against a ${SQUAD_CFG.moveSpeed}px/s squad; at centre at spawn and at the line`);
 }
 console.log(`  dead space: 0 through normal wave ${G.deadSpace.fromWave}, +${G.deadSpace.perWave}px a wave to ${G.deadSpace.max}px at wave ${firstCapWave},`
   + ` then +${G.deadSpace.latePerWave}px a wave to ${G.deadSpace.lateMax}px at wave ${deadCapWave}`
@@ -1041,6 +1087,73 @@ console.log('\n=== contact: what a body costs when it reaches the army ===');
       String(cost('medium', p)).padStart(8), String(cost('large', p)).padStart(8), String(cost('titan', p)).padStart(9),
     );
   }
+
+  // 1.6: every price is a share of the run's PEAK army, declining with the
+  // army held only to `ARMY_DAMAGE.mercy` of the peak. The table above is
+  // the `peak === power` case; this is the decline from one peak.
+  console.log('\n  the decline from a peak of 1,000 (1.6): held, base, bullet, basic, medium, large');
+  const { ARMY_DAMAGE } = await import('../src/config.ts');
+  const { damageBase, bulletCost } = await import('../src/systems/Contact.ts');
+  const PEAK = 1000;
+  for (const held of [1000, 900, 750, 600, 500, 400, 250, 100, 10, 1]) {
+    console.log(
+      String(held).padStart(6), String(damageBase(held, PEAK)).padStart(6), String(bulletCost(held, PEAK)).padStart(8),
+      String(contactCost(t('basic'), held, PEAK)).padStart(8), String(contactCost(t('medium'), held, PEAK)).padStart(8),
+      String(contactCost(t('large'), held, PEAK)).padStart(8),
+    );
+  }
+  expect('mercy is a half (the author\'s rule)', ARMY_DAMAGE.mercy === 0.5);
+  expect('at the peak the base is the army held', damageBase(PEAK, PEAK) === PEAK && damageBase(19, 19) === 19);
+  expect('a peak below the held army is treated as the held army', damageBase(50, 10) === 50);
+  expect('the base falls with the army to half the peak', damageBase(750, PEAK) === 750 && damageBase(500, PEAK) === 500);
+  expect('and holds at half the peak below it', damageBase(400, PEAK) === 500 && damageBase(1, PEAK) === 500 && damageBase(0, PEAK) === 500);
+  expect('a Basic contact at 100 held from a peak of 1,000 is 10, not 2', contactCost(t('basic'), 100, PEAK) === 10 && contactCost(t('basic'), 100) === 2);
+  expect('a bullet at 100 held from a peak of 1,000 is 5, not 1', bulletCost(100, PEAK) === 5 && bulletCost(100) === 1);
+  expect('the Titan is still the whole army at every held', [1000, 500, 100].every((h) => contactCost(t('titan'), h, PEAK) >= h));
+  expect('contactCost without a peak is the 1.5 price', [1, 99, 100, 640, 38912].every((p) => contactCost(t('basic'), p) === cost('basic', p)));
+  let falling = true;
+  for (let h = PEAK, prev = Infinity; h >= 1; h--) {
+    const c = contactCost(t('medium'), h, PEAK);
+    if (c > prev) falling = false;
+    prev = c;
+  }
+  expect('cost never rises as the army falls from its peak', falling);
+  const spiral = (peakAnchored) => {
+    // Hits to the end from 1,000, one Basic contact at a time.
+    let held = PEAK, hits = 0;
+    while (held > 0 && hits < 1e6) { held -= contactCost(t('basic'), held, peakAnchored ? PEAK : held); hits++; }
+    return hits;
+  };
+  console.log(`  Basic contacts from 1,000 to zero: ${spiral(false)} on the 1.5 rule, ${spiral(true)} on 1.6`);
+  expect('the spiral is shorter on 1.6', spiral(true) < spiral(false));
+}
+
+console.log('\n=== MOVE: three levels, x1.5 / x2 / x2.5 of base speed (1.6) ===');
+{
+  const { MOVE, SQUAD, GATES: GATES_CFG } = await import('../src/config.ts');
+  const { MAX_MOVE, moveMultiplier, moveSpeed } = await import('../src/systems/Progression.ts');
+  const { rollOffer } = await import('../src/data/gates.ts');
+  console.log('  held   x base   px/s');
+  for (let m = 0; m <= MAX_MOVE; m++) {
+    console.log(String(m).padStart(6), moveMultiplier(m).toFixed(2).padStart(8), moveSpeed({ ...freshUpgrades(), move: m }).toFixed(1).padStart(7));
+  }
+  expect('base speed is 195 (260 less a quarter)', SQUAD.moveSpeed === 195 && Math.abs(SQUAD.moveSpeed / 260 - 0.75) < 1e-9);
+  expect('MOVE caps at 3 like SENSE', MAX_MOVE === 3);
+  expect('the ladder is x1 / x1.5 / x2 / x2.5', MOVE.mult.join() === '1,1.5,2,2.5');
+  expect('past the cap the multiplier holds', moveMultiplier(9) === 2.5 && moveMultiplier(-1) === 1);
+  const p = state(50, { move: 0 });
+  for (let i = 0; i < 5; i++) applyGate(p, gate('move', 'raw', 1));
+  expect('five +MOVE picks hold 3', p.upgrades.move === MAX_MOVE);
+  expect('the fastest squad is under the 620 that made travel free', moveSpeed(p.upgrades) < 620);
+  let offered = 0;
+  const ctx = { power: 200, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: 0, shield: 0, echo: 0, move: MAX_MOVE };
+  let s0 = 99;
+  const rng = () => ((s0 = (s0 * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  for (let i = 0; i < 400; i++) for (const g of rollOffer(GATES_CFG.perOffer, 1, ctx, rng)) if (g.axis === 'move') offered++;
+  expect('+MOVE leaves the pool at the cap', offered === 0);
+  let label = '';
+  for (let i = 0; i < 50 && !label; i++) for (const g of rollOffer(GATES_CFG.perOffer, 1, { ...ctx, move: 0 }, rng)) if (g.axis === 'move') label = g.label;
+  expect(`the card reads +MOVE (${label})`, label === '+MOVE');
 }
 
 // ---------------------------------------------------------------------------
@@ -1075,7 +1188,7 @@ console.log('\n=== contact: what a body costs when it reaches the army ===');
   expect('x1.1 ARMY on 9 gives 10 (round(0.9) = 1 either way)', arm(9, 1.1) === 10);
   expect('x1.1 ARMY on 100 gives 110', arm(100, 1.1) === 110);
   expect('x1.5 ARMY on 1 gives 2, on 3 gives 5', arm(1, 1.5) === 2 && arm(3, 1.5) === 5);
-  const offer = [gate('army', 'mult', 1.1), gate('damage', 'raw', 0.05), gate('move', 'mult', 1.2)];
+  const offer = [gate('army', 'mult', 1.1), gate('damage', 'raw', 0.05), gate('move', 'raw', 1)];
   const scored = scoreOffer(state(1), offer, 1);
   expect('par scores x1.1 ARMY on an army of 1 as a real gain, and takes it', scored.options[0].delta > 0.9 && scored.best === 0);
 

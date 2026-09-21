@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { SQUAD, VIEW } from '../../config';
 import { AXIS_COLOR, type BonusAxis } from '../../data/gates';
-import { MAX_ECHO, MAX_SENSE, MAX_SHIELD, senseChance } from '../../systems/Progression';
-import { ECHO, SHIELD } from '../../config';
+import { MAX_ECHO, MAX_MOVE, MAX_SENSE, MAX_SHIELD, senseChance } from '../../systems/Progression';
+import { ECHO, MOVE, SHIELD } from '../../config';
 import { CardTile } from './CardTile';
 import { standingColor } from './TopRail';
 import { CAPTION, compact, FONT, formatMult, hex, MONO, SMALL, type HudPayload } from './types';
@@ -191,8 +191,9 @@ export class PauseBonuses {
       `Enemies one shot passes through. Each level is worth half a hit more (${formatMult(h.pierceMult)} right now). Worth nothing against a lone body like the Titan.`);
     this.setTile(5, String(h.echo), 'ECHO', h.echo > 0,
       `Ghost armies beside yours that fire what you fire: a half-size one on the left at 1 held, one on the right at 2, then each grows to full at 3 and 4 (${MAX_ECHO} max). They take no damage and block nothing; a ghost pushed off the edge fires into nothing. PAR counts a full one as ${Math.round(ECHO.value * 100)}% of your army (${formatMult(h.echoMult)} right now).`);
-    this.setTile(6, formatMult(h.moveMult), 'MOVE INVEST', h.moveMult > 1,
-      'How fast your squad walks. Adds no damage, so it is an INVEST card: it helps you reach the card you want, but the shadow player (PAR) never takes it and the score counts it as no growth.');
+    const moveLadder = MOVE.mult.slice(1).map((m) => formatMult(m)).join(' / ');
+    this.setTile(6, formatMult(h.moveMult), 'MOVE INVEST', h.move > 0,
+      `How fast your squad walks: ${moveLadder} at 1 / 2 / 3 held (${h.move} of ${MAX_MOVE}). Adds no damage, so it is an INVEST card: it helps you reach the card you want, but the shadow player (PAR) never takes it and the score counts it as no growth.`);
     const time = Math.round((1 / h.gateSpeedMult - 1) * 100);
     this.setTile(7, `+${time}%`, 'TIME INVEST', time > 0,
       `Cards fall ${time > 0 ? `${time}% ` : ''}slower, so you have longer to compare them. Adds no damage, so it is an INVEST card: PAR never takes it and the score counts it as no growth.`);

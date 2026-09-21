@@ -6,11 +6,10 @@ Paste everything below the line into a fresh session.
 
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo,
 on branch `claude/laughing-feynman-ghh9r3` (no PR open; the branch is ahead
-of `main` by five sessions' work; the last commits are this session's, 1.2
-through 1.5, on top of `0de77ae`, the Mortar / SHIELD commit). The version
-tag is **1.5**; a seed only compares with another 1.5 run. Nothing is
-blocked. §4 is what the author still has to do or decide, §5 what nobody
-has verified.
+of `main` by six sessions' work; the last commit is this session's, 1.6, on
+top of `422ad35`, the 1.5 commit). The version tag is **1.6**; a seed only
+compares with another 1.6 run. Nothing is blocked. §4 is what the author
+still has to do or decide, §5 what nobody has verified.
 
 ## 1. Orient before touching anything
 
@@ -19,24 +18,21 @@ Read in this order:
 1. `CLAUDE.md` at the repo root — repo conventions, the shared-tree rules for
    subagents, the measuring-before-tuning rules.
 2. `shooter_ad/ASKS.md` — **the author's asks, verbatim, with a status per
-   ask**, six sessions of them. The last section (2026-09-21, fifth session:
-   pierce past cages and the shooter count, then §3 to §5 of it) is the
-   checklist this session is judged against. Read it first.
+   ask**, seven sessions of them. The last section (2026-09-21, sixth
+   session: MOVE levels, gate sway, damage off the peak) is the checklist
+   this session is judged against. Read it first.
 3. `shooter_ad/PRODUCT.md` — product truth and the decisions on record.
 4. `shooter_ad/notes.md` — design intent; wins over `CLAUDE.md`. From this
-   session: "Pierce carries past a cage", "Shooters spawn at half weight,
-   one new type per five waves", "SHIELD blocks a body too, never a
-   breach", "+ECHO: a ghost army beside yours", "Numbers read at three
-   figures whatever their size", "The end screen plots you against par;
-   RISK reads INVEST", and the `q` 0.7 paragraph under "Pierce: what is it
-   actually worth?".
-5. `shooter_ad/CLAUDE.md` — mechanics. From this session: the cage bullet
-   under "Contact damage", the shooter curve under "Extending content",
-   the body block under "`+SHIELD` is a charge pool", the `+ECHO` bullet,
-   "The end screen's plot, and the word INVEST", "Numbers on screen".
+   session: the 1.6 paragraph under "Move speed is the deliberate oddity",
+   "Gates sway inside their lane", "Every price on the army is a share of
+   its peak".
+5. `shooter_ad/CLAUDE.md` — mechanics. From this session: the MOVE paragraph
+   under "Gate approach speed is the judgment-axis difficulty lever", "Gate
+   sway is the fifth judgment lever", the 1.6 paragraph opening "Contact
+   damage", `npm run sway` in the command list.
 6. `shooter_ad/DESIGN.md` — the design system as shipped. NOT re-derived
-   this session; it predates the 4x3 pause grid, the end-screen plot and
-   the INVEST word.
+   for two sessions; it predates the 4x3 pause grid, the end-screen plot,
+   the INVEST word and the sway track.
 7. `git log --oneline -12` — the commit messages carry the reasoning and the
    measurements.
 
@@ -44,17 +40,19 @@ Then:
 
 ```bash
 cd shooter_ad && npm ci && npm run build && npm run verify && npm run model
+npm run sway       # sway-26/27/32/37.png: still, then the three tiers on their grey tracks
 npm run hud        # hud-echo.png: a full ghost ring left, a half ring right, three columns
-npm run endscreen  # end-poor.png / end-good.png: the standing plot beside PEAK DAMAGE / SEC
+npm run endscreen  # pause-mid.png: the MOVE INVEST tile reads x1.00; start-invited.png v1.6
 npm run moments    # moment-block-body.png: a body into a shielded ring
 npm run rescue     # the pierce-past-a-cage check at 0 / 1 / 2
 npm run rail       # the rail at 88 / 100 / 96 / 100 / 76
-npm run from -- --dps=1e5   # the only instrument that meets a shooter
+npm run from -- --dps=1e5            # the only instrument that meets a shooter
+npm run from -- --dps=1e5 --wave=37  # the bot under full sway
 ```
 
 Do not start until you have looked at `.verify/screenshot.png`,
-`.verify/hud-echo.png`, `.verify/end-poor.png`, `.verify/pause-mid.png`
-and `.verify/moment-block-body.png`.
+`.verify/sway-37.png`, `.verify/sway-27.png`, `.verify/pause-mid.png` and
+`.verify/moment-block-body.png`.
 
 ## 2. What the game is
 
@@ -62,88 +60,102 @@ and `.verify/moment-block-body.png`.
 they arrive, which most increases your damage output. A stat is
 `base × (1 + pool) × mult`; raw draws scale to the pool so neither form is
 ever dominant. Difficulty is closed-loop against a shadow "par" player who
-takes the best DPS option every time and collects nothing else. Four
+takes the best DPS option every time and collects nothing else. Five
 judgment levers rise with the wave: descent speed, root granularity, raw
-rounding, and dead space between the gates. MOVE, TIME, SENSE and SHIELD
+rounding, dead space between the gates, and (from wave 27) the gates'
+sway inside their lanes. MOVE, TIME, SENSE and SHIELD
 are INVEST axes (RISK until 1.5): worth zero to the scoring, never taken
 by par, the player's gamble. ECHO is the tenth axis and a damage one.
 
 ## 3. What changed this session, in the order it landed
 
-Every item is the author's ask, recorded verbatim in `ASKS.md`. Four
-versions, each a balance change:
+Every item is the author's ask, recorded verbatim in `ASKS.md`. One
+version, 1.6, three balance changes:
 
-1. **1.2 — pierce carries past a cage.** A cage spent every shot that hit
-   it; now the shots that open it spend one pierce and fly on, with the
-   same one-encounter `struck` guard a body has. `npm run rescue` asserts
-   it at pierce 0 / 1 / 2.
-2. **1.3 — the shooter curve.** Nothing decided the shooter count before
-   (one weighted draw per spawn, 21% shooters from wave 7, shooters
-   outliving two or three waves). The author declined a live cap ("punishes
-   the player for clearing ranged mobs") for rates: every gun type at half
-   weight (Spitter 15, Mortar 11, Lancer 12), one new shooter per five
-   waves (5 / 10 / 15), guns at 3 / 6 / 4.5s. Shooter share of spawns 6 /
-   9 / 12% against 12 / 21 / 21%.
-3. **1.4 — SHIELD blocks a body, +ECHO, pierce q 0.7.** A body touching
-   the ring spends a charge and is consumed for nothing (never a breach,
-   never the Titan - my call). +ECHO: ghost armies that fire what you
-   fire, priced for par, out of the Titan's sizing, no body in `systems/`.
-   `WEAPON.pierceQ` 0.5 to 0.7 ("it's definitely pulling higher weight
-   than a 1.5x damage bonus").
-4. **1.5 — ECHO retuned, three-figure numbers, the plot, INVEST.** ECHO is
-   four levels at 150px: half left, half right, full left, full right; a
-   half echo does half damage and is drawn half size; priced 1.35 / 1.7 /
-   2.05 / 2.4. `src/format.ts` reads every number at three figures on the
-   K / M / B / T / Q / Qi / Sx / Sp / Oc / No / Dc ladder (`1.02K% PAR`,
-   `+1.84K% DMG`). The end screen's "% of the growth on offer" is replaced
-   by a plot of `dps / parDps` per wave against a dashed PAR line, with
-   peak DPS beside it. Every RISK on screen reads INVEST (the code keeps
-   the `risk` key).
+1. **MOVE is three levels on a slower base.** `SQUAD.moveSpeed` 260 to 195
+   (a quarter off). `Upgrades.move` 0 to 3 replaces `moveMult`; the ladder
+   `MOVE.mult` = x1 / x1.5 / x2 / x2.5 through `Progression.moveMultiplier`;
+   the card is `+MOVE` (was a root draw `x1.05` to `x1.5`), filtered out at
+   three held through `OfferContext.move`. HUD carries `move` and the
+   derived `moveMult`; the pause tile and the guide say the ladder.
+2. **Gate sway.** `GATES.sway` `{ fromWave: 26, tierWaves: 5, periods:
+   [0.5, 1, 1.5] }`: none until dead space caps (judgment wave 26), then
+   0.5 / 1 / 1.5 periods per descent from waves 27 / 32 / 37 (hard five
+   earlier), held after. Amplitude is half the dead space (+-48.5px), so a
+   card touches its lane edge and never crosses; `swayOffset` is a sine of
+   the card's descent progress (centre at spawn and at the line), a
+   function of y alone, so `repeat` is 0.00% and `+TIME` slows it with the
+   fall. `Gate` gained `laneX`, `swayPeriods`, `swayAmplitude`; `g.x` is
+   set from `g.y` each step. The track: `RENDER.gate.track` grey at 0.09
+   fill, 0.28 hairline, lane-wide, depth 3, drawn only on a swaying card.
+   The reading of "1.5x periods of movement across the whole length of the
+   screen" as 1.5 cycles per descent is mine; the author has not confirmed.
+3. **Every price on the army is a share of its peak.**
+   `Contact.damageBase(power, peak)` = `max(held, peak x 0.5)`
+   (`ARMY_DAMAGE.mercy`); `contactCost` takes the peak, `bulletCost` is new
+   and `applyIncomingFire` reads it; `Squad.peak` is the lazy high-water
+   mark. Floors unchanged. Event `share` clamped to 1.
 
-**Measured.** `npm run balance` seeds 1-3 read identical to 1.1 through
-every version (33.9 / 34.3 / 43.9s): the bot dies at wave 3, before any
-change here can reach it. That is the instrument's reach, not a null
-result. `npm run from -- --dps=1e5` is the one instrument that meets a
-shooter, an echo or a pierce-5 build:
+Instruments: `npm run sway` (new; four pages, movement / lane bound /
+track count asserted, four stills); `npm run model` prints sway columns on
+the judgment curve, the decline table from a peak of 1,000 and the MOVE
+ladder, and asserts all three features; `npm run moments` holds 24 power
+before the MISS wait (on 1.6 the seed's army of 3 died at 25% of par
+before a fourth offer arrived - the seed, not a bug).
 
-| build | survival | fire/min | pierce held | claim / measured hits per landing |
-| --- | --- | --- | --- | --- |
-| 1.1 | 34.8 / 29.3 / 25.1s | 82.8 / 65.5 / 69.3 | 2 | 2.00 / 2.2-2.5 |
-| 1.3 | 52.8 / 50.6 / 64.1s | 47.7 / 29.6 / 27.1 | 2 | 2.00 / 2.2-2.5 |
-| 1.4 | 89.3 / 52.7 / 41.4s | 45.0 / 25.0 / 37.7 | 5 | 4.50 / 3.5-4.2 |
-| 1.5 | 61.7 / 73.7 / 64.1s | 53.5 / 41.5 / 36.5 | 5 | 4.50 / 3.9-4.2 |
+**Measured.** `npm run balance` seeds 1-3: 34.3 / 33.2 / 43.9s against 34.3
+/ 33.9 / 43.9s on the 1.5 snapshot - seed 2 moved 0.7s; the bot dies at
+wave 3, under every share's floor, before sway or a peak above the floors
+can reach it. `npm run from -- --dps=1e5` (wave 16, seeds 1-3, the same
+snapshot):
 
-Fire loss per minute roughly halved from 1.1 to 1.3 for a bot that never
-steps aside. At q 0.7 the fast-forwarded build stacks pierce to 5 and the
-price OVERSHOOTS the board there (claim 4.5, measured 3.5 to 4.2): 0.7
-fixes the undershoot the author felt at pierce 2 and opens an overshoot
-past 4. A linear q cannot be right at both ends.
+| build | survival | contact/min | breach/min | fire/min | standing at end |
+| --- | --- | --- | --- | --- | --- |
+| 1.5 | 61.7 / 73.7 / 64.1s | 19.4 / 7.3 / 45.9 | 14.6 / 26.1 / 50.5 | 53.5 / 41.5 / 36.5 | 0.04 / 0.27 / 0.09 |
+| 1.6 | 52.9 / 78.7 / 47.7s | 12.5 / 32.0 / 47.8 | 18.1 / 28.2 / 64.2 | 59.0 / 51.1 / 37.7 | 0.08 / 0.09 / 0.05 |
 
-`verify`, `model`, `repeat` (0.00%), `moments`, `endscreen`, `rescue`,
-`rail`, `behaviour` and `hud` pass on 1.5.
+Median survival 64.1s to 52.9s; fire loss per minute up on every seed,
+which is the peak anchor doing what it was asked to. A bot that never
+steps aside pays the highest rate a player would. `from --wave=37` (full
+sway): 84.4 / 86.0 / 59.5s, 10 / 11 / 7 decisions, one death to a Titan -
+swaying cards are still taken by a bot that steers to their live x.
+
+`verify`, `model`, `repeat` (0.00%), `sway`, `moments`, `hud`, `endscreen`,
+`rescue` and `rail` pass on 1.6.
 
 ## 4. What the author still has to do or decide
 
-- **Play everything in §3.** Nothing since 0.5 has been played by a human:
-  the shooter curve, the body block, the ghosts (their size, their 150px,
-  their bullets off the edge), the plot, the INVEST word, `1.02K%` on the
-  rail.
-- **Pierce past 4 held.** If the overshoot is real in play, the fix is a
-  `q` that eases past three held, not a different constant.
-- **Is the Titan blockable?** SHIELD never blocks it (my call). Say so if
-  it should.
-- **ECHO's weight (24) and wave (4)** are mine; so is slate `0x9fb4c8`.
-- **The plot's y axis** tops at the larger of 150% and the run's peak;
-  a run that spends its life at 40% is a line in the bottom third. A log
-  axis is the alternative if that reads flat.
-- **`hud-echo.png` and the pause grid** are the only stills of the ghosts
-  and the ten tiles; the impeccable reviewer has not seen either.
-- Everything from §4 of the previous handoff still stands: the late
-  dead-space slope, the guide's hand-typed numbers, deploying and
-  watching GoatCounter, the spawn line's feel, the cage's HP against a +2.
+- **Play 1.6.** Nothing since 0.5 has been played by a human: the slower
+  squad with `+MOVE` at x1.5 first, the sway from wave 27 (does 0.5 a
+  descent read as "very slow", does 1.5 read as "never outrageously
+  fast"), the grey track's weight (0.09 fill; it reads as one band across
+  the screen when all three cards sway), and the spiral off the peak.
+- **"1.5x periods across the whole length of the screen"** is read as 1.5
+  cycles per descent. If it meant something else (cycles per second, or
+  the swing spanning the whole screen), `GATES.sway.periods` and the
+  amplitude rule are the two knobs.
+- **Sway starts the wave AFTER the last width change** (27, not 26). Say
+  so if it should start on 26.
+- **The mercy clamp on the base is a half of the PEAK**, and nothing
+  lowers the peak inside a run. A run that spikes to 1,000 on a cage and
+  falls pays 500's prices to the end. That is what was asked; say so if
+  the peak should decay.
+- Everything from §4 of the previous handoff still stands: pierce past 4
+  held (the overshoot at q 0.7), whether the Titan is blockable, ECHO's
+  weight and wave, the plot's y axis, the late dead-space slope, the
+  guide's hand-typed numbers, deploying and watching GoatCounter.
 
 ## 5. Known gaps — name these as unverified if you report on them
 
+- **No instrument measures how often a swaying card is MISSED.** The bot
+  steers to `g.x` every step and takes gates from wave 37; a human's hand
+  against a card at 164px/s is unmeasured, and so is the track's
+  legibility under a full-ring stream.
+- **The peak anchor is measured only on the bot at 1e5 DPS**, which never
+  dodges; the balance probe dies under every floor and cannot see it.
+- **`DESIGN.md` is stale** by the 4x3 grid, the plot, INVEST and the sway
+  track. The documenter and the finish reviewer were not run this session
+  either.
 - **No instrument plays with ECHO on purpose.** The bot takes it when the
   scoring says so; `from` does not print whether it did. The ghosts'
   bullets off the edge (the wastage the price assumes) are unmeasured.
@@ -151,8 +163,6 @@ past 4. A linear q cannot be right at both ends.
   them at wave 16-17 with a bot that never dodges.
 - **The DETAILS page's working lines** were not re-read after the
   formatter change; `num` there still shows two decimals under 10.
-- **`DESIGN.md` is stale** by the 4x3 grid, the plot and INVEST. The
-  documenter and the finish reviewer were not run this session.
 - **`fractionOfOptimal` still exists** and `stats.optimal` prints it; the
   endscreen instrument's summary line still says "% of optimal". Nothing
   on screen shows it.
@@ -167,10 +177,12 @@ past 4. A linear q cannot be right at both ends.
   `elapsed` for phase and never the RNG. `npm run repeat` must read 0.00%.
 - A rendering-only change is proven with `npm run neutral` against a `dist/`
   snapshot taken BEFORE the change. A balance change bumps the version.
-- `Progression.ts` defines squad strength (ECHO's ladder is `echoColumns`
-  there); `Scoring.ts` prices every offer once; `Contact.ts` prices every
-  arrival once; `Mode.ts` holds difficulty; `Shield.ts` is the one charge
-  pool; `format.ts` is the one number formatter.
+- `Progression.ts` defines squad strength (ECHO's ladder is `echoColumns`,
+  MOVE's is `moveMultiplier`, sway is `gateSway` / `swayOffset` there);
+  `Scoring.ts` prices every offer once; `Contact.ts` prices every arrival
+  and every bullet once, off `damageBase`; `Mode.ts` holds difficulty;
+  `Shield.ts` is the one charge pool; `format.ts` is the one number
+  formatter.
 - Nothing in `systems/` reads the event stream, audio or analytics.
 - Do not rebuild `dist/` while a probe is running against it: the probes
   serve `dist/` live, and a rebuild mid-run 404s the page. Snapshot first.
@@ -188,7 +200,9 @@ cage; shooters are rates, never a live cap; SHIELD blocks bodies but never
 a breach; ECHO is half-left / half-right / full-left / full-right at 0.35
 a level; `q` is 0.7; numbers are three figures on the thousands ladder;
 the end screen plots standing and shows no growth percentage; the word is
-INVEST.
+INVEST; MOVE is three levels at x1.5 / x2 / x2.5 on a base of 195; gates
+sway inside their lane from wave 27 at 0.5 / 1 / 1.5 periods a descent;
+every price on the army is a share of `max(held, peak / 2)`.
 
 ## 8. How to report
 

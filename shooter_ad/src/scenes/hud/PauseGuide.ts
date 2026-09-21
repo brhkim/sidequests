@@ -21,13 +21,13 @@ const TOPICS: readonly Topic[] = [
   { key: 'goal', label: 'THE GOAL', color: 0x3ecf7a, text:
     'Your squad walks where your finger is and fires straight up by itself. Every few seconds three bonus cards fall toward you. Walk under the one that will raise your damage the most, and survive as many waves as you can.' },
   { key: 'cards', label: 'THE CARDS', color: 0xff6b4a, text:
-    'A card names a stat and how much it grows: +25% DMG, ×1.25 DMG, +1 GUNS, +12 ARMY. You get whichever card you are standing under when the row reaches your line - only one of the three. Stand between cards and you get nothing (a MISS). +ECHO is a ghost army beside yours that fires what you fire: half-size left, half-size right, then each grows to full.' },
+    'A card names a stat and how much it grows: +25% DMG, ×1.25 DMG, +1 GUNS, +12 ARMY. You get whichever card you are standing under when the row reaches your line - only one of the three. Stand between cards and you get nothing (a MISS). Late on, the cards narrow and then sway inside their lane; the faint grey track behind one is how far it can go. +ECHO is a ghost army beside yours that fires what you fire: half-size left, half-size right, then each grows to full.' },
   { key: 'sum', label: 'THE SUM', color: 0xffc93c, text:
     '+% cards add to a pool you keep; × cards multiply. Once the pool is big, a +% card is worth less than it looks: at +200%, a +30% card is only ×1.10. So which card is bigger depends on what you already hold. A × ARMY card always adds at least one soldier. The BONUSES tab does this sum with your own numbers.' },
   { key: 'panels', label: 'THE TOP PANELS', color: 0x9fe8ff, text:
     'Top row: the wave, your damage per second (DPS) beside PAR\'s, your SENSE pips and your SHIELD charges. The bar under it is you against PAR; the white tick is the pass mark. The second panel is everything you hold, one cell per stat, in the cards\' own colours.' },
   { key: 'damage', label: 'TAKING DAMAGE', color: 0xff4d5e, text:
-    'Enemies walk down the screen. One that touches your squad, or slips past it over the red line, takes soldiers away - more for bigger enemies. Enemy shots cost a little too: the small magenta darts one soldier in a hundred, the slow red shells a Mortar lobs twice that. Step out of a shell\'s way. At zero soldiers the run ends.' },
+    'Enemies walk down the screen. One that touches your squad, or slips past it over the red line, takes soldiers away - more for bigger enemies. Enemy shots cost a little too: the small magenta darts one soldier in a hundred, the slow red shells a Mortar lobs twice that. Every price is a share of the BIGGEST army you have held this run, not of what is left: losing soldiers never makes the next hit cheaper until you are under half your best, and it holds there. Step out of a shell\'s way. At zero soldiers the run ends.' },
   { key: 'titan', label: 'THE TITAN', color: 0xbf8fdc, text:
     'Every 5th wave a huge boss descends slowly. Its purple health bar sits under the top panels. Kill it before it reaches you or the run ends on the spot. PIERCE does nothing against it: it is one body.' },
   { key: 'rescue', label: 'RESCUES', color: 0xb9a06a, text:
@@ -35,13 +35,13 @@ const TOPICS: readonly Topic[] = [
   { key: 'par', label: 'PAR', color: 0x6ee7a0, text:
     'PAR is a shadow player who takes the best card every single time. Enemies get tougher as PAR grows, not as waves pass - so the game is exactly as hard as your picks are bad. Keep your DPS near PAR\'s and you are fine.' },
   { key: 'risk', label: 'INVEST', color: 0xc9a7ff, text:
-    'MOVE, TIME, SENSE and SHIELD add no damage. MOVE: walk faster. TIME: cards fall slower. SENSE: some offers arrive with the best card outlined in white. SHIELD: a ring that blocks 2 enemy shots or touching bodies every 5s per level, a shell or a body counting as one; a body that walks past you is not blocked. PAR never takes them and the score counts them as no growth - an investment, for when the help is worth more than the damage.' },
+    'MOVE, TIME, SENSE and SHIELD add no damage. MOVE: walk faster, 1.5× / 2× / 2.5× at 1 / 2 / 3 held. TIME: cards fall slower. SENSE: some offers arrive with the best card outlined in white. SHIELD: a ring that blocks 2 enemy shots or touching bodies every 5s per level, a shell or a body counting as one; a body that walks past you is not blocked. PAR never takes them and the score counts them as no growth - an investment, for when the help is worth more than the damage.' },
   { key: 'score', label: 'THE SCORE', color: 0xffd166, text:
     'Every card you take is graded against the best of its three: PERFECT, GOOD or BAD. A gamble is INVEST; a card you never reached is MISS. The end screen\'s percentage is how much of the possible growth you captured. Waves survived is the headline.' },
   { key: 'code', label: 'MATCH CODES', color: 0x9fe8ff, text:
     'A code replays the exact same run: same cards, same enemies, same timing. Share it and a friend plays your match, so you can compare scores. Type one in on the start screen, or copy the link on the end screen.' },
   { key: 'hard', label: 'HARD MODE', color: 0xff7b54, text:
-    'Hard starts the run five waves in: cards fall faster from the first offer, the numbers are harder to compare (×1.35 against +47%), and the cards narrow sooner. Enemies are no tougher - only the decision is.' },
+    'Hard starts the run five waves in: cards fall faster from the first offer, the numbers are harder to compare (×1.35 against +47%), and the cards narrow and then sway sooner. Enemies are no tougher - only the decision is.' },
 ];
 
 const GRID_TOP = 114;

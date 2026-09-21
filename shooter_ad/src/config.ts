@@ -104,8 +104,12 @@ export const SQUAD = {
    * Under a pointer the squad used to teleport to the finger, so travel was
    * free and none of the above was true. `Squad.update` now advances toward the
    * pointer at this speed instead.
+   *
+   * 195 since 1.6: the author's ask, "reduce by 25%" from 260. `x MOVE` is
+   * now three levels (`MOVE.mult`), so the fastest a squad ever walks is
+   * 2.5x this, 487.5px/s - still under the 620 that made travel free.
    */
-  moveSpeed: 260,
+  moveSpeed: 195,
   /**
    * One: the author's call (2026-09-20, 0.9). It went 1 to 5 for a
    * session when wave-clear army was removed, on the argument that a start
@@ -277,6 +281,25 @@ export const ENEMY_FIRE = {
    */
   powerShare: 0.01,
   minCost: 1,
+} as const;
+
+/**
+ * What every charge on the army is a share OF (1.6, the author's ask).
+ *
+ * Contact, breach and enemy fire are each a share of the army. Until 1.6
+ * that share was of the army HELD, so every hit made the next one cheaper:
+ * an army knocked from 1,000 to 100 paid a tenth per hit of what it had
+ * paid at its peak, and the death spiral was "surprisingly slow". The
+ * base is now the army's PEAK this run, declining with the army held only
+ * as far as `mercy` of the peak: `max(held, peak x mercy)`. At full
+ * strength a hit costs what it always did; an army at half its peak or
+ * below pays half its peak's price per hit, and no less. Floors are
+ * unchanged. `Contact.damageBase` is the one function; `npm run model`
+ * prints the decline.
+ */
+export const ARMY_DAMAGE = {
+  /** Lowest the base falls to, as a share of the run's peak army. */
+  mercy: 0.5,
 } as const;
 
 /**
@@ -564,6 +587,31 @@ export const GATES = {
   /** A gate is never narrower than this, whatever the dead space asks. */
   minWidth: 80,
   /**
+   * Gate SWAY: once dead space stops growing (judgment wave 26, normal),
+   * each card drifts left and right inside its own lane (1.6, the author's
+   * ask). The fifth judgment lever, and the first that moves the target
+   * rather than shrinking it.
+   *
+   * `fromWave` is the last wave WITHOUT it - the wave dead space reaches
+   * `lateMax` - so sway begins the wave after the last width change. Its
+   * pace is in PERIODS PER DESCENT: how many full left-right-left cycles a
+   * card completes between its spawn and the lane line, whatever the
+   * descent's speed in seconds. `periods[i]` is the pace of tier i, and a
+   * tier lasts `tierWaves` waves: 0.5 a descent from wave 27 (a slow drift
+   * from one side of the lane to the other and back to centre), 1 from
+   * wave 32, 1.5 from wave 37 and forever after. The phase is a function
+   * of the card's y and nothing else - no RNG, no clock - so a seed still
+   * replays and `+TIME` slows the sway with the descent it slows.
+   *
+   * The amplitude is what the lane leaves: half its dead space, so the
+   * card's edge touches the lane boundary at the extremes and never
+   * crosses into a neighbour. At 97px of dead space that is +-48.5px; at
+   * 1.5 periods over a ~2.8s descent the card's peak lateral speed is
+   * ~165px/s against a 195px/s squad at x1 MOVE. The lane itself is drawn
+   * as a faint grey track behind the card so the limits are visible.
+   */
+  sway: { fromWave: 26, tierWaves: 5, periods: [0.5, 1, 1.5] },
+  /**
    * GUN and PIERCE are whole numbers, so they cannot draw a root the way the
    * pools do - and a flat `+1` shrinks as you stack them: the fourth gun is
    * +33%, the tenth +11%, and past that the axis is dead. From this many held,
@@ -652,6 +700,18 @@ export const SHIELD = {
  * The roll is made once per offer, from the seeded generator, when the offer
  * is rolled - so a match code reproduces which offers were sensed too.
  */
+/**
+ * `x MOVE`: three levels, like SENSE (1.6, the author's ask). `mult[n]` is
+ * the squad's speed at n held as a multiple of `SQUAD.moveSpeed`: x1.5,
+ * x2, x2.5, and the length sets the cap - a `+MOVE` card leaves the pool
+ * at three held. It was a root draw (x1.05 to x1.5) compounding without a
+ * cap; now the first pick is the big one and the axis ends at 2.5x base.
+ * Still a RISK / INVEST axis: no damage number moves, par never takes it.
+ */
+export const MOVE = {
+  mult: [1, 1.5, 2, 2.5],
+} as const;
+
 export const SENSE = {
   /** Chance an offer is sensed, indexed by sense held. Length sets the cap. */
   /**
@@ -769,7 +829,13 @@ export const RENDER = {
    * along the card's top edge - the part of a card that still reads when a
    * bullet stream is crossing it.
    */
-  gate: { fill: 0.16, targetFill: 0.3, roof: 4 },
+  gate: {
+    fill: 0.16, targetFill: 0.3, roof: 4,
+    // The sway track (1.6): the grey band behind a swaying card that shows
+    // the lane it moves within. Caption grey at a whisper, so it reads as
+    // furniture under the coloured card rather than a fourth option.
+    track: 0x8f9ab5, trackFill: 0.09, trackStroke: 0.28,
+  },
   /**
    * Durations, in milliseconds of WALL clock, for the feedback moments. They
    * drive tweens on display objects and are read by nothing the simulation

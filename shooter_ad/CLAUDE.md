@@ -31,6 +31,7 @@ npm run titan      # parks a squad under the boss and reports where on its desce
 npm run roster     # photographs every enemy type, the cage, every gun's volley, hits and kills
 npm run rescue     # forces a cage open at seven army sizes; asserts the reward and its label
 npm run rail       # forces the rail's widest state; fails if two neighbouring texts touch
+npm run sway       # injects waves 26 / 27 / 32 / 37; asserts the cards sway inside their lane, with tracks
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -581,7 +582,42 @@ back down for the rest of the run.
 Squad movement is rate-limited in `Squad.update`. Under a pointer it used to
 assign the finger's x directly, so the squad teleported, travel was free and the
 whole movement economy was inert. `SQUAD.moveSpeed` came down from 620 to 260
-when the movement bonuses landed; set it high again and `x MOVE` buys nothing.
+when the movement bonuses landed, and to **195** in 1.6 (the author: a
+quarter off); set it high again and `+MOVE` buys nothing. **MOVE is three
+levels since 1.6**: `Upgrades.move` 0 to `MAX_MOVE` (3), `MOVE.mult` in
+config the ladder x1 / x1.5 / x2 / x2.5, `Progression.moveMultiplier` the
+one reader, `moveSpeed(u)` = base x that. The card is `+MOVE` (form `raw`,
+value 1), filtered out of the pool at the cap through `OfferContext.move`
+like SENSE, SHIELD and ECHO; `HudPayload` carries `move` and the derived
+`moveMult`. `npm run model` asserts all of it.
+
+### Gate sway is the fifth judgment lever
+
+From judgment wave 27 (normal; hard 22) - the wave after dead space reaches
+`lateMax` - each card drifts left and right inside its lane. `GATES.sway`
+is `{ fromWave: 26, tierWaves: 5, periods: [0.5, 1, 1.5] }`, read through
+`Progression.gateSway(wave)` (periods per descent and the amplitude, half
+the dead space) and `swayOffset(y, periods, amplitude)` (a sine of the
+card's descent progress: centre at spawn, `periods` cycles by the lane
+line). `Gates.spawnOffer` fixes a card's `laneX`, `swayPeriods` and
+`swayAmplitude` at spawn, clamped so `|x - laneX| + width / 2 <= lane / 2`;
+`Gates.update` sets `g.x` from `g.y` every step, so the hit test
+(`checkGates`, `findTarget`) and the drawn card are one position. Nothing
+here reads the RNG or a clock: `npm run repeat` is 0.00%. Because the pace
+is per descent, `+TIME` slows the sway with the fall.
+
+Tiers: 0.5 periods a descent at waves 27-31, 1 at 32-36, 1.5 from 37 on;
+peak lateral speed 50 / 110 / 164px/s against the 195px/s squad. The
+author's ceiling was "up to 1.5x periods of movement across the whole
+length of the screen"; `npm run model` fails if the fastest tier is not
+1.5, if a tier starts on the wrong wave, if the amplitude exceeds half the
+dead space, if a card is off-centre at spawn or at the line, or if the peak
+speed outruns the squad. `render/GateCards` draws a TRACK behind a swaying
+card - `RENDER.gate.track` grey, `trackFill` 0.09, a 1px stroke at
+`trackStroke` 0.28, the lane's width less the gap, at depth 3 under the
+card - and none behind a still one. `npm run sway` injects a late build at
+waves 26 / 27 / 32 / 37 and asserts movement (or none), the lane bound and
+the track count per state, photographing `sway-NN.png`.
 
 ### Dead space is the fourth judgment lever
 
@@ -1134,8 +1170,19 @@ body reaching you is a failure to kill; fire is a tax on standing still.
 ### Contact damage
 
 An enemy touching the army charges it and is destroyed doing so. The price is
-a SHARE of the army held before the step's charges, floored in whole power,
-by the body's `tier` (`CONTACT` in config; the roster names one per type):
+a SHARE of the army, floored in whole power, by the body's `tier` (`CONTACT`
+in config; the roster names one per type). **Since 1.6 the share is of
+`Contact.damageBase(power, peak)` = `max(held, peak x ARMY_DAMAGE.mercy)`**,
+the run's peak army (`Squad.peak`, a lazy high-water mark) declining with
+the army held to half the peak and no further - the author's ask, because
+a share of the army held made every hit cheaper than the last and the
+spiral "surprisingly slow". Enemy fire reads the same base through
+`Contact.bulletCost`. The table below is the `peak === held` case; from a
+peak of 1,000 a Basic contact is 20 / 10 / 10 at 1,000 / 500 / 1 held, a
+bullet 10 / 5 / 5, and `npm run model` prints the decline and counts Basic
+contacts from 1,000 to zero: 225 on the 1.5 rule, 86 on 1.6. The `share`
+on a `contact` / `breach` / `fire` event is still cost over the army held,
+clamped to 1, because it sizes the edge flash and the cue.
 
 | tier | types | share | floor | at 19 | at 100 | at 640 | at 38,912 |
 | --- | --- | --- | --- | --- | --- | --- | --- |

@@ -26,6 +26,8 @@ export interface HudPayload {
   pierce: number;
   /** Pierce priced by the shared valuation, not by live density. */
   pierceMult: number;
+  /** `+MOVE` held (0 to 3 since 1.6) and the speed multiple it buys. */
+  move: number;
   moveMult: number;
   /** Multiplier ON gate speed; `+TIME` drives it below 1. */
   gateSpeedMult: number;

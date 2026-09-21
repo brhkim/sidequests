@@ -219,13 +219,20 @@ priced at exactly zero and leaves the pool at the cap.
 
 ### Move speed is the deliberate oddity
 
-`×1.2 MOVE` has no damage value at all. It makes it easier to reach the gate you
+`+MOVE` has no damage value at all. It makes it easier to reach the gate you
 want for the rest of the run — an investment whose return depends on how long
 you survive and how spread out future gates are. Offering it against a flat
 `+15% DMG` is exactly the kind of call this game should be asking.
 
 The squad should therefore start **slow enough that movement is a real
 constraint**, or the bonus is worthless.
+
+**Three levels, and a slower start (2026-09-21, 1.6, the author's ask).**
+Base speed came down a quarter, 260 to 195px/s, and MOVE is a level like
+SENSE rather than a root draw: x1.5 at one held, x2 at two, x2.5 at three,
+and the card leaves the pool at three. The first pick is the big one, the
+axis has a ceiling, and the fastest squad (487.5px/s) still walks slower
+than the 620 that once made travel free.
 
 ### `+SHIELD`: a bonus about surviving fire
 
@@ -308,6 +315,32 @@ the first cap.
 To keep every label legible at the narrowest width the cards became taller
 and the label two-line - magnitude over axis - rather than the numbers
 smaller. A late `+1840% DMG` still reads.
+
+### Gates sway inside their lane
+
+**Built (2026-09-21, 1.6, the author's ask).** Once the cards stop
+narrowing (wave 26) the next lever is that they MOVE: each card drifts
+left and right inside its own third of the screen, slowly at first and
+then in two more steps, never outrageously - the author's ceiling is "up
+to 1.5x periods of movement across the whole length of the screen", which
+is read as one and a half full cycles over the card's descent. So: 0.5
+periods a descent from wave 27, 1 from wave 32, 1.5 from wave 37 and held
+there; hard mode five waves earlier like every judgment lever. The swing
+is half the dead space, +-48.5px, so the card touches the lane edge at
+the extremes and never enters a neighbour's lane. The pace is in periods
+per descent rather than seconds on purpose: `+TIME` slows the fall and
+slows the sway with it, and the card is at its lane centre when it spawns
+and when it reaches the line, so no pick is made against a card mid-swing.
+The lane is drawn as a faint grey track behind a swaying card so the eye
+reads the limits and waits for the card to come back rather than chasing
+it. The phase is a function of the card's y and nothing else: a seed still
+replays.
+
+What it asks of the player is the same thing dead space asks, timed: the
+leader has to be under a moving 83px card at the moment it crosses the
+line. The bot steers to the card's live x every step and takes 7 to 11
+gates from wave 37 (`npm run from -- --dps=1e5 --wave=37`); a human has
+not played it.
 
 ---
 
@@ -1093,10 +1126,26 @@ to be set up with the B M, T Q, etc sigfigs" - it reads `compact`).
 `fractionOfOptimal` still exists and `stats.optimal` still prints it for
 the instruments; only the screen stopped showing it.
 
+## Every price on the army is a share of its peak
+
+**2026-09-21 (1.6), the author's ask.** Contact, breach and enemy fire
+were each a share of the army HELD, and the author read the consequence
+in play: "the death spiral is actually surprisingly slow - players lose
+ARMY and then each hit takes away less ARMY progressively". A run at 1,000
+that had fallen to 100 paid a tenth per hit of what it paid at its best,
+and dying took forever. Now every share is of the run's PEAK army,
+declining with the army held only as far as half the peak (the mercy
+clamp) and holding there: `max(held, peak x 0.5)`. From a peak of 1,000 a
+Basic contact is 20 at full strength, 10 at 500 held and still 10 at 1
+held, where it was 1; Basic contacts to zero from 1,000 go from 225 to 86.
+Floors are unchanged, so the opening army is priced as it was. Rescues and
+gates still raise the peak; nothing lowers it inside a run.
+
 ## Enemy fire scales with the army
 
 A landing bullet costs **1% of the army you hold, rounded down, never less
-than one power** (times the gun's damage). A flat half-power tax went dead
+than one power** (times the gun's damage) - of the army's peak, since 1.6,
+declining to half of it; see above. A flat half-power tax went dead
 once armies reached the hundreds, so enemy fire stopped being a reason to move
 exactly when there was the most of it. It is still well under a contact, which
 is 2% to 6% by body size (below): a body reaching you is a failure to kill,

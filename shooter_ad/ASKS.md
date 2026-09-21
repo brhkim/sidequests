@@ -834,3 +834,71 @@ whatever the army did - a number about the log, not the run.
 
 Status: `landed`, in 1.5. It reads `compact` (it did before; the ladder
 under it changed with ask 3), and sits right of the plot at 36px.
+
+# Author's asks — session of 2026-09-21 (sixth session, MOVE levels, gate sway, damage off the peak)
+
+## 1. Opening brief (verbatim)
+
+> This is getting really great!!! Three features to add/adjust please!
+>
+> 1. I think the player starting move-speed needs to be adjusted downward
+> slightly. Whatever it is right now, let's reduce by 25%. Upgrades should
+> max out at 2.5x base speed, and set up similarly to SENSE with three
+> levels: first boost gets you to 1.5x base speed, next boost to 2x base
+> speed, and next boost to 2.5x base speed
+
+Status: `landed`, version **1.6**. `SQUAD.moveSpeed` 260 to 195. MOVE is a
+level, `Upgrades.move` 0 to 3, on the ladder `MOVE.mult` = x1 / x1.5 / x2 /
+x2.5 (`Progression.moveMultiplier`); the card reads `+MOVE` (it drew a
+root, `x1.05` to `x1.5`, compounding without a cap) and leaves the pool at
+three held like SENSE. The pause tile reads the multiple and the ladder.
+`npm run model` asserts the base, the ladder, the cap, the pool filter and
+that the fastest squad (487.5px/s) is under the 620 that once made travel
+free. Not asked, not done: the weight (42) and wave (1) are unchanged.
+
+> 2. At the higher difficulty levels, once we stop changing the size of the
+> gates, I think we should start to add some slight left-right movement to
+> them (within their "third" of the screen). Start very slow for the first
+> difficulty range above the last width adjustment, and then bump up 2 speed
+> tiers total -- it should never be outrageously fast, but maybe like up to
+> 1.5x periods of movement across the whole length of the screen. The
+> "third" of the area for the gate to move within also needs to be shown by
+> a faint gray bar or something to show its movement limits
+
+Status: `landed`, in 1.6. `GATES.sway`: none until dead space caps
+(judgment wave 26), then three five-wave tiers at **0.5 / 1 / 1.5 periods
+per descent** from waves 27 / 32 / 37 (hard: 22 / 27 / 32), the last held.
+I read "1.5x periods of movement across the whole length of the screen" as
+1.5 full left-right-left cycles over the card's descent of the screen -
+say so if you meant something else. The amplitude is half the lane's dead
+space (+-48.5px), so a card touches its lane edge at the extremes and never
+crosses into a neighbour; the phase is a function of the card's y alone
+(centre at spawn, centre at the line - no RNG, no clock, `npm run repeat`
+0.00%). Peak lateral speed 50 / 110 / 164px/s against a 195px/s squad. The
+track is a caption-grey band the lane's width behind the card, 9% fill and
+a 28% hairline (`RENDER.gate.track*`), drawn only on a card that sways.
+`npm run sway` is the new instrument (`sway-26/27/32/37.png`); `npm run
+model` prints the sway columns on the judgment curve and asserts the
+tiers, the bound, the phase and the speed against the squad's.
+
+> 3. Damage from enemies scales to ARMY which I think means that the death
+> spiral is actually surprisingly slow -- players lose ARMY and then each hit
+> takes away less ARMY progressively. I think the damage from enemy endzone
+> entry and physical touch and bullets should be set at the player's maximum
+> ARMY value and decline only up to 50% from there (mercy clamp) as the
+> player's ARMY decreases with hits from their former max ARMY
+
+Status: `landed`, in 1.6. `Contact.damageBase(power, peak)` =
+`max(held, peak x 0.5)` (`ARMY_DAMAGE.mercy`) is what every share is taken
+of: contact and breach through `contactCost`, bullets through the new
+`bulletCost`. `Squad.peak` is the run's high-water mark. Floors unchanged.
+From a peak of 1,000, a Basic contact is 20 at 1,000 held, 10 at 500 and
+10 at 1 (it was 1); Basic contacts to zero from 1,000: 225 on 1.5, 86 on
+1.6. `npm run from -- --dps=1e5` median survival 64.1s to 52.9s on seeds
+1-3, fire loss per minute up on every seed. The guide's TAKING DAMAGE
+topic says the rule.
+
+> I think these will add some variety and challenge and excitement across
+> the board!
+
+Status: the three are in; none has been played by a human.

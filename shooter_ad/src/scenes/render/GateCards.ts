@@ -6,6 +6,8 @@ import { FONT, hex } from '../hud/types';
 import { RAIL_HEIGHT } from '../hud/TopRail';
 
 interface GateVisual {
+  /** The sway track (1.6): a faint grey band across the lane a swaying card moves within. */
+  track: Phaser.GameObjects.Rectangle;
   rect: Phaser.GameObjects.Rectangle;
   roof: Phaser.GameObjects.Rectangle;
   /** The label, split: MAGNITUDE (`×1.05`, `+2`) over AXIS (`DMG`, `GUNS`). */
@@ -63,6 +65,11 @@ export function splitLabel(label: string): { magnitude: string; axis: string } {
  *
  * The card the squad is lined up on brightens and its two siblings fade, so
  * which of three the centre unit will pass through is never a guess.
+ *
+ * A swaying card (1.6, from judgment wave 27) sits on a TRACK: a faint grey
+ * band the width of its lane and the height of the card, behind it, with a
+ * hairline stroke - the limits the card moves within, so the eye can see
+ * that it will come back rather than chase it. A still card draws none.
  */
 export class GateCards {
   private readonly visuals: GateVisual[] = [];
@@ -87,6 +94,13 @@ export class GateCards {
       const top = g.y - GATES.height / 2;
       const on = reveal > 0;
       const isMarked = on && marked.has(`${g.pair}:${g.index}`);
+      const sways = on && g.swayAmplitude > 0;
+      v.track.setVisible(sways);
+      if (sways) {
+        v.track.setPosition(g.laneX, g.y).setSize(g.width + 2 * g.swayAmplitude - GATES.gap, GATES.height)
+          .setFillStyle(RENDER.gate.track, RENDER.gate.trackFill * reveal)
+          .setStrokeStyle(1, RENDER.gate.track, RENDER.gate.trackStroke * reveal);
+      }
       v.rect.setVisible(on).setPosition(g.x, g.y).setSize(width, GATES.height)
         .setFillStyle(g.type.color, fill * reveal);
       if (isMarked) v.rect.setStrokeStyle(isTarget ? 3 : 2, 0xffffff, reveal);
@@ -118,7 +132,7 @@ export class GateCards {
     }
     for (let i = used; i < this.visuals.length; i++) {
       const v = this.visuals[i];
-      v.rect.setVisible(false); v.roof.setVisible(false);
+      v.track.setVisible(false); v.rect.setVisible(false); v.roof.setVisible(false);
       v.magnitude.setVisible(false); v.axis.setVisible(false);
       v.bar.setVisible(false); v.tagBack.setVisible(false); v.tag.setVisible(false);
     }
@@ -127,6 +141,7 @@ export class GateCards {
   private make(): GateVisual {
     const s = this.scene;
     const v: GateVisual = {
+      track: s.add.rectangle(0, 0, 10, GATES.height, RENDER.gate.track, RENDER.gate.trackFill).setDepth(3).setVisible(false),
       rect: s.add.rectangle(0, 0, 10, GATES.height, 0xffffff, RENDER.gate.fill).setDepth(4),
       roof: s.add.rectangle(0, 0, 10, RENDER.gate.roof, 0xffffff, 1).setOrigin(0.5, 0).setDepth(4),
       magnitude: s.add.text(0, 0, '', {

@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, ECHO, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, ECHO, GATES, RENDER, SIM, SQUAD, VIEW, WAVE, WEAPON,
 } from '../config';
 import { tierRow } from '../data/tiers';
 import { Squad } from '../systems/Squad';
 import { Bullets } from '../systems/Bullets';
 import { EnemyBullets } from '../systems/EnemyBullets';
 import { Enemies, type Consumed, type Enemy } from '../systems/Enemies';
-import { contactCost } from '../systems/Contact';
+import { bulletCost, contactCost } from '../systems/Contact';
 import { EventQueue } from '../systems/SimEvents';
 import { FORMATION_HALF_WIDTH } from '../systems/Formation';
 import { Gates } from '../systems/Gates';
@@ -20,7 +20,7 @@ import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../system
 import { modeFromQuery, setMode } from '../systems/Mode';
 import { VERSION } from '../version';
 import {
-  bundleFactor, cageReward, echoColumns, echoMultiplier, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
+  bundleFactor, cageReward, echoColumns, echoMultiplier, moveMultiplier, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
 } from '../systems/Progression';
 import { Shield } from '../systems/Shield';
 import { mulberry32 } from '../systems/Rng';
@@ -468,6 +468,7 @@ export class GameScene extends Phaser.Scene {
       sense: this.squad.upgrades.sense,
       shield: this.squad.upgrades.shield,
       echo: this.squad.upgrades.echo,
+      move: this.squad.upgrades.move,
     }, this.squad.upgrades);
 
     if (newWave) {
@@ -839,16 +840,22 @@ export class GameScene extends Phaser.Scene {
     this.endIfLost(titan);
   }
 
-  /** Prices every body against the power held BEFORE any of them landed. */
+  /**
+   * Prices every body against the power held BEFORE any of them landed -
+   * and, since 1.6, against the run's PEAK army: a share of
+   * `Contact.damageBase(power, peak)`, so a hit costs what it did at the
+   * army's strongest until the army is under half of that.
+   */
   private charge(consumed: readonly Consumed[], kind: 'contact' | 'breach'): number {
     const power = this.squad.power;
+    const peak = this.squad.peak;
     let total = 0;
     for (const c of consumed) {
-      const cost = contactCost(c.type, power);
+      const cost = contactCost(c.type, power, peak);
       total += cost;
       const titan = c.type.id === 'titan';
       this.sim.push({
-        kind, x: c.x, y: c.y, cost, share: power > 0 ? cost / power : 1, tier: c.type.tier, titan,
+        kind, x: c.x, y: c.y, cost, share: power > 0 ? Math.min(1, cost / power) : 1, tier: c.type.tier, titan,
       });
       if (titan) {
         const check = this.titanChecks[this.titanChecks.length - 1];
@@ -891,15 +898,17 @@ export class GameScene extends Phaser.Scene {
       return true;
     });
     if (hits <= 0) return;
-    // A bullet costs a share of the army you hold, floored to whole power and
-    // never less than one - read once, from the power before this step's
-    // hits, so several bullets landing together each cost the same.
+    // A bullet costs a share of the army - of the run's PEAK army since 1.6,
+    // declining with the army held only to half the peak (`Contact.bulletCost`)
+    // - floored to whole power and never less than one. Read once, from the
+    // power before this step's hits, so several bullets landing together
+    // each cost the same.
     const power = this.squad.power;
-    const perHit = Math.max(ENEMY_FIRE.minCost, Math.floor(power * ENEMY_FIRE.powerShare));
+    const perHit = bulletCost(power, this.squad.peak);
     const cost = hits * perHit;
     this.squad.addPower(-cost);
     this.fireLoss += cost;
-    this.sim.push({ kind: 'fire', cost, share: power > 0 ? cost / power : 1, hits });
+    this.sim.push({ kind: 'fire', cost, share: power > 0 ? Math.min(1, cost / power) : 1, hits });
     this.cameras.main.shake(70, 0.003);
     this.endIfLost(false);
   }
@@ -1040,6 +1049,7 @@ export class GameScene extends Phaser.Scene {
         ? Number((this.shotLandings / this.bullets.shotsSpawned).toFixed(3))
         : 0,
       sense: u.sense,
+      move: u.move,
       // SIMULATED seconds, which is what a run should be measured in. The
       // simulation advances on clamped frame deltas, so wall-clock time and
       // game time are not the same quantity and their ratio moves with how much
@@ -1067,7 +1077,8 @@ export class GameScene extends Phaser.Scene {
       guns: u.guns,
       pierce: u.pierce,
       pierceMult: pierceMultiplier(u.pierce),
-      moveMult: u.moveMult,
+      move: u.move,
+      moveMult: moveMultiplier(u.move),
       gateSpeedMult: u.gateSpeedMult,
       sense: u.sense,
       senseChance: senseChance(u.sense),

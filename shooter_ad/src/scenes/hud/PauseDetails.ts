@@ -44,7 +44,7 @@ export class PauseDetails {
       damageBonus: h.damageBonus, damageMult: h.damageMult,
       rateBonus: h.rateBonus, rateMult: h.rateMult,
       guns: h.guns, pierce: h.pierce,
-      moveMult: h.moveMult, gateSpeedMult: h.gateSpeedMult, sense: h.sense, shield: h.shield, echo: h.echo,
+      move: h.move, gateSpeedMult: h.gateSpeedMult, sense: h.sense, shield: h.shield, echo: h.echo,
     };
     const shares = unitShares(h.power);
     const lead = shares[0];

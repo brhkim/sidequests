@@ -1,4 +1,4 @@
-import { ARENA, CAGE, ECHO, GATES, SENSE, SHIELD, SQUAD, WEAPON } from '../config';
+import { ARENA, CAGE, ECHO, GATES, MOVE, SENSE, SHIELD, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { judgmentWave } from './Mode';
@@ -22,8 +22,10 @@ export interface Upgrades {
   /**
    * The movement economy. Neither term touches damage; both buy REACH - the
    * share of an offer the squad can actually get to before it passes.
+   * `move` is `x MOVE` held, 0 to `MAX_MOVE`; the speed it buys is
+   * `moveMultiplier(move)` (x1.5 / x2 / x2.5 since 1.6).
    */
-  moveMult: number;
+  move: number;
   /** Multiplier ON gate approach speed, so `+TIME` drives it DOWN. */
   gateSpeedMult: number;
   /**
@@ -57,7 +59,7 @@ export interface Progress {
 export function freshUpgrades(): Upgrades {
   return {
     damageBonus: 0, damageMult: 1, rateBonus: 0, rateMult: 1, guns: 1, pierce: 0,
-    moveMult: 1, gateSpeedMult: 1, sense: 0, shield: 0, echo: 0,
+    move: 0, gateSpeedMult: 1, sense: 0, shield: 0, echo: 0,
   };
 }
 
@@ -102,6 +104,14 @@ export function echoMultiplier(echo: number): number {
 /** Columns the stream is fired in: the army's plus one per echo held. */
 export function echoCopies(echo: number): number {
   return 1 + echoColumns(echo).length;
+}
+
+/** Highest move a squad can hold; offered until it is. */
+export const MAX_MOVE = MOVE.mult.length - 1;
+
+/** Squad speed as a multiple of `SQUAD.moveSpeed`, for this much MOVE held. */
+export function moveMultiplier(move: number): number {
+  return MOVE.mult[Math.max(0, Math.min(MAX_MOVE, Math.floor(move)))];
 }
 
 /** Highest shield a squad can hold; offered until it is. */
@@ -219,7 +229,36 @@ export function gateSpeed(wave: number, u: Upgrades): number {
 
 /** Px/s the squad centre may travel. */
 export function moveSpeed(u: Upgrades): number {
-  return SQUAD.moveSpeed * u.moveMult;
+  return SQUAD.moveSpeed * moveMultiplier(u.move);
+}
+
+/**
+ * Gate sway at this wave: how many full left-right-left periods a card
+ * completes over its descent, and how far it swings. Zero until dead space
+ * has stopped growing (`GATES.sway.fromWave`, judgment wave), then one
+ * tier of `GATES.sway.periods` per `tierWaves` waves, the last held for the
+ * rest of the run. The amplitude is half the lane's dead space, so the card
+ * stays inside its own third of the screen and touches the lane edge at
+ * the extremes. Keyed on `judgmentWave` like every other lever.
+ */
+export function gateSway(wave: number): { periods: number; amplitude: number } {
+  const { fromWave, tierWaves, periods } = GATES.sway;
+  const w = judgmentWave(wave);
+  if (w <= fromWave) return { periods: 0, amplitude: 0 };
+  const tier = Math.min(periods.length - 1, Math.floor((w - fromWave - 1) / tierWaves));
+  return { periods: periods[tier], amplitude: gateDeadSpace(wave) / 2 };
+}
+
+/**
+ * A swaying card's offset from its lane centre at `y`: a sine that starts
+ * at centre on spawn and completes `periods` cycles by the lane line. A
+ * function of y and nothing else - no clock, no RNG - so the seed replays
+ * and `+TIME`, which slows the descent, slows the sway with it.
+ */
+export function swayOffset(y: number, periods: number, amplitude: number): number {
+  if (periods === 0 || amplitude === 0) return 0;
+  const progress = (y + GATES.height) / (ARENA.laneY + GATES.height);
+  return amplitude * Math.sin(2 * Math.PI * periods * progress);
 }
 
 /** Seconds from a gate's spawn above the screen to the squad's lane line. */
@@ -364,7 +403,7 @@ export function applyGate(p: Progress, gate: GateType): string {
       u.pierce += gate.value;
       break;
     case 'move':
-      u.moveMult *= gate.value;
+      u.move = Math.min(MAX_MOVE, u.move + gate.value);
       break;
     case 'time':
       // The gate promises slower approach; the stat it moves is the SPEED, so
