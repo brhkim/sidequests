@@ -276,7 +276,7 @@ for (let run = 0; run < 200; run++) {
       power: par.power,
       damageBonus: par.upgrades.damageBonus,
       rateBonus: par.upgrades.rateBonus,
-      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense, shield: par.upgrades.shield,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense, shield: par.upgrades.shield, echo: par.upgrades.echo,
     };
     const gates = rollOffer(G.perOffer, wave, ctx, rng);
     if (gates.length === 0) continue;
@@ -362,7 +362,7 @@ function axesOfferedAtWaveOne(mode) {
   setMode(mode);
   let h = 99;
   const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  const ctx = { power: SQUAD.startPower, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: 0, shield: 0 };
+  const ctx = { power: SQUAD.startPower, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: 0, shield: 0, echo: 0 };
   const seen = new Set();
   for (let i = 0; i < 600; i++) {
     for (const g of rollOffer(G.perOffer, 1, ctx, r)) seen.add(`${g.axis}/${g.form}`);
@@ -599,7 +599,7 @@ for (let run = 0; run < 60; run++) {
       power: par.power,
       damageBonus: par.upgrades.damageBonus,
       rateBonus: par.upgrades.rateBonus,
-      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense, shield: par.upgrades.shield,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense, shield: par.upgrades.shield, echo: par.upgrades.echo,
     };
     const gates = rollOffer(G.perOffer, wave, ctx, rng);
     if (gates.length > 0) applyGate(par, gates[scoreOffer(par, gates, wave).best]);
@@ -808,9 +808,11 @@ for (const held of [1, 2, 3, 4, 6, 10, 20, 50]) {
   if (held >= GATES.scaleDiscreteFrom && (gEff < 0.25 || pEff < 0.25)) deadAxis = `axis dead at ${held} held`;
 }
 if (deadAxis) { console.error(`FAIL: ${deadAxis}`); process.exit(1); }
-// Rounding is toward the nearest whole number, never below 1.
+// Rounding is toward the nearest whole number, never below 1. The pierce
+// examples are at q 0.7 (1.4): 0.5 x 3.1 / 0.7 = 2.2 -> 2 at 3 held and
+// 0.2 x 8 / 0.7 = 2.3 -> 2 at 10 (they were 3 and 2 at q 0.5).
 if (discreteAmount('guns', 3, 1.05) !== 1 || discreteAmount('guns', 10, 1.5) !== 5
-  || discreteAmount('pierce', 3, 1.5) !== 3 || discreteAmount('pierce', 10, 1.2) !== 2) {
+  || discreteAmount('pierce', 3, 1.5) !== 2 || discreteAmount('pierce', 10, 1.2) !== 2) {
   console.error('FAIL: discreteAmount rounds differently from its documentation'); process.exit(1);
 }
 // Labels carry the applied number: build real offers and check.
@@ -917,6 +919,37 @@ console.log('\n=== SHIELD: blocks per window per level, never a price ===');
   applyGate(applied, gate('shield', 'raw', 1)); applyGate(applied, gate('shield', 'raw', 1));
   applyGate(applied, gate('shield', 'raw', 1)); applyGate(applied, gate('shield', 'raw', 1));
   expect('applyGate clamps SHIELD at the cap', applied.upgrades.shield === MAX_SHIELD);
+}
+
+console.log('\n=== ECHO: a priced ghost army, 0.7 of the army per echo (1.4) ===');
+{
+  const { ECHO, WEAPON } = await import('../src/config.ts');
+  const { MAX_ECHO, echoMultiplier, echoCopies, singleTargetDps, bundleFactor, shotsPerSecond } = await import('../src/systems/Progression.ts');
+  const { scoreOffer } = await import('../src/systems/Scoring.ts');
+  for (let l = 0; l <= MAX_ECHO; l++) console.log(`  echo ${l}: x${echoMultiplier(l).toFixed(2)} to par, ${echoCopies(l)} columns fired`);
+  expect('ECHO caps at 2 (left, then right)', MAX_ECHO === 2);
+  expect('one echo is priced 1.7x, two 2.4x (the author\'s "roughly 1.7x")', Math.abs(echoMultiplier(1) - 1.7) < 1e-9 && Math.abs(echoMultiplier(2) - 2.4) < 1e-9 && ECHO.value === 0.7);
+  expect('echoMultiplier clamps at the cap', echoMultiplier(5) === echoMultiplier(MAX_ECHO));
+  expect('squadDps prices ECHO', Math.abs(squadDps(state(200, { echo: 1 })) / squadDps(state(200)) - 1.7) < 1e-9);
+  expect('singleTargetDps leaves ECHO out (the Titan is under the leader, not the ghost)', Math.abs(singleTargetDps(state(200, { echo: 2 })) - singleTargetDps(state(200))) < 1e-9);
+  expect('every column counts against the sim cap', Math.abs(bundleFactor(state(5000, { rateMult: 8, guns: 4, echo: 2 })) - Math.max(1, shotsPerSecond(state(5000, { rateMult: 8, guns: 4 })) * 3 / WEAPON.maxSimShotsPerSecond)) < 1e-9);
+  expect('ECHO is not a RISK axis', !new Set(RISK_AXES).has('echo'));
+  const scored = scoreOffer(state(200), [gate('damage', 'mult', 1.3), gate('echo', 'raw', 1), gate('rate', 'mult', 1.3)], 6);
+  expect('par takes +ECHO over a x1.3 card', scored.best === 1);
+  const applied = state(1);
+  for (let i = 0; i < 4; i++) applyGate(applied, gate('echo', 'raw', 1));
+  expect('applyGate clamps ECHO at the cap', applied.upgrades.echo === MAX_ECHO);
+  let h = 13;
+  const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const ctx = { power: 200, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: 0, shield: 0, echo: MAX_ECHO };
+  let offered = 0;
+  for (let i = 0; i < 400; i++) if (rollOffer(G.perOffer, 8, ctx, r).some((g) => g.axis === 'echo')) offered++;
+  expect('+ECHO leaves the pool at the cap', offered === 0);
+  offered = 0;
+  for (let i = 0; i < 400; i++) if (rollOffer(G.perOffer, 8, { ...ctx, echo: 0 }, r).some((g) => g.axis === 'echo')) offered++;
+  console.log(`  +ECHO in ${(offered / 4).toFixed(0)}% of wave-8 offers at 0 held, 0% at the cap`);
+  expect('+ECHO is offered below the cap', offered > 0);
+  expect('pierce 1 is 1.7x (q 0.7, the author\'s call in 1.4)', Math.abs(pierceMultiplier(1) - 1.7) < 1e-9);
 }
 
 console.log('\n=== rescue cages and enemy fire scale with the run ===');

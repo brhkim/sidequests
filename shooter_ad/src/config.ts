@@ -215,10 +215,13 @@ export const WEAPON = {
    * What one level of pierce is worth, in bodies: each level adds this much of
    * an extra hit, so pierce P is worth `1 + q * P`. Tuned constant, deliberately
    * not live enemy density - see Progression.pierceMultiplier, which also says
-   * why the series stopped compounding. At 0.5, pierce 1/2/3/10 are worth
-   * 1.5x / 2x / 2.5x / 6x.
+   * why the series stopped compounding. At 0.7 (1.4, the author's call: at
+   * 0.5 "it's definitely pulling higher weight than a 1.5x damage bonus"),
+   * pierce 1/2/3/10 are worth 1.7x / 2.4x / 3.1x / 8x. The measurement it is
+   * set against is `hitsPerLanding` from `npm run from`: 2.2 to 2.5 at
+   * pierce 2 on the 1.3 build against a claim of 2.0.
    */
-  pierceQ: 0.5,
+  pierceQ: 0.7,
 } as const;
 
 /** Shape of enemy movement that is common to every type; per-type tuning lives
@@ -601,6 +604,28 @@ export const GATES = {
 export const RISK_AXES = ['move', 'time', 'sense', 'shield'] as const;
 
 /**
+ * `+ECHO`: a ghost of the army beside it that fires exactly what the army
+ * fires. Level 1 stands to the LEFT, level 2 adds one to the RIGHT (1.4,
+ * the author's ask). An echo takes no damage, blocks nothing, meets no
+ * enemy bullet and holds no upgrades of its own - it mirrors the army's -
+ * and one driven off the edge of the field simply fires into nothing until
+ * the army comes back.
+ *
+ * Priced at `value` of the army per echo for par and the scoring (`1 + 0.7
+ * x level`: 1.7x at one, 2.4x at two), under the 2x / 3x a full mirror would
+ * be, because a column 200px to the side spends part of the run off the
+ * edge or over empty lane. Against a single body under the leader an echo
+ * lands nothing, so `singleTargetDps` and the Titan's budget leave it out.
+ */
+export const ECHO = {
+  maxLevel: 2,
+  /** Lateral distance from the leader to each echo's leader, px. */
+  offset: 200,
+  /** What one echo is worth to par, as a share of the army's DPS. */
+  value: 0.7,
+} as const;
+
+/**
  * `+SHIELD`: the fourth RISK axis (the author's ask, 2026-09-21, 1.1). Each
  * level held blocks up to `blocksPerLevel` enemy bullets every
  * `windowSeconds` - a charge pool of `blocksPerLevel x level`, refilling at
@@ -707,6 +732,8 @@ export const RENDER = {
    * draws every shot should keep drawing every shot.
    */
   maxVisibleShotsPerSecond: 60,
+  /** How faint an echo's ghost ring is drawn. Rendering only. */
+  echoAlpha: 0.38,
   // --- sprites
   /**
    * Seconds a body is drawn pure white after a hit. The simulation stamps its

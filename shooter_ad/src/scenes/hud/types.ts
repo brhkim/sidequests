@@ -36,6 +36,9 @@ export interface HudPayload {
   shield: number;
   shieldReady: number;
   shieldCapacity: number;
+  /** `+ECHO` held and what par prices it at. */
+  echo: number;
+  echoMult: number;
   /** The live boss, or null. `progress` is its descent as a fraction. */
   titan: { hpFrac: number; progress: number } | null;
 }

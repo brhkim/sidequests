@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
-import { WEAPON } from '../../config';
+import { ECHO, WEAPON } from '../../config';
 import { tierFor, tierRow, unitStats } from '../../data/tiers';
 import {
-  damageFactor, pierceMultiplier, rateFactor, unitShares, type Upgrades,
+  damageFactor, echoMultiplier, pierceMultiplier, rateFactor, unitShares, type Upgrades,
 } from '../../systems/Progression';
 import { compact, FONT, MONO, SMALL, type HudPayload } from './types';
 
@@ -44,7 +44,7 @@ export class PauseDetails {
       damageBonus: h.damageBonus, damageMult: h.damageMult,
       rateBonus: h.rateBonus, rateMult: h.rateMult,
       guns: h.guns, pierce: h.pierce,
-      moveMult: h.moveMult, gateSpeedMult: h.gateSpeedMult, sense: h.sense, shield: h.shield,
+      moveMult: h.moveMult, gateSpeedMult: h.gateSpeedMult, sense: h.sense, shield: h.shield, echo: h.echo,
     };
     const shares = unitShares(h.power);
     const lead = shares[0];
@@ -61,7 +61,8 @@ export class PauseDetails {
     }
     const pm = pierceMultiplier(h.pierce);
     const withGuns = ring * h.guns;
-    const total = withGuns * pm;
+    const em = echoMultiplier(h.echo);
+    const total = withGuns * pm * em;
     const rank = tierRow(tierFor(lead)).name;
     const pct = Math.round(h.damageBonus * 100);
     const rpct = Math.round(h.rateBonus * 100);
@@ -87,12 +88,13 @@ export class PauseDetails {
       `5  × ${h.guns} GUN${h.guns === 1 ? '' : 'S'}  = ${num(withGuns)} /s`,
       '',
       `6  × PIERCE ${h.pierce}  (each level +${WEAPON.pierceQ} of a hit → ×${pm.toFixed(2)})`,
+      `7  × ECHO ${h.echo}  (each ghost army priced ${ECHO.value} of yours → ×${em.toFixed(2)})`,
       `   = ${num(total)} /s`,
       '',
       `=  ${compact(total)} DPS      par ${compact(h.parDps)}  →  ${standing}%`,
       '   PAR: the best card taken, every time',
       '',
-      'against one body (the Titan), pierce adds nothing:',
+      'against one body (the Titan), pierce and echoes add nothing:',
       `   ${compact(withGuns)} /s`,
       'MOVE, TIME, SENSE and SHIELD add nothing here (RISK)',
     ];

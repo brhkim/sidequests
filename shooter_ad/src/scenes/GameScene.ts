@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  ARENA, CAGE, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, VIEW, WAVE, WEAPON,
+  ARENA, CAGE, ECHO, ENEMY_FIRE, GATES, RENDER, SIM, SQUAD, VIEW, WAVE, WEAPON,
 } from '../config';
 import { tierRow } from '../data/tiers';
 import { Squad } from '../systems/Squad';
@@ -20,7 +20,7 @@ import { encodeMatch, matchFromQuery, matchUrl, type MatchMode } from '../system
 import { modeFromQuery, setMode } from '../systems/Mode';
 import { VERSION } from '../version';
 import {
-  bundleFactor, cageReward, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
+  bundleFactor, cageReward, echoCopies, echoMultiplier, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
 } from '../systems/Progression';
 import { Shield } from '../systems/Shield';
 import { mulberry32 } from '../systems/Rng';
@@ -456,6 +456,7 @@ export class GameScene extends Phaser.Scene {
       pierce: this.squad.upgrades.pierce,
       sense: this.squad.upgrades.sense,
       shield: this.squad.upgrades.shield,
+      echo: this.squad.upgrades.echo,
     }, this.squad.upgrades);
 
     if (newWave) {
@@ -572,6 +573,12 @@ export class GameScene extends Phaser.Scene {
   private fire(dt: number): void {
     const { guns, pierce } = this.squad.upgrades;
     const want = this.squad.shotsPerSecond();
+    // The columns: the army's, then an echo `ECHO.offset` to the LEFT at one
+    // held and one to the RIGHT at two. Each honoured bullet is spawned once
+    // per column with the same bundle, so an echo fires exactly what the
+    // army fires; `bundleFactor` already counts every column against the sim
+    // cap, so the pool sees no more spawns than it did.
+    const copies = echoCopies(this.squad.upgrades.echo);
 
     // Two collapses of the stream, and they are different things.
     //
@@ -586,7 +593,7 @@ export class GameScene extends Phaser.Scene {
     // Read off the SPAWN rate, which is what the pool honours, never the
     // intended rate: reading the intended rate once put a density of x212 on
     // the late state and left four bullets on screen.
-    const spawnRate = Math.min(want, WEAPON.maxSimShotsPerSecond);
+    const spawnRate = Math.min(want * copies, WEAPON.maxSimShotsPerSecond);
     const drawnShare = spawnRate > 0
       ? Math.min(1, RENDER.maxVisibleShotsPerSecond / spawnRate)
       : 1;
@@ -659,12 +666,19 @@ export class GameScene extends Phaser.Scene {
           this.drawCredit += drawnShare;
           const drawn = this.drawCredit >= 1;
           if (drawn) this.drawCredit -= 1;
-          this.bullets.spawn(
-            x, u.y - 10,
-            0, -WEAPON.bulletSpeed,
-            perShot, pierce, base + (k < extra ? 1 : 0),
-            drawn, density,
-          );
+          const shots = base + (k < extra ? 1 : 0);
+          for (let c = 0; c < copies; c++) {
+            // 0 the army, 1 the left echo, 2 the right. A bullet spawned
+            // past the edge is culled by `Bullets.update` on its first step:
+            // that is the echo firing into nothing, and it costs no more.
+            const dx = c === 0 ? 0 : c === 1 ? -ECHO.offset : ECHO.offset;
+            this.bullets.spawn(
+              x + dx, u.y - 10,
+              0, -WEAPON.bulletSpeed,
+              perShot, pierce, shots,
+              drawn, density,
+            );
+          }
         }
       }
     }
@@ -778,7 +792,21 @@ export class GameScene extends Phaser.Scene {
   private applyContacts(): void {
     const { consumed, titan } = this.enemies.collectContacts(this.squad.units, SQUAD.unitRadius);
     if (consumed.length === 0) return;
-    this.contactLoss += this.charge(consumed, 'contact');
+    // SHIELD sees a body first too (1.4, the author's ask): one charge per
+    // body, whatever its tier, and a blocked body is consumed for nothing.
+    // A Titan is never blocked - the run ends on it, and a charge that
+    // negated the boss would make its deadline a suggestion. A BREACH is
+    // never blocked either: the ring blocks what reaches it, not what
+    // walked past.
+    const shield = this.squad.shield;
+    const charged = consumed.filter((c) => {
+      if (c.type.id === 'titan' || !shield.tryBlock()) return true;
+      this.blocked++;
+      this.sim.push({ kind: 'block', x: c.x, y: c.y, shell: false, body: true, left: shield.ready });
+      return false;
+    });
+    if (charged.length === 0) return;
+    this.contactLoss += this.charge(charged, 'contact');
     this.cameras.main.shake(titan ? 260 : 120, titan ? 0.014 : 0.006);
     this.endIfLost(titan);
   }
@@ -840,7 +868,7 @@ export class GameScene extends Phaser.Scene {
     const hits = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius, (b) => {
       if (!shield.tryBlock()) return false;
       this.blocked++;
-      this.sim.push({ kind: 'block', x: b.x, y: b.y, shell: b.shell, left: shield.ready });
+      this.sim.push({ kind: 'block', x: b.x, y: b.y, shell: b.shell, body: false, left: shield.ready });
       return true;
     });
     if (hits <= 0) return;
@@ -961,6 +989,8 @@ export class GameScene extends Phaser.Scene {
       fireLoss: Math.round(this.fireLoss),
       blocked: this.blocked,
       shield: u.shield,
+      echo: u.echo,
+      echoMult: Number(echoMultiplier(u.echo).toFixed(3)),
       cages: this.enemies.cagesSpawned,
       rescues: this.rescues,
       rescuedPower: this.rescuedPower,
@@ -1012,6 +1042,8 @@ export class GameScene extends Phaser.Scene {
       sense: u.sense,
       senseChance: senseChance(u.sense),
       shield: u.shield,
+      echo: u.echo,
+      echoMult: Number(echoMultiplier(u.echo).toFixed(3)),
       shieldReady: this.squad.shield.ready,
       shieldCapacity: Shield.capacity(u.shield),
       titan: (() => { const t = this.enemies.titan; return t ? { hpFrac: t.hp / t.maxHp, progress: Enemies.titanProgress(t) } : null; })(),

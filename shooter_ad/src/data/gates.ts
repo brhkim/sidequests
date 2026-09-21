@@ -1,6 +1,6 @@
 import { drawRoot, formatRoot, legibilityFor, roundSf } from './roots';
 import { judgmentWave } from '../systems/Mode';
-import { discreteAmount, MAX_SENSE, MAX_SHIELD } from '../systems/Progression';
+import { discreteAmount, MAX_ECHO, MAX_SENSE, MAX_SHIELD } from '../systems/Progression';
 
 /**
  * Gates descend as an offer and the player drives through one of them. Every
@@ -11,7 +11,7 @@ import { discreteAmount, MAX_SENSE, MAX_SHIELD } from '../systems/Progression';
  * reasoned about beforehand or scored afterwards.
  */
 export type BonusAxis =
-  | 'army' | 'rate' | 'damage' | 'guns' | 'pierce' | 'move' | 'time' | 'sense' | 'shield';
+  | 'army' | 'rate' | 'damage' | 'guns' | 'pierce' | 'echo' | 'move' | 'time' | 'sense' | 'shield';
 
 /**
  * The central mechanic. `raw` feeds an additive pool, `mult` multiplies the
@@ -40,6 +40,8 @@ export interface OfferContext {
   /** `+SENSE` and `+SHIELD` leave the pool once their cap is held. */
   readonly sense: number;
   readonly shield: number;
+  /** `+ECHO` held; leaves the pool at `ECHO.maxLevel`. */
+  readonly echo: number;
 }
 
 /**
@@ -85,6 +87,10 @@ export const AXIS_COLOR: Record<BonusAxis, number> = {
   // and DMG's red-orange that neither reads as. Nine axes on one hue wheel
   // is crowded; this is the phone question of 1.1.
   shield: 0xd9a066,
+  // Slate: a ghost's non-colour, off every saturated axis hue. Ten axes on
+  // one wheel; the tint is on a card the echo itself never wears (the
+  // ghosts are drawn translucent in the army's own shirts).
+  echo: 0x9fb4c8,
 };
 
 interface Candidate {
@@ -105,6 +111,10 @@ const CANDIDATES: readonly Candidate[] = [
   // against, offered sparingly so it never becomes the whole decision.
   { axis: 'guns',   form: 'raw',  weight: 24,  minWave: 4 },
   { axis: 'pierce', form: 'raw',  weight: 26,  minWave: 3 },
+  // A ghost army beside yours. Priced (0.7 of the army per echo), so par
+  // takes it; two levels, filtered out at the cap like SENSE. From wave 4
+  // with GUNS, the other big discrete pick.
+  { axis: 'echo',   form: 'raw',  weight: 24,  minWave: 4 },
   // The movement economy. Neither changes a damage number; both buy the
   // ability to reach the bonus you judged best, which is the only reason the
   // rest of this table is worth anything. Offered against a flat `+15% DMG`
@@ -164,6 +174,8 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
     }
     case 'sense':
       return { axis: 'sense', form: 'raw', value: 1, label: '+SENSE', color };
+    case 'echo':
+      return { axis: 'echo', form: 'raw', value: 1, label: '+ECHO', color };
     case 'shield':
       return { axis: 'shield', form: 'raw', value: 1, label: '+SHIELD', color };
     case 'move':
@@ -205,7 +217,8 @@ export function rollOffer(
   const pool = CANDIDATES.filter((c) =>
     c.minWave <= wave
     && !(c.axis === 'sense' && ctx.sense >= MAX_SENSE)
-    && !(c.axis === 'shield' && ctx.shield >= MAX_SHIELD));
+    && !(c.axis === 'shield' && ctx.shield >= MAX_SHIELD)
+    && !(c.axis === 'echo' && ctx.echo >= MAX_ECHO));
   const chosen: GateType[] = [];
   const taken = new Set<Candidate>();
 

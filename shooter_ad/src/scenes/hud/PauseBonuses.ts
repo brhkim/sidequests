@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { SQUAD, VIEW } from '../../config';
 import { AXIS_COLOR, type BonusAxis } from '../../data/gates';
-import { MAX_SENSE, MAX_SHIELD, senseChance } from '../../systems/Progression';
-import { SHIELD } from '../../config';
+import { MAX_ECHO, MAX_SENSE, MAX_SHIELD, senseChance } from '../../systems/Progression';
+import { ECHO, SHIELD } from '../../config';
 import { CardTile } from './CardTile';
 import { standingColor } from './TopRail';
 import { CAPTION, compact, FONT, formatMult, hex, MONO, SMALL, type HudPayload } from './types';
@@ -11,19 +11,21 @@ import { CAPTION, compact, FONT, formatMult, hex, MONO, SMALL, type HudPayload }
 const SAMPLE_ROOTS = [1.1, 1.25, 1.4] as const;
 
 /** Every axis, in the order the DETAILS page multiplies them, then the RISK four. */
-const AXES: readonly BonusAxis[] = ['army', 'damage', 'rate', 'guns', 'pierce', 'move', 'time', 'sense', 'shield'];
+const AXES: readonly BonusAxis[] = ['army', 'damage', 'rate', 'guns', 'pierce', 'echo', 'move', 'time', 'sense', 'shield'];
 const GRID_X = 22;
 const GRID_Y = 298;
-const GRID_GAP = 8;
+const GRID_GAP = 5;
 /**
- * Three tiles a row, three rows, since SHIELD made nine axes (1.1): the
- * tiles are wider and shorter than the field's card (160x64 against
- * 120x88) so the third row still leaves room for a four-line note beneath
- * it and the standing line at 664. The anatomy is the same card.
+ * Four tiles a row, three rows, since ECHO made ten axes (1.4; 3x3 of
+ * 160x64 held the nine of 1.1). The tiles are the field's own card width
+ * and shorter (120x64 against 120x88) so the third row still leaves room
+ * for a four-line note beneath it and the standing line at 664. Four of
+ * 120 and three 5px gaps fill the 496px between the margins; two slots of
+ * the last row are empty. The anatomy is the same card.
  */
-const GRID_COLS = 3;
+const GRID_COLS = 4;
 const GRID_ROWS = 3;
-const PAUSE_TILE = { width: 160, height: 64 } as const;
+const PAUSE_TILE = { width: 120, height: 64 } as const;
 
 interface Ruler {
   head: Phaser.GameObjects.Text;
@@ -187,18 +189,20 @@ export class PauseBonuses {
       `Shots fired at once. ${h.guns === 1 ? 'Two guns is double the damage.' : `${h.guns} guns is ${h.guns}× the damage.`} Past 3 held, a card offers +2 or more so it stays worth taking.`);
     this.setTile(4, String(h.pierce), 'PIERCE', h.pierce > 0,
       `Enemies one shot passes through. Each level is worth half a hit more (${formatMult(h.pierceMult)} right now). Worth nothing against a lone body like the Titan.`);
-    this.setTile(5, formatMult(h.moveMult), 'MOVE RISK', h.moveMult > 1,
+    this.setTile(5, String(h.echo), 'ECHO', h.echo > 0,
+      `Ghost armies beside yours that fire exactly what you fire: one to the left at 1 held, one each side at ${MAX_ECHO}. They take no damage and block nothing; a ghost pushed off the edge fires into nothing. PAR counts each as ${Math.round(ECHO.value * 100)}% of your army (${formatMult(h.echoMult)} right now).`);
+    this.setTile(6, formatMult(h.moveMult), 'MOVE RISK', h.moveMult > 1,
       'How fast your squad walks. Adds no damage, so it is a RISK: it helps you reach the card you want, but the shadow player (PAR) never takes it and the score counts it as no growth.');
     const time = Math.round((1 / h.gateSpeedMult - 1) * 100);
-    this.setTile(6, `+${time}%`, 'TIME RISK', time > 0,
+    this.setTile(7, `+${time}%`, 'TIME RISK', time > 0,
       `Cards fall ${time > 0 ? `${time}% ` : ''}slower, so you have longer to compare them. Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
     const chances = Array.from({ length: MAX_SENSE }, (_, i) => Math.round(senseChance(i + 1) * 100));
-    this.tiles[7].setPips(h.sense);
-    this.setTile(7, '', `SENSE ${Math.round(h.senseChance * 100)}%`, h.sense > 0,
+    this.tiles[8].setPips(h.sense);
+    this.setTile(8, '', `SENSE ${Math.round(h.senseChance * 100)}%`, h.sense > 0,
       `${Math.round(h.senseChance * 100)}% of offers arrive with the best card outlined in white (${chances.join(' / ')}% at 1 / 2 / 3 held). Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
     const perLevel = SHIELD.blocksPerLevel;
-    this.setTile(8, h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0', 'SHIELD RISK', h.shield > 0,
-      `Blocks enemy shots before they cost you soldiers: ${perLevel} shots every ${SHIELD.windowSeconds}s per level held (${h.shield} of ${MAX_SHIELD}; ${h.shieldReady} ready now). A big red shell counts as one shot. Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
+    this.setTile(9, h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0', 'SHIELD RISK', h.shield > 0,
+      `Blocks enemy shots, and enemies that touch your ring, before they cost you soldiers: ${perLevel} blocks every ${SHIELD.windowSeconds}s per level held (${h.shield} of ${MAX_SHIELD}; ${h.shieldReady} ready now). A shell or a body is one block; one that walks past you is not blocked. Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
     this.select(this.selected);
   }
 }

@@ -844,7 +844,9 @@ that actually ends the run, not to the lane line.
 
 ### Pierce is linear, and the price is measured against the board
 
-`pierceMultiplier` is `1 + q x P`, q = 0.5. It was the geometric series
+`pierceMultiplier` is `1 + q x P`, **q = 0.7 since 1.4** (0.5 before; the
+author's call, see `notes.md`, and `npm run model` asserts pierce 1 is
+1.7x). The measurements below were taken at 0.5. It was the geometric series
 `1 + q + ... + q^P`, which saturates at 2x and made pierce a dead axis by the
 third pick - no way of drawing `+N PIERCE` could revive it - so at the
 author's request the compounding was dropped: pierce 1 is still exactly 1.5x,
@@ -870,9 +872,14 @@ whether the bullets arrive together or apart. The squad owns one
 change fills the pool to its new capacity at once. `GameScene.applyIncomingFire`
 hands `EnemyBullets.collide` an `absorb` callback that spends a charge per
 landing bullet - shell or dart, one charge - and pushes a `block` event
-(position, `shell`, charges `left`) for the BLOCK word, the ring's flash,
-the shard puff and the `block` cue; an absorbed bullet costs nothing and is
-not a `fire` hit. `stats.blocked` counts them and `npm run balance` prints
+(position, `shell`, `body`, charges `left`) for the BLOCK word, the ring's
+flash, the shard puff and the `block` cue; an absorbed bullet costs nothing
+and is not a `fire` hit. **Since 1.4 a body touching the ring is blocked
+the same way** in `applyContacts`: one charge per body whatever its tier,
+consumed for nothing, `body: true` on the event. A breach is never blocked
+and neither is the Titan. `npm run moments` forces a body into a shielded
+ring and asserts BLOCK, `blocked + 1` and no contact loss
+(`moment-block-body.png`). `stats.blocked` counts them and `npm run balance` prints
 `shield: N held, M blocked` per seed. The pool is filtered out of the
 candidate pool at the cap like SENSE (`OfferContext.shield`). `npm run
 model` asserts the fill on a pick, the drain, the refill of exactly
@@ -1498,12 +1505,22 @@ cage, so `opened` reads 0 on every probe row: the reward is measured by
   The discrete axes do too: from `GATES.scaleDiscreteFrom` held, `+N GUNS` and
   `+N PIERCE` are the whole number whose effect is nearest the draw
   (`Progression.discreteAmount`), so `OfferContext` carries `guns`, `pierce`
-  , `sense` and `shield` beside the pools. A bonus that changes no damage
+  , `sense`, `shield` and `echo` beside the pools. A bonus that changes no damage
   number - MOVE, TIME, SENSE, SHIELD - is a RISK axis (`RISK_AXES`): priced
   at zero, never taken by par, told RISK when the player takes it; `npm run
   model` asserts the zero. A ninth axis also means a ninth pause tile
   (`PauseBonuses` is a 3x3 grid of 160x64 tiles since 1.1) and, if it has
   live state, a rail column - run `npm run rail` after touching either.
+  **`+ECHO`** (1.4) is the tenth axis and a DAMAGE one: `Upgrades.echo` 0
+  to `ECHO.maxLevel` (2), `echoMultiplier` (`1 + 0.7 x level`) in
+  `squadDps` and out of `singleTargetDps`, `echoCopies` columns in
+  `GameScene.fire` (each honoured bullet spawned once per column, 200px
+  left then right, the same bundle) and in `bundleFactor` so the sim cap
+  holds; the ghosts are `SpriteRender.renderSquad` at `RENDER.echoAlpha`
+  and have no body in `systems/`. The pause grid is 4x3 of 120x64.
+  `npm run hud` photographs `hud-echo.png` and `npm run model` asserts the
+  price, the cap, the pool filter, the Titan exclusion and that par takes
+  it.
   Colour names the axis and both forms of an axis share it, so the player cannot
   read the raw-versus-multiplicative choice off the tint instead of doing the
   conversion.
