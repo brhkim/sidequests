@@ -207,6 +207,8 @@ export async function playSeed(
     breachLoss: last?.breachLoss ?? 0,
     fireLoss: last?.fireLoss ?? 0,
     cages: last?.cages ?? 0,
+    rescues: last?.rescues ?? 0,
+    rescuedPower: last?.rescuedPower ?? 0,
     traveled: last?.traveled ?? 0,
     peakPower: last?.peakPower ?? 0,
     kills: last?.kills ?? 0,

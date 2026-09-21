@@ -29,6 +29,7 @@ npm run neutral    # proves a change was RENDERING-ONLY, against a reference bui
 npm run from       # plays real runs from an INJECTED late-game state, par equal to it
 npm run titan      # parks a squad under the boss and reports where on its descent it died
 npm run roster     # photographs every enemy type, the cage, every gun's volley, hits and kills
+npm run rescue     # forces a cage open at seven army sizes; asserts the reward and its label
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -1373,6 +1374,31 @@ cue must peak between -40 and -1 dBFS. `window.__audio` on every page has
 `play` (the event path, with a synthetic clock `t`), `voice` (direct),
 `tick`, `render`, `cues`, `stats`, `setMuted`, `stopAll`, `voicesOf`.
 
+### The spawn line is the HUD's bottom edge, and the descent is scaled to it
+
+`ARENA.spawnY` is `HUD_ROWS.bottom` (184: rail 72 + strip 94 + Titan row
+18, the three HUD files read their heights from that one block in config).
+Until 1.0 it was -40 and the top 224px of every descent happened under the
+panels. Speeds in `data/enemies.ts` and `CAGE.speed` were NOT retuned:
+`ARENA.descentScale` (766/990, derived from the geometry) multiplies every
+vertical speed once, at the bottom of `applyMotion` and in `driftCages`, so
+a body reaches the line in the seconds the data says. `MOTION.ceilingY` is
+the spawn line too, so a retreating harasser never rises under the HUD.
+The Titan spawns at `TITAN_SPAWN_Y` (40px above the line) and its travel
+seconds - the one input to `titanHp` - come from `titanTravelSeconds()` in
+`data/enemies.ts`, which `Enemies.titanBudget`, `npm run model` and `npm run
+titan` all read (it lives in the data module because the instruments load
+it under Node's type stripping and cannot load `Enemies.ts`). `npm run
+model` asserts the line, the ceiling, the invariant per body and cage, and
+that the Titan's descent moved under 2%.
+
+### An army multiplier adds at least one body
+
+`applyGate` for `army` / `mult` adds `max(1, round(power × (value − 1)))`
+rather than rounding the product: `×1.1` on 1 gave 1. Par takes gates
+through the same function, so the floor is in its valuation and in the
+grade. `npm run model` asserts 1 → 2 at ×1.1 and that par takes it.
+
 ### Rescue cages roll once per wave, and for two versions they did not
 
 `Enemies.updateCages` rolls `CAGE.chancePerWave` when its accumulator
@@ -1387,6 +1413,17 @@ registry as `cages`, and `npm run balance` prints `cages/min` with the
 per-seed counts. Read that line after touching anything near the roll: it
 is the first instrument this project has had for the frequency, and the
 bug lived two versions because there was none.
+
+**The reward is `cageReward(power)` in `Progression`**, a tenth of the army
+held when the cage opens, whole, never under `CAGE.minReward` (2), priced
+once so the label the cage carries (`FieldRender`) and the army the open
+grants (`GameScene.collide`) cannot disagree. It was +5 flat under 100
+power for three versions and no instrument saw that a first-wave cage was a
+×6; `npm run rescue` now forces one open at seven army sizes on the built
+game and asserts reward and label, and `npm run balance` prints `opened`
+per seed (`stats.rescues`, `stats.rescuedPower`). The bot never aims at a
+cage, so `opened` reads 0 on every probe row: the reward is measured by
+`rescue`, never by `balance`.
 
 ## Extending content
 
@@ -1421,4 +1458,5 @@ bug lived two versions because there was none.
   it and back to **1** at the author's ask (0.9): a lone unit, the first
   leak ends the run, and `npm run verify` had to stop sweeping and stand
   under the lowest enemy to kill anything. Any new source must be a choice
-  the player makes.
+  the player makes. A cage is `cageReward(power)`; a `×ARMY` gate adds at
+  least one body.

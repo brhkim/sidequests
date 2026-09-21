@@ -83,7 +83,10 @@ export function applyMotion(e: Enemy, dt: number, band: Band): void {
     }
   }
 
-  e.y += vy * dt;
+  // Every case above prices `vy` in the data's px/s; the geometry scales it
+  // once here so the seconds to the line are what the data says. See
+  // `ARENA.descentScale`.
+  e.y += vy * ARENA.descentScale * dt;
 
   if (vy < 0) {
     // Retreat is bounded twice: never above the screen ceiling, and never back

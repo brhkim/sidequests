@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { DIFFICULTY, VIEW } from '../../config';
+import { DIFFICULTY, HUD_ROWS, VIEW } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
 import { MAX_SENSE } from '../../systems/Progression';
 import { compact, FONT, hex, SMALL, type HudPayload } from './types';
 
 /** Height of the whole rail, including the standing bar along its lower edge. */
-export const RAIL_HEIGHT = 72;
+export const RAIL_HEIGHT = HUD_ROWS.rail;
 /** The rail's right edge is the pause button's; the four columns share the rest. */
 export const RAIL_PAUSE_WIDTH = 80;
 

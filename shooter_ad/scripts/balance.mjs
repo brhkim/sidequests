@@ -101,6 +101,7 @@ console.log(
   + `   breach loss/min: median ${med(results.map((r) => perMin(r.breachLoss, r))).toFixed(1)}`
   + `   fire loss/min: median ${med(results.map((r) => perMin(r.fireLoss, r))).toFixed(1)}`,
   `cages/min: median ${med(results.map((r) => perMin(r.cages ?? 0, r))).toFixed(2)}  (${results.map((r) => r.cages ?? 0).join(' / ')} over ${results.map((r) => r.survived.toFixed(0) + 's').join(' / ')})`,
+  `opened: ${results.map((r) => `${r.rescues ?? 0} (+${r.rescuedPower ?? 0})`).join(' / ')}`,
 );
 console.log(
   `travel/min: median ${Math.round(med(results.map((r) => perMin(r.traveled, r))))}px`,

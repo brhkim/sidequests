@@ -1,5 +1,5 @@
 import { ARENA, CAGE, ENEMY_FIRE, VIEW, WAVE } from '../config';
-import { ENEMY_BY_ID, poolAverageHp, rollEnemy, type EnemyType } from '../data/enemies';
+import { ENEMY_BY_ID, poolAverageHp, rollEnemy, type EnemyType, TITAN_SPAWN_Y, titanTravelSeconds } from '../data/enemies';
 import { touching } from './Contact';
 import type { Difficulty } from './Difficulty';
 import type { EnemyBullets, Hittable } from './EnemyBullets';
@@ -141,8 +141,8 @@ export class Enemies {
     };
   }
 
-  /** Where a Titan appears; `titanProgress` measures its descent from here. */
-  static readonly titanSpawnY = ARENA.spawnY - 40;
+  /** Where a Titan appears - see `TITAN_SPAWN_Y`; `titanProgress` measures from here. */
+  static readonly titanSpawnY = TITAN_SPAWN_Y;
 
   /**
    * The HP a Titan spawning NOW would have: the boss's own descent and armor
@@ -152,8 +152,7 @@ export class Enemies {
   private titanBudget(): number {
     const boss = ENEMY_BY_ID.get('titan');
     if (!boss) return 1;
-    const travelSeconds = (ARENA.breachY - Enemies.titanSpawnY) / boss.speed;
-    return this.difficulty.titanHp(travelSeconds, boss.armor);
+    return this.difficulty.titanHp(titanTravelSeconds(), boss.armor);
   }
 
   /** The live Titan, if one is on the board. Instruments read it; nothing in
@@ -284,7 +283,7 @@ export class Enemies {
   private driftCages(dt: number): void {
     for (const c of this.cages) {
       if (!c.active) continue;
-      c.y += CAGE.speed * dt;
+      c.y += CAGE.speed * ARENA.descentScale * dt;
       if (c.y > VIEW.height + 40) c.active = false;
     }
   }

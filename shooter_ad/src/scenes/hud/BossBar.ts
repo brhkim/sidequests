@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VIEW } from '../../config';
+import { HUD_ROWS, VIEW } from '../../config';
 import { STRIP_HEIGHT } from './BonusStrip';
 import { RAIL_HEIGHT } from './TopRail';
 import { FONT } from './types';
@@ -11,7 +11,7 @@ const PANELS_BOTTOM = RAIL_HEIGHT + STRIP_HEIGHT;
 /** The bar: full width, its own row DIRECTLY UNDER both panels, on the field. */
 const BAR_H = 10;
 /** The row's backing, a third panel while the boss lives: cards emerge from under the strip. */
-const ROW_H = 18;
+const ROW_H = HUD_ROWS.titanRow;
 const BAR_Y = PANELS_BOTTOM + ROW_H / 2;
 /** The warning band's row, under the bar, over the top of the field. */
 const WARN_Y = PANELS_BOTTOM + 40;

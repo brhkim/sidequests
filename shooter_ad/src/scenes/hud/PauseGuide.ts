@@ -23,7 +23,7 @@ const TOPICS: readonly Topic[] = [
   { key: 'cards', label: 'THE CARDS', color: 0xff6b4a, text:
     'A card names a stat and how much it grows: +25% DMG, ×1.25 DMG, +1 GUNS, +12 ARMY. You get whichever card you are standing under when the row reaches your line - only one of the three. Stand between cards and you get nothing (a MISS).' },
   { key: 'sum', label: 'THE SUM', color: 0xffc93c, text:
-    '+% cards add to a pool you keep; × cards multiply. Once the pool is big, a +% card is worth less than it looks: at +200%, a +30% card is only ×1.10. So which card is bigger depends on what you already hold. The BONUSES tab does this sum with your own numbers.' },
+    '+% cards add to a pool you keep; × cards multiply. Once the pool is big, a +% card is worth less than it looks: at +200%, a +30% card is only ×1.10. So which card is bigger depends on what you already hold. A × ARMY card always adds at least one soldier. The BONUSES tab does this sum with your own numbers.' },
   { key: 'panels', label: 'THE TOP PANELS', color: 0x9fe8ff, text:
     'Top row: the wave, your damage per second (DPS) beside PAR\'s, and your SENSE pips. The bar under it is you against PAR; the white tick is the pass mark. The second panel is everything you hold, one cell per stat, in the cards\' own colours.' },
   { key: 'damage', label: 'TAKING DAMAGE', color: 0xff4d5e, text:
@@ -31,7 +31,7 @@ const TOPICS: readonly Topic[] = [
   { key: 'titan', label: 'THE TITAN', color: 0xbf8fdc, text:
     'Every 5th wave a huge boss descends slowly. Its purple health bar sits under the top panels. Kill it before it reaches you or the run ends on the spot. PIERCE does nothing against it: it is one body.' },
   { key: 'rescue', label: 'RESCUES', color: 0xb9a06a, text:
-    'Now and then a cage of captured soldiers drifts down. Shoot it open before it leaves the screen and they join you. PAR never gets these - a rescue is your way back when you have fallen behind.' },
+    'Now and then a cage of captured soldiers drifts down. Shoot it open before it leaves the screen and a tenth of your army joins you, at least 2. PAR never gets these - a rescue is how you make back what enemy fire has chipped away.' },
   { key: 'par', label: 'PAR', color: 0x6ee7a0, text:
     'PAR is a shadow player who takes the best card every single time. Enemies get tougher as PAR grows, not as waves pass - so the game is exactly as hard as your picks are bad. Keep your DPS near PAR\'s and you are fine.' },
   { key: 'risk', label: 'RISK', color: 0xc9a7ff, text:

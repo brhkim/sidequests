@@ -865,12 +865,23 @@ latter; the end screen says OF THE BEST PICKS and PEAK DAMAGE / SEC. The
 demo offer on the start screen deals a different offer on every pass, six
 in rotation, so the whole vocabulary is seen. The pitch is still verbatim.
 
-## Rescue cages are the catch-up, and they cost something
+## Rescue cages are a refund, and they cost something
 
-A cage is worth **+5 army until you hold 100, then +5%**, whole — the same
-bite of a run at 20 power and at 20,000. **Par does not collect it.** It is
-the one source of army meant for a player behind the curve, and crediting the
-shadow player too would move the curve by exactly what the cage gave back.
+A cage is worth **a tenth of the army you hold, whole, never less than 2**
+(1.0, the author's call on 2026-09-20). It was +5 flat until 100 power and
+5% after: DPS is linear in power below the ring cap, so a first-wave cage
+on an army of 1 was a ×6 - five gates' worth in one pickup, standing 2 to 3
+against par - and the author's read was that "getting one early on really
+explodes your DPS versus par". The army is also the player's health, and it
+is chipped continuously by enemy fire at 1% a hit, so the reward is priced
+in that unit: a cage refunds about ten hits, early and late alike. It is
+about one small ARMY gate at every size (×2.7 in DPS at power 1, ×1.1 from
+19 on; `npm run rescue` prints the table off the built game). It is no
+longer a catch-up - a 10% bite is under the smallest gate root - and this
+section's old title said it was; the author chose the refund over raising
+the share, because a larger share reopens the standing jump. **Par does not
+collect it**, still: crediting the shadow player would move the curve by
+exactly what the cage gave back.
 
 It rolls once per wave duration at a **40% chance** (was 75%): the author
 found it appearing too often, and early on it made keeping up with par
@@ -890,6 +901,33 @@ makes "best pick" mean best for that army. The one leak is that a `+N ARMY`
 card is sized to the player's pool and par applies the same N to its
 smaller one, which nudges par UP when the player is ahead - it closes the
 gap slightly rather than widening it, and it is small.
+
+## The field starts where the HUD ends
+
+**Decided, 2026-09-20 (1.0).** Enemies and cages spawn at the bottom edge of
+the three HUD rows (rail 72, strip 94, Titan row 18: y 184), not 40px above
+the screen. The author: "the stacked status bars at the top now conceal too
+much of the playfield, and it takes forever for, for example, a Titan to
+finally be visible after spawning". Under the old line the top 224px of
+every descent happened behind the panels - 6.6s of a Grunt's walk, and the
+Titan's first 17.6s, on a body the column could hit and the eye could not
+see. Every vertical speed is scaled by the ratio the descent shrank
+(`ARENA.descentScale`, 766/990) so a body takes exactly the seconds to the
+line it took before: the game is not faster, it is visible. The Titan
+spawns 40px above the line so it emerges rather than pops, and its HP is
+priced on its travel seconds as before, which move by 1%; it is on screen
+for all but 3.4s of its descent instead of missing the first quarter. Gates
+are untouched: their descent is the judgment clock and the hidden 94px was
+already the author's accepted cost of moving the strip up.
+
+## A multiplier on the army adds at least one soldier
+
+**Decided, 2026-09-20 (1.0).** `×1.1 ARMY` on an army of 1 rounded to 1 and
+did nothing; the author: "if I start at 1 and pick army × 1.1 it does
+nothing for me". A multiplier now adds `max(1, round(army × (root − 1)))`,
+the rule raw `+N ARMY` already used, so the open's first army gate is a real
+gate whichever form it comes in. Par takes its gates through the same
+function and is priced on the same floor; `npm run model` asserts both.
 
 ## No automatic army
 
@@ -916,7 +954,7 @@ Measured on the probe bot, which never aims at a cage and so pays the block
 without collecting: median survival at skill 0.7 fell from 78s to 44s, and
 recovered to 83s on the same seeds with cages at a fiftieth of a Titan. Read
 that as the bot's floor, not the design's verdict — a human who targets the
-cage is buying +60% army for three seconds early, and +5% for three seconds
+cage is buying +2 army for three seconds early, and +10% for three seconds
 late — but it is the number to watch if real play says cages feel like walls.
 `CAGE.hpTitanFraction` is the lever.
 
