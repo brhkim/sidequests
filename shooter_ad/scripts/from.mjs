@@ -74,7 +74,7 @@ function fastForward(targetDps) {
       power: par.power,
       damageBonus: par.upgrades.damageBonus,
       rateBonus: par.upgrades.rateBonus,
-      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense, shield: par.upgrades.shield,
     };
     const gates = rollOffer(GATES.perOffer, wave, ctx, rng);
     if (gates.length > 0) applyGate(par, gates[scoreOffer(par, gates, wave).best]);

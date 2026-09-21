@@ -26,7 +26,8 @@
     "from": "node --experimental-strip-types scripts/from.mjs",
     "titan": "node --experimental-strip-types scripts/titan.mjs",
     "roster": "node scripts/roster.mjs",
-    "audio": "node scripts/audio.mjs"
+    "audio": "node scripts/audio.mjs",
+    "rail": "node scripts/rail.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0",

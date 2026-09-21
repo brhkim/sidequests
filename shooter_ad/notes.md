@@ -186,6 +186,7 @@ dial for free.
 | Pierce | `+N PIERCE` | Each level is worth a fixed share of a hit. **Scales past 3 held.** See below. |
 | Move speed | `×1.2 MOVE` | **No direct DPS.** Buys access to future bonuses. |
 | Sense | `+SENSE` | **No direct DPS.** A chance that future offers arrive with their best option marked. Capped at 3. See below. |
+| Shield | `+SHIELD` | **No direct DPS.** Blocks up to 2 enemy bullets per 5s per level held. Capped at 3. See below. |
 
 ### The discrete axes scale, from three held
 
@@ -226,9 +227,28 @@ you survive and how spread out future gates are. Offering it against a flat
 The squad should therefore start **slow enough that movement is a real
 constraint**, or the bonus is worthless.
 
-### RISK: the three axes par never takes
+### `+SHIELD`: a bonus about surviving fire
 
-**Decided, 2026-09-20.** `×MOVE`, `+TIME` and `+SENSE` change no damage
+**Added 2026-09-21 (1.1), the author's ask.** Each level held blocks up to
+**2 enemy bullets every 5 seconds**, to a cap of three levels like SENSE:
+a pool of `2 × level` charges refilling at that rate, spent one per bullet
+whatever the bullet would have cost. A Mortar's shell (below) is one block
+like a Spitter's dart, so a charge is worth twice as much against a Mortar
+- that is deliberate; the shell is the bullet the player most wants
+stopped. The pick fills the pool at once, so it is felt on the next volley.
+
+It is a RISK axis: no damage number moves, it is priced at zero, par never
+takes it beside a damage option, and the player is told RISK. What it buys
+is army - the chip damage of standing under fire, which is the late game's
+main killer for a bot that never dodges (see "Enemy fire scales with the
+army") - and army is health, so a player who values their soldiers over
+their DPS has a real gamble to weigh. The ring around the leader shows the
+charges; the rail's fifth column shows `ready/capacity`.
+
+### RISK: the four axes par never takes
+
+**Decided, 2026-09-20; SHIELD joined on 2026-09-21.** `×MOVE`, `+TIME`,
+`+SENSE` and `+SHIELD` change no damage
 number, and the scoring prices them at **exactly zero**. For a while they
 were priced by an access factor and a judgment factor so that par would
 sometimes take one and the grade wash would not call every one a mistake.
@@ -243,8 +263,8 @@ player's gamble alone. Consequences, all deliberate:
   axis colour - instead of PERFECT / GOOD / BAD, and it has its own column on
   the end screen beside MISS. It still counts as **no growth** in the
   optimal-play percentage: the gamble is real and the number says so.
-- The pause screen's BONUSES rows for the three say `RISK: no DPS, par never
-  takes it` in the same words, and the DETAILS page says taking one is a RISK.
+- The pause screen's BONUSES tiles for the four say RISK in the same words,
+  and the DETAILS page says taking one is a RISK.
 
 The word is chosen with care. It is not a grade and not a scold: the player
 is buying reach or seconds or a hint with a pick the curve will not repay,
@@ -973,6 +993,22 @@ killer: from injected 1e5 and 1e8 builds the runs end by attrition with
 standing near zero, where before they ended at a Titan near par. That is the
 designed consequence for a player who does not move; whether it is right for
 one who does is a question for the author under fire.
+
+### The Mortar fires a shell: one big slow bullet
+
+**Added 2026-09-21 (1.1), the author's ask** ("one of the enemies to have a
+'Big bullet' type; a slower red bullet rather than just the many small
+bullets ... twice as much relative damage"). The **Mortar** is a new
+medium-tier type from wave 6: a squat stone-grey pot that drifts a little
+and lobs one aimed **shell** every 3.2s - scarlet, nearly twice a dart's
+radius, half a dart's speed, and `damage: 2`, so it costs twice the 1% share
+a dart does (2 power at the floor, 2% of the army past 200). The point is
+legibility of threat: the darts are weather, the shell is a thing you see
+coming for four seconds and step out of. It is drawn as a round, never a
+dart, so nothing about it says fast, and it wears a hue no body wears (the
+Brute's brick red is the nearest; the shell is brighter and rounder).
+
+Its counterweight is SHIELD, which blocks it as one bullet.
 
 ## Enemies have a hurt box
 

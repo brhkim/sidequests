@@ -63,7 +63,7 @@ function shoot(e: Enemy, ctx: TraitContext): void {
     ctx.fire.spawn(
       e.x, e.y + e.radius * 0.6,
       Math.cos(a) * gun.speed, Math.sin(a) * gun.speed,
-      gun.damage,
+      gun.damage, gun.shell === true,
     );
   }
 }

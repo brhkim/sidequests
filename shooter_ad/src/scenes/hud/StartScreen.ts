@@ -31,7 +31,7 @@ const DEMO_OFFERS: readonly (readonly DemoCard[])[] = [
   [{ magnitude: '×1.1', axis: 'damage', word: 'DMG' }, { magnitude: '+12', axis: 'army', word: 'ARMY' }, { magnitude: '+', axis: 'time', word: 'TIME' }],
   [{ magnitude: '+30%', axis: 'rate', word: 'RATE' }, { magnitude: '×1.3', axis: 'rate', word: 'RATE' }, { magnitude: '+', axis: 'sense', word: 'SENSE' }],
   [{ magnitude: '×1.5', axis: 'army', word: 'ARMY' }, { magnitude: '+2', axis: 'guns', word: 'GUNS' }, { magnitude: '×1.2', axis: 'move', word: 'MOVE' }],
-  [{ magnitude: '+15%', axis: 'damage', word: 'DMG' }, { magnitude: '×1.15', axis: 'rate', word: 'RATE' }, { magnitude: '+1', axis: 'pierce', word: 'PIERCE' }],
+  [{ magnitude: '+15%', axis: 'damage', word: 'DMG' }, { magnitude: '×1.15', axis: 'rate', word: 'RATE' }, { magnitude: '+', axis: 'shield', word: 'SHIELD' }],
 ];
 /**
  * Where the demo offer descends from and to, and how long one pass takes.

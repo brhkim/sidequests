@@ -1,4 +1,4 @@
-import { ARENA, CAGE, GATES, SENSE, SQUAD, WEAPON } from '../config';
+import { ARENA, CAGE, GATES, SENSE, SHIELD, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { judgmentWave } from './Mode';
@@ -32,6 +32,12 @@ export interface Upgrades {
    * priced as judgment the way MOVE and TIME are priced as access.
    */
   sense: number;
+  /**
+   * `+SHIELD` held, 0 to `SHIELD.maxLevel`. Touches no damage number either:
+   * each level blocks `SHIELD.blocksPerLevel` enemy bullets per
+   * `SHIELD.windowSeconds` (`systems/Shield.ts`), a RISK axis like SENSE.
+   */
+  shield: number;
 }
 
 /** Everything a gate can change. The squad owns one; the difficulty model
@@ -44,9 +50,12 @@ export interface Progress {
 export function freshUpgrades(): Upgrades {
   return {
     damageBonus: 0, damageMult: 1, rateBonus: 0, rateMult: 1, guns: 1, pierce: 0,
-    moveMult: 1, gateSpeedMult: 1, sense: 0,
+    moveMult: 1, gateSpeedMult: 1, sense: 0, shield: 0,
   };
 }
+
+/** Highest shield a squad can hold; offered until it is. */
+export const MAX_SHIELD = SHIELD.maxLevel;
 
 /** Highest sense a squad can hold; the chance table's last row. */
 export const MAX_SENSE = SENSE.chance.length - 1;
@@ -310,6 +319,9 @@ export function applyGate(p: Progress, gate: GateType): string {
       break;
     case 'sense':
       u.sense = Math.min(MAX_SENSE, u.sense + gate.value);
+      break;
+    case 'shield':
+      u.shield = Math.min(MAX_SHIELD, u.shield + gate.value);
       break;
   }
   return gate.label;

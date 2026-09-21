@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
-import { COLORS, RENDER, SQUAD } from '../../config';
+import { COLORS, RENDER, SHIELD, SQUAD } from '../../config';
+import { AXIS_COLOR } from '../../data/gates';
+import { EnemyBullets } from '../../systems/EnemyBullets';
 import { bulletTint, tierRow } from '../../data/tiers';
 import type { Bullets } from '../../systems/Bullets';
 import type { Enemies } from '../../systems/Enemies';
-import type { EnemyBullets } from '../../systems/EnemyBullets';
 import type { Squad } from '../../systems/Squad';
 import { SpritePool } from '../../systems/SpritePool';
 import type { SimEvent } from '../../systems/SimEvents';
@@ -11,6 +12,8 @@ import { CREATURE_ART, FALLBACK_ART } from '../art/creatures';
 import { Shards } from './Shards';
 
 const SKIN = 0xf2c9a0;
+/** Charges per SHIELD level; the ring draws one segment per charge. */
+const SHIELD_BLOCKS = SHIELD.blocksPerLevel;
 /** A body reaching the army leaves a dull mark, not a celebration. */
 const IMPACT = 0x8c5a60;
 const WHITE = 0xffffff;
@@ -58,6 +61,10 @@ export class SpriteRender {
   private readonly enemyBulletPool: SpritePool;
   private readonly overlay: Phaser.GameObjects.Graphics;
   private readonly shards: Shards;
+  /** The SHIELD ring around the leader; depth 19, under the squad, over bullets. */
+  private readonly shieldRing: Phaser.GameObjects.Graphics;
+  /** Simulated second of the last block, for the ring's flash. */
+  private lastBlock = -1;
   /** Last rendered simulated time; the birth time of pops raised between frames. */
   private elapsed = 0;
 
@@ -71,6 +78,7 @@ export class SpriteRender {
     this.cagePool = new SpritePool(scene, 'cage', 13);
     this.shards = new Shards(scene, 14);
     this.overlay = scene.add.graphics().setDepth(18);
+    this.shieldRing = scene.add.graphics().setDepth(19);
     this.bodyPool = new SpritePool(scene, 'body', 20);
     this.headPool = new SpritePool(scene, 'head', 21);
     this.trailPool = new SpritePool(scene, 'ebullet', 22);
@@ -85,6 +93,9 @@ export class SpriteRender {
         this.shards.pop(ev.x, ev.y, n, RENDER.shardLife, ev.color, 150, this.elapsed);
       } else if (ev.kind === 'contact' && !ev.titan) {
         this.shards.pop(ev.x, ev.y, RENDER.shardsPerContact, RENDER.contactLife, IMPACT, 70, this.elapsed);
+      } else if (ev.kind === 'block') {
+        this.lastBlock = this.elapsed;
+        this.shards.pop(ev.x, ev.y, RENDER.shardsPerContact, RENDER.contactLife, AXIS_COLOR.shield, 90, this.elapsed);
       }
     }
   }
@@ -93,6 +104,8 @@ export class SpriteRender {
   reset(): void {
     this.shards.reset();
     this.elapsed = 0;
+    this.lastBlock = -1;
+    this.shieldRing.clear();
   }
 
   render(w: SpriteWorld): void {
@@ -101,6 +114,7 @@ export class SpriteRender {
     this.renderCages(w);
     this.renderBullets(w);
     this.renderEnemyFire(w);
+    this.renderShield(w);
     this.renderSquad(w);
     this.renderOverlay(w);
     this.shards.render(w.elapsed);
@@ -159,19 +173,55 @@ export class SpriteRender {
     this.bulletPool.end();
   }
 
-  /** Darts along their velocity, with a faint copy a few pixels behind. */
+  /**
+   * Darts along their velocity, with a faint copy a few pixels behind; a
+   * Mortar's shell is the round `eshell` in scarlet, with the same trail.
+   */
   private renderEnemyFire(w: SpriteWorld): void {
     this.enemyBulletPool.begin(); this.trailPool.begin();
     for (const b of w.enemyFire.items) {
       if (!b.active) continue;
       const rot = Math.atan2(b.vy, b.vx) - HALF_PI;
-      this.enemyBulletPool.claim().setPosition(b.x, b.y).setRotation(rot)
-        .setScale(0.5).setTint(COLORS.enemyBullet);
+      const key = b.shell ? 'eshell' : 'ebullet';
+      const tint = b.shell ? COLORS.enemyShell : COLORS.enemyBullet;
+      this.enemyBulletPool.claim(key).setPosition(b.x, b.y).setRotation(rot)
+        .setScale(0.5).setTint(tint);
       if (!RENDER.bulletTrail) continue;
-      this.trailPool.claim().setPosition(b.x - b.vx * 0.035, b.y - b.vy * 0.035)
-        .setRotation(rot).setScale(0.35).setAlpha(0.45).setTint(COLORS.enemyBullet);
+      this.trailPool.claim(key).setPosition(b.x - b.vx * 0.035, b.y - b.vy * 0.035)
+        .setRotation(rot).setScale(0.35).setAlpha(0.45).setTint(tint);
     }
     this.enemyBulletPool.end(); this.trailPool.end();
+  }
+
+  /**
+   * The SHIELD: an arc ring around the formation, one segment per charge
+   * the pool can hold, lit where a charge is ready and dim where it is
+   * refilling. It flashes white for `RENDER.hitFlash` after a block. Reads
+   * the squad's pool and `elapsed`; nothing here is written back.
+   */
+  private renderShield(w: SpriteWorld): void {
+    const g = this.shieldRing;
+    g.clear();
+    const level = w.squad.upgrades.shield;
+    if (level <= 0) return;
+    const capacity = level * SHIELD_BLOCKS;
+    const ready = w.squad.shield.ready;
+    const flash = this.lastBlock >= 0 && w.elapsed - this.lastBlock < RENDER.hitFlash * 2;
+    const color = flash ? WHITE : AXIS_COLOR.shield;
+    const lead = w.squad.units[0];
+    const cx = lead ? lead.x : w.squad.x;
+    const cy = lead ? lead.y : w.squad.y;
+    const radius = SQUAD.unitSpacing * 2.6;
+    const gap = 0.12;
+    const span = (Math.PI * 2) / capacity;
+    for (let i = 0; i < capacity; i++) {
+      const lit = i < ready;
+      g.lineStyle(lit ? 4 : 2, color, lit ? 0.9 : 0.3);
+      const a0 = -Math.PI / 2 + i * span + gap / 2;
+      g.beginPath();
+      g.arc(cx, cy, radius, a0, a0 + span - gap);
+      g.strokePath();
+    }
   }
 
   private renderSquad(w: SpriteWorld): void {

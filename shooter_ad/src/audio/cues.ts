@@ -122,6 +122,14 @@ const TABLE = {
     parts: [...sineSquare(523, 0, 120), ...sineSquare(784, 90, 120), ...sineSquare(1047, 180, 220)],
     db: -8, category: 'event', priority: 55, cap: 1,
   },
+  /** A SHIELD block: a short bright clink, off the fire hit's tick. Bundled like it. */
+  block: {
+    parts: [
+      { src: 'triangle', freq: 1760, dur: 40, db: 0, env: [1, 20, 0.5, 60] },
+      { src: 'sine', freq: 3520, dur: 30, db: -8, env: [1, 0, 1, 40] },
+    ],
+    db: -14, category: 'hit', priority: 32, cap: 2, bundle: { windowMs: 60, gapMs: 250 },
+  },
   sense: {
     parts: [[1047, 0], [1319, 120]].map(([freq, at]): Part => ({ src: 'sine', freq, at, dur: 300, env: [30, 100, 0.6, 200], db: 0 })),
     db: -12, category: 'event', priority: 40, cap: 1,

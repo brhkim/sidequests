@@ -28,6 +28,19 @@ export function makeProjectiles(scene: Phaser.Scene): void {
     g.fillStyle(WHITE, 1).fillEllipse(8, 14, 5, 14);
   });
 
+  // The Mortar's shell: a fat black-outlined round with a bright core, in
+  // `COLORS.enemyShell`. Box 40 for the 9px hit circle (R 18 of texture);
+  // the outline sits on the circle. It is drawn as a disc rather than a
+  // dart so nothing about it says "fast", and it is twice a dart's size on
+  // screen so it is read as the one to step out of.
+  texture(scene, 'eshell', 40, 40, (g) => {
+    g.lineStyle(3, BLACK, 1);
+    g.fillStyle(WHITE, 0.72);
+    g.fillCircle(20, 20, 17);
+    g.strokeCircle(20, 20, 17);
+    g.fillStyle(WHITE, 1).fillCircle(17, 17, 8);
+  });
+
   // Death pop shard: a small triangle, tinted the body's colour.
   texture(scene, 'shard', 16, 16, (g) => {
     g.fillStyle(WHITE, 1).fillTriangle(8, 1, 15, 15, 1, 15);

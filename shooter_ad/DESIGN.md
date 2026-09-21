@@ -402,10 +402,12 @@ changed for display.
 ## Layout
 
 A fixed 540x960 logical canvas under `Scale.FIT`; nothing is responsive. Top
-to bottom: rail (0-72, four 115px columns WAVE / YOUR DPS / PAR DPS / SENSE
-across the 460px left of the pause button, 14px label at y 9 over a 23px
-value at 22 over a 14px bold sub at 49: N KILLS, N% PAR, BEST PLAY, N%
-MARKED); standing bar (6px at 66-72 on a `{colors.track-wide}` track with a
+to bottom: rail (0-72, five columns WAVE / YOUR DPS / PAR DPS / SENSE /
+SHIELD at 82 / 100 / 96 / 100 / 82px across the 460px left of the pause
+button - five and unequal since 1.1, 2026-09-21, when SHIELD joined; a 13px
+label at y 9 over a 23px value at 22 over a 13px bold untracked sub at 49:
+N KILLS, N% PAR, BEST PLAY, N% MARKED, READY; `npm run rail` asserts 8px
+between neighbours at the widest state); standing bar (6px at 66-72 on a `{colors.track-wide}` track with a
 3x12 white tick at the target fraction); the
 strip; the Titan row while a boss lives (an 18px panel at 0.96 directly
 under the strip's hairline, 166-184, carrying a 10px purple bar with its
@@ -449,10 +451,12 @@ guide's twelve 240x44 topic cards in two columns from 114 (8px gaps, bottom
 418), `tap a topic` at 426, the topic head at 452 and its text from 474.
 BONUSES: the teaching line at 104, the ruler (two columns at x 26 / 280,
 heads 134, divide line 154, three mono lines 176 / 198 / 220), the closing
-line 246, a hairline at 284, eight 120x88 card tiles in a 4x2 grid from
-(18, 298) with 8px gaps in DPS order (ARMY, DMG, RATE, GUNS, PIERCE) then
-the RISK three (MOVE, TIME, SENSE), the hint at 488, the axis head at 512
-over the 17px `{colors.text-working}` note at 534, the DPS line's caption at
+line 246, a hairline at 284, nine 160x64 card tiles in a 3x3 grid from
+(22, 298) with 8px gaps in DPS order (ARMY, DMG, RATE, GUNS, PIERCE) then
+the RISK four (MOVE, TIME, SENSE, SHIELD) - 3x3 of shorter, wider tiles
+since 1.1, when SHIELD made nine axes and a 4x2 of the field's 120x88 card
+no longer fit above the note - the hint at 512, the axis head at 536 over
+the 17px `{colors.text-working}` note at 558, the DPS line's caption at
 664 and the DPS · PAR line at 682. DETAILS: its head at 104 and 26 mono
 lines from 128 on a 22px pitch. Under every page: RESUME (300x56) at 740,
 SOUND ON and RESTART (184x44) at 806, x 174 / 366, the key hint at 856.

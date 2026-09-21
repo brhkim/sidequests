@@ -81,7 +81,8 @@ const board = (state) => page.evaluate(({ power, u }) => {
   s.enemyFire.reset();
   const types = window.enemyTypes;
   const small = types.filter((t) => t.id !== 'titan');
-  small.forEach((t, i) => s.enemies.spawn(t, 130 + i * 48, 260, 1e7));
+  // Ten types since 1.1: 46px apart from x 100, so the last stays on the board.
+  small.forEach((t, i) => s.enemies.spawn(t, 100 + i * 46, 260, 1e7));
   const titan = types.find((t) => t.id === 'titan');
   s.enemies.spawn(titan, 270, 140, 1, 1e7);
   // A turned Shielder beside the row, so the plate is seen off-axis once.
@@ -103,6 +104,8 @@ const board = (state) => page.evaluate(({ power, u }) => {
   const ax = 70 - 418, ay = 800 - 340;
   const an = Math.hypot(ax, ay);
   s.enemyFire.spawn(418 + (ax / an) * 70, 340 + (ay / an) * 70, (ax / an) * 210, (ay / an) * 210, 1);
+  // The Mortar's shell, mid-flight, beside the darts it must not be mistaken for.
+  s.enemyFire.spawn(120, 400, 20, 105, 2, true);
   s.render();
 }, state);
 
@@ -110,7 +113,7 @@ const shoot = async (name) => {
   await page.waitForTimeout(150);
   await page.screenshot({ path: join(OUT_DIR, `${name}.png`) });
   if (SCALE > 1) {
-    await page.screenshot({ path: join(OUT_DIR, `${name}-zoom.png`), clip: { x: 100, y: 90, width: 400, height: 330 } });
+    await page.screenshot({ path: join(OUT_DIR, `${name}-zoom.png`), clip: { x: 60, y: 90, width: 480, height: 330 } });
   }
   console.log(`${name}.png`);
 };

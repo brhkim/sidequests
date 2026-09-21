@@ -101,6 +101,7 @@ export class AudioEvents {
       case 'contact': if (!e.titan) this.cue('contact', now, { share: e.share }); break;
       case 'breach': if (!e.titan) this.cue('breach', now, { share: e.share }); break;
       case 'fire': if (e.hits > 0) this.cue('fireHit', now); break;
+      case 'block': this.cue('block', now); break;
       case 'pick': this.cue(GRADE_CUE[e.grade], now); break;
       case 'miss': this.cue('miss', now); break;
       case 'rescue': this.cue('rescue', now); break;

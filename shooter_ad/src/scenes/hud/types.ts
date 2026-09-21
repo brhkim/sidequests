@@ -32,6 +32,10 @@ export interface HudPayload {
   sense: number;
   /** Chance an offer arrives with its best option marked, at this sense. */
   senseChance: number;
+  /** `+SHIELD` held, whole charges ready to block, and the pool's size. */
+  shield: number;
+  shieldReady: number;
+  shieldCapacity: number;
   /** The live boss, or null. `progress` is its descent as a fraction. */
   titan: { hpFrac: number; progress: number } | null;
 }

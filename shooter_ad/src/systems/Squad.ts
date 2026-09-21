@@ -2,6 +2,7 @@ import { ARENA, SQUAD, WEAPON } from '../config';
 import { tierFor, unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { SLOTS } from './Formation';
+import { Shield } from './Shield';
 import {
   applyGate, damageFactor, freshUpgrades, moveSpeed, rateFactor,
   shotsPerSecond, squadDps, unitShares, type Progress, type Upgrades,
@@ -32,6 +33,8 @@ export class Squad {
   readonly y: number;
   readonly progress: Progress;
   units: Unit[] = [];
+  /** The `+SHIELD` charge pool; stepped here, spent by `GameScene`. */
+  readonly shield = new Shield();
 
   constructor(
     x: number, y: number, power: number,
@@ -107,6 +110,8 @@ export class Squad {
     const step = moveSpeed(this.progress.upgrades) * dt;
     const delta = want - this.x;
     this.x += Math.abs(delta) <= step ? delta : Math.sign(delta) * step;
+
+    this.shield.update(dt, this.progress.upgrades.shield);
 
     const ease = 1 - Math.exp(-SQUAD.followLerp * dt);
     for (const u of this.units) {

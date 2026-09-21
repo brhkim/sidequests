@@ -44,7 +44,7 @@ export class PauseDetails {
       damageBonus: h.damageBonus, damageMult: h.damageMult,
       rateBonus: h.rateBonus, rateMult: h.rateMult,
       guns: h.guns, pierce: h.pierce,
-      moveMult: h.moveMult, gateSpeedMult: h.gateSpeedMult, sense: h.sense,
+      moveMult: h.moveMult, gateSpeedMult: h.gateSpeedMult, sense: h.sense, shield: h.shield,
     };
     const shares = unitShares(h.power);
     const lead = shares[0];
@@ -94,7 +94,7 @@ export class PauseDetails {
       '',
       'against one body (the Titan), pierce adds nothing:',
       `   ${compact(withGuns)} /s`,
-      'MOVE, TIME and SENSE add nothing here (RISK)',
+      'MOVE, TIME, SENSE and SHIELD add nothing here (RISK)',
     ];
     // The answer is the one bright, bold line; the working stays quieter.
     this.lines.forEach((t, i) => {

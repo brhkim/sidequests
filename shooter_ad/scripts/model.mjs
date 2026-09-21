@@ -213,7 +213,7 @@ if (!(waveGateSpeedMult(30) > waveGateSpeedMult(1))) {
 /** What the game's own scoring says one gate is worth, in one state, one wave. */
 const priced = (p, g, wave) => scoreOffer(p, [g], wave).options[0].delta;
 
-console.log('\n=== x MOVE, +TIME and +SENSE are priced at exactly zero (RISK) ===');
+console.log('\n=== x MOVE, +TIME, +SENSE and +SHIELD are priced at exactly zero (RISK) ===');
 // The author's rule: a bonus that moves no damage number is worth nothing to
 // the scoring. Par never takes one; the player who does is told RISK. Checked
 // at every wave and however far the bonuses are already stacked, so a factor
@@ -221,22 +221,23 @@ console.log('\n=== x MOVE, +TIME and +SENSE are priced at exactly zero (RISK) ==
 {
   let worst = 0;
   for (const wave of [1, 3, 6, 10, 15, 21, 30]) {
-    for (const [mv, tm, se] of [[1, 1, 0], [2, 1, 1], [1, 2, 2], [4, 3, 0], [8, 6, 3]]) {
-      const p = state(200, { moveMult: mv, gateSpeedMult: 1 / tm, sense: se });
+    for (const [mv, tm, se, sh] of [[1, 1, 0, 0], [2, 1, 1, 1], [1, 2, 2, 3], [4, 3, 0, 2], [8, 6, 3, 3]]) {
+      const p = state(200, { moveMult: mv, gateSpeedMult: 1 / tm, sense: se, shield: sh });
       for (const g of [
         gate('move', 'mult', 1.05), gate('move', 'mult', 1.5),
         gate('time', 'raw', 1.05), gate('time', 'raw', 1.5), gate('sense', 'raw', 1),
+        gate('shield', 'raw', 1),
       ]) worst = Math.max(worst, Math.abs(priced(p, g, wave)));
     }
   }
   console.log(`  largest |delta| of a risk axis anywhere: ${worst}`);
   if (worst !== 0) {
-    console.error('FAIL: a MOVE / TIME / SENSE draw moved the scoring - see RISK_AXES in config');
+    console.error('FAIL: a MOVE / TIME / SENSE / SHIELD draw moved the scoring - see RISK_AXES in config');
     process.exit(1);
   }
   const axes = new Set(RISK_AXES);
-  if (!(axes.has('move') && axes.has('time') && axes.has('sense') && axes.size === 3)) {
-    console.error('FAIL: RISK_AXES is not exactly move / time / sense'); process.exit(1);
+  if (!(axes.has('move') && axes.has('time') && axes.has('sense') && axes.has('shield') && axes.size === 4)) {
+    console.error('FAIL: RISK_AXES is not exactly move / time / sense / shield'); process.exit(1);
   }
   // A risk pick against damage options ranks last, and against other risk
   // picks ranks as a tie (any pick is a top pick when every option is 0).
@@ -245,8 +246,8 @@ console.log('\n=== x MOVE, +TIME and +SENSE are priced at exactly zero (RISK) ==
   if (mixed.best !== 2 || pickRank(mixed, 1) !== 1 || !isRiskPick(mixed, 1) || isRiskPick(mixed, 0)) {
     console.error('FAIL: a risk pick beside damage options must rank last and read as RISK'); process.exit(1);
   }
-  const allRisk = scoreOffer(state(200), [gate('move', 'mult', 1.5), gate('time', 'raw', 1.2), gate('sense', 'raw', 1)], 6);
-  if (pickRank(allRisk, 0) !== 0 || pickRank(allRisk, 2) !== 0) {
+  const allRisk = scoreOffer(state(200), [gate('move', 'mult', 1.5), gate('shield', 'raw', 1), gate('sense', 'raw', 1)], 6);
+  if (pickRank(allRisk, 0) !== 0 || pickRank(allRisk, 1) !== 0 || pickRank(allRisk, 2) !== 0) {
     console.error('FAIL: an offer of only risk axes must tie'); process.exit(1);
   }
   console.log('  a risk pick beside damage ranks last; an all-risk offer ties; isRiskPick agrees');
@@ -275,7 +276,7 @@ for (let run = 0; run < 200; run++) {
       power: par.power,
       damageBonus: par.upgrades.damageBonus,
       rateBonus: par.upgrades.rateBonus,
-      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense, shield: par.upgrades.shield,
     };
     const gates = rollOffer(G.perOffer, wave, ctx, rng);
     if (gates.length === 0) continue;
@@ -361,7 +362,7 @@ function axesOfferedAtWaveOne(mode) {
   setMode(mode);
   let h = 99;
   const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  const ctx = { power: SQUAD.startPower, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: 0 };
+  const ctx = { power: SQUAD.startPower, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: 0, shield: 0 };
   const seen = new Set();
   for (let i = 0; i < 600; i++) {
     for (const g of rollOffer(G.perOffer, 1, ctx, r)) seen.add(`${g.axis}/${g.form}`);
@@ -598,7 +599,7 @@ for (let run = 0; run < 60; run++) {
       power: par.power,
       damageBonus: par.upgrades.damageBonus,
       rateBonus: par.upgrades.rateBonus,
-      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense,
+      guns: par.upgrades.guns, pierce: par.upgrades.pierce, sense: par.upgrades.sense, shield: par.upgrades.shield,
     };
     const gates = rollOffer(G.perOffer, wave, ctx, rng);
     if (gates.length > 0) applyGate(par, gates[scoreOffer(par, gates, wave).best]);
@@ -816,7 +817,7 @@ if (discreteAmount('guns', 3, 1.05) !== 1 || discreteAmount('guns', 10, 1.5) !==
 {
   let h = 5;
   const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  const ctx = { power: 500, damageBonus: 1, rateBonus: 1, guns: 6, pierce: 6, sense: 0 };
+  const ctx = { power: 500, damageBonus: 1, rateBonus: 1, guns: 6, pierce: 6, sense: 0, shield: 0 };
   let seen = 0;
   for (let i = 0; i < 400; i++) {
     for (const g of rollOffer(G.perOffer, 12, ctx, r)) {
@@ -845,7 +846,7 @@ for (let s = 1; s <= MAX_SENSE; s++) {
   // At the cap it is not offered; it never reaches DPS at any level.
   let h = 9;
   const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  const ctx = { power: 200, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: MAX_SENSE };
+  const ctx = { power: 200, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: MAX_SENSE, shield: 0 };
   for (let i = 0; i < 400; i++) {
     if (rollOffer(G.perOffer, 8, ctx, r).some((g) => g.axis === 'sense')) {
       console.error('FAIL: +SENSE offered at the cap'); process.exit(1);
@@ -853,6 +854,69 @@ for (let s = 1; s <= MAX_SENSE; s++) {
   }
   console.log(`  +SENSE leaves the pool at ${MAX_SENSE} held; squadDps ignores it entirely`);
   if (squadDps(state(200, { sense: 2 })) !== squadDps(state(200))) { console.error('FAIL: sense reached DPS'); process.exit(1); }
+}
+
+// ---------------------------------------------------------------------------
+// SHIELD: a charge pool, never a price. `blocksPerLevel x level` charges,
+// refilling at that many per `windowSeconds`, spent one per bullet whatever
+// the bullet cost; filled at once on a pick; out of the pool at the cap. The
+// pool is stepped on the fixed clock here exactly as `Squad.update` steps it.
+// ---------------------------------------------------------------------------
+console.log('\n=== SHIELD: blocks per window per level, never a price ===');
+{
+  const { SHIELD, SIM } = await import('../src/config.ts');
+  const { Shield } = await import('../src/systems/Shield.ts');
+  const { MAX_SHIELD } = await import('../src/systems/Progression.ts');
+  const { ENEMY_BY_ID } = await import('../src/data/enemies.ts');
+  console.log('  held   capacity   refill/s   blocks in 5s from empty   still offered');
+  for (let level = 0; level <= MAX_SHIELD; level++) {
+    const sh = new Shield();
+    sh.update(SIM.step, level);              // the pick: fills to capacity
+    const cap = Shield.capacity(level);
+    expect(`level ${level} fills to ${cap} on the pick`, sh.ready === cap);
+    while (sh.tryBlock()) { /* drain */ }
+    expect(`level ${level} is empty after ${cap} blocks`, sh.ready === 0 && !sh.tryBlock());
+    // Refill from empty over one window, on the fixed step.
+    let blocks = 0;
+    for (let t = 0; t < SHIELD.windowSeconds + 1e-9; t += SIM.step) {
+      sh.update(SIM.step, level);
+      while (sh.tryBlock()) blocks++;
+    }
+    console.log(
+      String(level).padStart(6), String(cap).padStart(10),
+      (cap / SHIELD.windowSeconds).toFixed(2).padStart(10), String(blocks).padStart(24),
+      (level < MAX_SHIELD ? 'yes' : 'no').padStart(15),
+    );
+    expect(`level ${level} blocks ${cap} per window from empty`, blocks === cap);
+  }
+  expect('a level is 2 blocks per 5s (the author\'s rule)', SHIELD.blocksPerLevel === 2 && SHIELD.windowSeconds === 5);
+  expect('SHIELD caps at 3 like SENSE', MAX_SHIELD === 3 && MAX_SHIELD === MAX_SENSE);
+  // A charge is one bullet: the Mortar's shell costs 2 and is still one block.
+  const mortar = ENEMY_BY_ID.get('mortar');
+  expect('the Mortar exists and fires a shell', !!mortar && mortar.gun && mortar.gun.shell === true);
+  expect('a shell costs twice a dart', mortar.gun.damage === 2);
+  expect('a shell is slower than every dart', [...ENEMY_BY_ID.values()].every((e) => !e.gun || e.gun.shell || e.gun.speed > mortar.gun.speed));
+  // At the cap it is not offered; it never reaches DPS.
+  let h = 11;
+  const r = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const ctx = { power: 200, damageBonus: 0, rateBonus: 0, guns: 1, pierce: 0, sense: 0, shield: MAX_SHIELD };
+  let offered = 0;
+  for (let i = 0; i < 400; i++) {
+    if (rollOffer(G.perOffer, 8, ctx, r).some((g) => g.axis === 'shield')) offered++;
+  }
+  expect('+SHIELD leaves the pool at the cap', offered === 0);
+  const ctx0 = { ...ctx, shield: 0 };
+  offered = 0;
+  for (let i = 0; i < 400; i++) {
+    if (rollOffer(G.perOffer, 8, ctx0, r).some((g) => g.axis === 'shield')) offered++;
+  }
+  console.log(`  +SHIELD in ${(offered / 4).toFixed(0)}% of wave-8 offers at 0 held, 0% at the cap`);
+  expect('+SHIELD is offered below the cap', offered > 0);
+  expect('squadDps ignores SHIELD', squadDps(state(200, { shield: 3 })) === squadDps(state(200)));
+  const applied = state(1);
+  applyGate(applied, gate('shield', 'raw', 1)); applyGate(applied, gate('shield', 'raw', 1));
+  applyGate(applied, gate('shield', 'raw', 1)); applyGate(applied, gate('shield', 'raw', 1));
+  expect('applyGate clamps SHIELD at the cap', applied.upgrades.shield === MAX_SHIELD);
 }
 
 console.log('\n=== rescue cages and enemy fire scale with the run ===');
@@ -895,13 +959,13 @@ console.log('\n=== contact: what a body costs when it reaches the army ===');
   const { CONTACT, ENEMY_FIRE } = await import('../src/config.ts');
   const { ENEMIES, ENEMY_BY_ID } = await import('../src/data/enemies.ts');
   const { contactCost } = await import('../src/systems/Contact.ts');
-  const byTier = { basic: ['grunt', 'runner'], medium: ['shielder', 'spitter', 'splitter', 'lancer'], large: ['brute', 'bomber'], titan: ['titan'] };
+  const byTier = { basic: ['grunt', 'runner'], medium: ['shielder', 'spitter', 'splitter', 'lancer', 'mortar'], large: ['brute', 'bomber'], titan: ['titan'] };
   for (const e of ENEMIES) {
     expect(`${e.id} names a priced tier (${e.tier})`, Object.hasOwn(CONTACT, e.tier));
     expect(`${e.id} is in the tier the author decided (${e.tier})`, byTier[e.tier].includes(e.id));
   }
   expect('the Healer is gone', !ENEMY_BY_ID.has('healer'));
-  expect('the roster is nine types', ENEMIES.length === 9);
+  expect('the roster is ten types', ENEMIES.length === 10);
   const t = (tier) => ENEMY_BY_ID.get(byTier[tier][0]);
   const cost = (tier, power) => contactCost(t(tier), power);
   expect('basic: floor 1 up to 99 power, share from 100', cost('basic', 1) === 1 && cost('basic', 99) === 1 && cost('basic', 100) === 2);

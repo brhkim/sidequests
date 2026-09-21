@@ -1,19 +1,29 @@
 import Phaser from 'phaser';
 import { SQUAD, VIEW } from '../../config';
 import { AXIS_COLOR, type BonusAxis } from '../../data/gates';
-import { MAX_SENSE, senseChance } from '../../systems/Progression';
-import { CardTile, TILE } from './CardTile';
+import { MAX_SENSE, MAX_SHIELD, senseChance } from '../../systems/Progression';
+import { SHIELD } from '../../config';
+import { CardTile } from './CardTile';
 import { standingColor } from './TopRail';
 import { CAPTION, compact, FONT, formatMult, hex, MONO, SMALL, type HudPayload } from './types';
 
 /** The roots a bonus can draw, at the bottom, middle and top of the range. */
 const SAMPLE_ROOTS = [1.1, 1.25, 1.4] as const;
 
-/** Every axis, in the order the DETAILS page multiplies them, then the RISK three. */
-const AXES: readonly BonusAxis[] = ['army', 'damage', 'rate', 'guns', 'pierce', 'move', 'time', 'sense'];
-const GRID_X = 18;
+/** Every axis, in the order the DETAILS page multiplies them, then the RISK four. */
+const AXES: readonly BonusAxis[] = ['army', 'damage', 'rate', 'guns', 'pierce', 'move', 'time', 'sense', 'shield'];
+const GRID_X = 22;
 const GRID_Y = 298;
 const GRID_GAP = 8;
+/**
+ * Three tiles a row, three rows, since SHIELD made nine axes (1.1): the
+ * tiles are wider and shorter than the field's card (160x64 against
+ * 120x88) so the third row still leaves room for a four-line note beneath
+ * it and the standing line at 664. The anatomy is the same card.
+ */
+const GRID_COLS = 3;
+const GRID_ROWS = 3;
+const PAUSE_TILE = { width: 160, height: 64 } as const;
 
 interface Ruler {
   head: Phaser.GameObjects.Text;
@@ -31,12 +41,12 @@ interface Ruler {
  * it there: it prints a RULER - three offers the player could plausibly be
  * shown, each with the multiplier it is actually worth to them right now.
  *
- * Beneath the ruler, what you hold is eight card tiles in the field's own
+ * Beneath the ruler, what you hold is nine card tiles in the field's own
  * anatomy (the author's call, 2026-09-20, over ten text rows): one per axis,
  * the magnitude the strip shows over the axis word, held tiles lit and unheld
  * tiles dim exactly as strip cells are. One line under the grid says what
  * the tapped tile does; it opens on ARMY and follows the finger, so the
- * teaching is one sentence at a time rather than ten at once. The three RISK
+ * teaching is one sentence at a time rather than ten at once. The four RISK
  * axes say so on the tile.
  *
  * Every note is written for somebody who has not read HOW TO PLAY (the
@@ -85,14 +95,14 @@ export class PauseBonuses {
 
     add(scene.add.rectangle(cx, 284, VIEW.width - 52, 1, 0x2a3350));
 
-    // The grid: four tiles a row, two rows, in DPS order then the RISK three.
+    // The grid: three tiles a row, three rows, in DPS order then the RISK four.
     AXES.forEach((axis, i) => {
-      const col = i % 4, row = Math.floor(i / 4);
-      const x = GRID_X + TILE.width / 2 + col * (TILE.width + GRID_GAP);
-      const y = GRID_Y + TILE.height / 2 + row * (TILE.height + GRID_GAP);
-      const tile = new CardTile(scene, x, y, AXIS_COLOR[axis], TILE.width, TILE.height, axis === 'sense');
+      const col = i % GRID_COLS, row = Math.floor(i / GRID_COLS);
+      const x = GRID_X + PAUSE_TILE.width / 2 + col * (PAUSE_TILE.width + GRID_GAP);
+      const y = GRID_Y + PAUSE_TILE.height / 2 + row * (PAUSE_TILE.height + GRID_GAP);
+      const tile = new CardTile(scene, x, y, AXIS_COLOR[axis], PAUSE_TILE.width, PAUSE_TILE.height, axis === 'sense');
       for (const p of tile.parts) add(p);
-      const hit = add(scene.add.rectangle(x, y, TILE.width, TILE.height, 0xffffff, 0.001)
+      const hit = add(scene.add.rectangle(x, y, PAUSE_TILE.width, PAUSE_TILE.height, 0xffffff, 0.001)
         .setInteractive({ useHandCursor: true }));
       hit.on('pointerdown', (p: Phaser.Input.Pointer) => { p.event.stopPropagation(); this.select(i); });
       this.tiles.push(tile);
@@ -100,7 +110,7 @@ export class PauseBonuses {
 
     // One line of teaching at a time, under the grid, headed by the axis;
     // the hint that says how sits between the grid and the line it explains.
-    const gridBottom = GRID_Y + 2 * TILE.height + GRID_GAP;
+    const gridBottom = GRID_Y + GRID_ROWS * PAUSE_TILE.height + (GRID_ROWS - 1) * GRID_GAP;
     add(scene.add.text(cx, gridBottom + 6, 'tap a card for what it does', {
       fontFamily: FONT, fontSize: '14px', color: SMALL,
     }).setOrigin(0.5, 0));
@@ -186,6 +196,9 @@ export class PauseBonuses {
     this.tiles[7].setPips(h.sense);
     this.setTile(7, '', `SENSE ${Math.round(h.senseChance * 100)}%`, h.sense > 0,
       `${Math.round(h.senseChance * 100)}% of offers arrive with the best card outlined in white (${chances.join(' / ')}% at 1 / 2 / 3 held). Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
+    const perLevel = SHIELD.blocksPerLevel;
+    this.setTile(8, h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0', 'SHIELD RISK', h.shield > 0,
+      `Blocks enemy shots before they cost you soldiers: ${perLevel} shots every ${SHIELD.windowSeconds}s per level held (${h.shield} of ${MAX_SHIELD}; ${h.shieldReady} ready now). A big red shell counts as one shot. Adds no damage, so it is a RISK: PAR never takes it and the score counts it as no growth.`);
     this.select(this.selected);
   }
 }

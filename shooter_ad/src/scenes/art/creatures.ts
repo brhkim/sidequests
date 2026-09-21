@@ -35,6 +35,7 @@ export const CREATURE_ART: Readonly<Record<string, CreatureArt>> = {
   bomber: { body: 'c-bomber', accent: 'a-bomber', rotate: true, pulse: 'fuse' },
   spitter: { body: 'c-spitter', accent: 'a-spitter', rotate: false, aims: true },
   lancer: { body: 'c-lancer', accent: 'a-lancer', rotate: false },
+  mortar: { body: 'c-mortar', accent: 'a-mortar', rotate: false, pulse: 'fuse' },
   titan: { body: 'c-titan', accent: 'a-titan', rotate: false, big: true },
 };
 
@@ -174,6 +175,26 @@ export function makeCreatures(scene: Phaser.Scene): void {
       const a = Math.PI / 2 + d;
       g.lineBetween(34, 36, 34 + 24 * Math.cos(a), 36 + 24 * Math.sin(a));
     }
+  });
+
+  // Mortar r=14: a squat pot on stub feet with one wide black muzzle facing
+  // down the screen. Upright; the accent is the loaded shell glowing in the
+  // muzzle, tinted the shell's scarlet and pulsing like the Bomber's ember,
+  // so the body that fires shells wears the shell's colour before it does.
+  // Box 72 for R 28; the feet cross the circle by 4px of texture.
+  texture(scene, 'c-mortar', 72, 72, (g) => {
+    g.fillStyle(WHITE, 1);
+    g.fillRoundedRect(8, 50, 14, 12, 4);
+    g.fillRoundedRect(50, 50, 14, 12, 4);
+    g.fillRoundedRect(29, 52, 14, 12, 4);
+    g.fillEllipse(36, 32, 54, 44);
+    g.fillRoundedRect(20, 8, 32, 14, 6);
+    g.lineStyle(2, BLACK, 1).lineBetween(14, 30, 58, 30);
+    g.fillStyle(BLACK, 1).fillEllipse(36, 46, 30, 16);
+    eyes(g, 28, 44, 22, 2.5);
+  });
+  texture(scene, 'a-mortar', 72, 72, (g) => {
+    g.fillStyle(WHITE, 1).fillEllipse(36, 46, 24, 12);
   });
 
   // Titan r=38: segmented grub. Three stacked ovals, seams, spines, a broad

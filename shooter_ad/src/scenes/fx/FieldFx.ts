@@ -61,6 +61,13 @@ export class FieldFx {
         case 'contact':
           if (!e.titan) this.labels.spawn(e.x, e.y - 12, `-${e.cost}`, RED, { size: 16, rise: 26, duration: 700 });
           break;
+        case 'block':
+          // Above where the bullet would have landed - clear of the ring and
+          // the ground band - in the axis colour, held like MISS so it can be
+          // read: the gamble paying off is worth a word, and a shell's is the
+          // bigger one.
+          this.labels.spawn(e.x, e.y - 44, 'BLOCK', AXIS_COLOR.shield, { size: e.shell ? 18 : 16, tracking: 2, stroke: 3, rise: 30, duration: 900, hold: 260 });
+          break;
         case 'over': this.death(e.cause); break;
         default: break;
       }

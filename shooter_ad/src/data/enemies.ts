@@ -66,6 +66,13 @@ export interface GunSpec {
   readonly damage: number;
   /** Leads toward the squad instead of firing straight down. */
   readonly aimed: boolean;
+  /**
+   * A SHELL rather than a dart: drawn as a big scarlet round, with
+   * `ENEMY_FIRE.shellRadius` for its hit circle. `damage` still sets what it
+   * costs (the Mortar's is 2, twice a dart); this flag is the size and the
+   * colour, so the player can tell the one to dodge from the many to weather.
+   */
+  readonly shell?: boolean;
 }
 
 /** Periodically spawns another type alongside itself. */
@@ -168,6 +175,19 @@ export const ENEMIES: readonly EnemyType[] = [
     color: 0x6a5acd, accent: 0xe8e2ff,
     radius: 13, hp: 22, speed: 38, tier: 'medium', armor: 0.1, weight: 24, minWave: 7,
     gun: { interval: 2.6, count: 3, spread: 0.42, speed: 185, damage: 1, aimed: false },
+  },
+  {
+    id: 'mortar', name: 'Mortar',
+    // Slow and squat, and it drifts less than a Spitter: the threat is the
+    // shell, not the body. It fires from far up the screen at half a dart's
+    // speed, so a shell is on screen for four seconds and is a thing to
+    // step out of rather than a thing that happens to you.
+    motion: { kind: 'waypoint', lateral: 30, span: 110 },
+    // Stone grey, a hue no other body wears; the accent is the loaded shell
+    // glowing in its muzzle, in the shell's own scarlet.
+    color: 0xa39a8e, accent: 0xff3b3b,
+    radius: 14, hp: 30, speed: 24, tier: 'medium', armor: 0.1, weight: 22, minWave: 6,
+    gun: { interval: 3.2, count: 1, spread: 0, speed: 105, damage: 2, aimed: true, shell: true },
   },
   {
     id: 'titan', name: 'Titan',

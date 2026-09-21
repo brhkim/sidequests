@@ -30,6 +30,7 @@ npm run from       # plays real runs from an INJECTED late-game state, par equal
 npm run titan      # parks a squad under the boss and reports where on its descent it died
 npm run roster     # photographs every enemy type, the cage, every gun's volley, hits and kills
 npm run rescue     # forces a cage open at seven army sizes; asserts the reward and its label
+npm run rail       # forces the rail's widest state; fails if two neighbouring texts touch
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -123,9 +124,10 @@ screens, and dispatches the `moment` stream to
 strip from `HudPayload.titan`, since 2026-09-20; it sat in the fade between
 the rail and the strip before) and
 `hud/WaveBanner`. Field-space feedback is `scenes/fx/FieldFx` inside
-`render/FieldRender`: the grade wash (`PERFECT` / `GOOD` / `BAD`, or `RISK` for a MOVE / TIME / SENSE pick, in
+`render/FieldRender`: the grade wash (`PERFECT` / `GOOD` / `BAD`, or `RISK` for a MOVE / TIME / SENSE / SHIELD pick, in
 the card's own footprint, held then lifted - the one authored motion), `MISS`
-at the lane line, `+N ARMY` over a rescue, `-N` at a contact, and the death
+at the lane line, `+N ARMY` over a rescue, `-N` at a contact, `BLOCK` over
+an absorbed bullet, and the death
 dim. The `toast` string event and the 420ms halo are gone. Gate labels and
 the SENSE tag sit at depth 15, above the squad's stream; `render/GateCards`
 owns the cards, and draws each label as two lines - the magnitude (`×1.05`,
@@ -152,6 +154,7 @@ screen from the start screen's HOW TO PLAY at depth 65 (over the start
 screen; 55 when pausing), with BACK for RESUME and no RESTART. GameScene
 publishes one HUD frame in `announceMatch` so that page has the start
 state's numbers. The rail's columns are WAVE / YOUR DPS / PAR DPS / SENSE
+/ SHIELD (five unequal lanes since 1.1, labels and sub-lines at 13px)
 with BEST PLAY under PAR. Instrument anchors moved with the words: ENTER
 A CODE, NEW MATCH (start and end), the NORMAL / HARD segments (the lit
 one's text is `#e8ecf8`), HOW TO PLAY, BACK; `npm run endscreen` presses
@@ -504,11 +507,11 @@ show up in the score. One ordering trap, already paid for: `consumePair` is what
 opens the log entry for a gate taken before it reaches the lane line, so
 resolving before it silently left every such decision unrecorded.
 
-### Scoring prices DPS and nothing else; MOVE, TIME and SENSE are RISK
+### Scoring prices DPS and nothing else; MOVE, TIME, SENSE and SHIELD are RISK
 
-`x MOVE`, `+TIME` and `+SENSE` change no damage number, and `scoreOffer`
-prices each at **exactly zero**: `progressValue` is `squadDps`, full stop.
-`RISK_AXES` in config names the three. For two sessions they were priced
+`x MOVE`, `+TIME`, `+SENSE` and `+SHIELD` change no damage number, and
+`scoreOffer` prices each at **exactly zero**: `progressValue` is `squadDps`,
+full stop. `RISK_AXES` in config names the four (SHIELD since 1.1). For two sessions they were priced
 through an access factor (`1 - w / (1 + reach)`) and a sense factor so that
 par would sometimes take one; the author's rule (`notes.md`, "RISK: the
 three axes par never takes") replaced that, and `SCORING`, `reach`,
@@ -856,6 +859,34 @@ against 2.0 to 2.5 (the price is under the truth). A price above the
 measurement late would have meant par budgeting enemies against damage nobody
 delivers, which is the failure `deliverableDps` once existed for.
 
+### `+SHIELD` is a charge pool the squad owns
+
+`Upgrades.shield` (0 to `SHIELD.maxLevel`, 3) is the level held;
+`systems/Shield.ts` is the pool: `SHIELD.blocksPerLevel x level` charges
+(2 per level), refilling continuously at that many per
+`SHIELD.windowSeconds` (5), so a level is "blocks up to 2 bullets per 5s"
+whether the bullets arrive together or apart. The squad owns one
+(`Squad.shield`), stepped in `Squad.update` on the fixed clock; a level
+change fills the pool to its new capacity at once. `GameScene.applyIncomingFire`
+hands `EnemyBullets.collide` an `absorb` callback that spends a charge per
+landing bullet - shell or dart, one charge - and pushes a `block` event
+(position, `shell`, charges `left`) for the BLOCK word, the ring's flash,
+the shard puff and the `block` cue; an absorbed bullet costs nothing and is
+not a `fire` hit. `stats.blocked` counts them and `npm run balance` prints
+`shield: N held, M blocked` per seed. The pool is filtered out of the
+candidate pool at the cap like SENSE (`OfferContext.shield`). `npm run
+model` asserts the fill on a pick, the drain, the refill of exactly
+`capacity` per window from empty, the cap, the pool filter and the zero
+price; `npm run moments` forces one level and three bullets and asserts two
+BLOCK words and `blocked === 2`.
+
+Rendering: `SpriteRender.renderShield` draws an arc ring around the leader
+at depth 19 - one segment per charge the pool holds, lit where ready, dim
+where refilling, white for two hit-flashes after a block. The rail's fifth
+column is `ready/capacity` over READY (pips at the value size were 123px at
+six charges, wider than the lane; `npm run rail` is what caught it), and
+the pause BONUSES tile shows the same.
+
 ### `+SENSE` is a roll at spawn and a mark computed live
 
 `Gates.spawnOffer` draws ONE extra number from the seeded generator per offer,
@@ -1102,7 +1133,7 @@ by the body's `tier` (`CONTACT` in config; the roster names one per type):
 | tier | types | share | floor | at 19 | at 100 | at 640 | at 38,912 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | basic | Grunt, Runner | 2% | 1 | 1 | 2 | 12 | 778 |
-| medium | Shielder, Spitter, Splitter, Lancer | 4% | 2 | 2 | 4 | 25 | 1,556 |
+| medium | Shielder, Spitter, Splitter, Lancer, Mortar | 4% | 2 | 2 | 4 | 25 | 1,556 |
 | large | Brute, Bomber | 6% | 3 | 3 | 6 | 38 | 2,334 |
 | titan | Titan | 100% | - | run ends | run ends | run ends | run ends |
 
@@ -1110,7 +1141,7 @@ A bullet is 1% floor 1 for comparison, so a Basic contact is never cheaper
 than a bullet and a Large is three. The share overtakes the floor at 100 /
 75 / 67 power. `npm run model` asserts the floors, the shares at the old cap,
 the Titan as the whole army, monotonicity over the three ordinary tiers, and
-that the roster is nine types with no Healer. The flat table it replaces
+that the roster is ten types with no Healer (the Mortar joined in 1.1). The flat table it replaces
 (1/1/3/2/2/5/1/2 per type, `EnemyType.damage`, now deleted rather than kept
 beside `tier`) went dead the way a flat bullet did: at 640 power a leak cost a
 sixth of a percent.
@@ -1260,7 +1291,21 @@ no body wears it), with a faint copy behind it (`RENDER.bulletTrail`). Squad
 bullets stay the cream pill on the tier ladder. `ENEMY_FIRE.radius` is
 unchanged; the dart is 8x16 on screen around a 5px hit circle.
 
-**Depth map** (UX and HUD layers omitted; see their sections):
+**A shell is a big slow round** (1.1). `GunSpec.shell` marks a gun whose
+bullets are `eshell` - a black-outlined disc with a highlight, 20px on
+screen around `ENEMY_FIRE.shellRadius` (9) - in `COLORS.enemyShell`
+(scarlet). `EnemyBullet.shell` carries the flag; `EnemyBullets.radiusOf`
+picks the hit radius per bullet, so the swept test is per bullet too. The
+only shell gun is the **Mortar**'s (`data/enemies.ts`: medium tier, wave 6,
+weight 22, `interval 3.2, speed 105, damage 2, aimed`), so a shell costs
+twice a dart through the same `powerShare` arithmetic. The Mortar is drawn
+upright as a squat pot with a black muzzle (`c-mortar`) and the loaded shell
+glowing in it as its accent (`a-mortar`, pulsing like the Bomber's ember).
+`npm run behaviour` picks it up as a shooter automatically; `npm run
+roster` puts a shell beside the darts in the volley still.
+
+**Depth map** (UX and HUD layers omitted; see their sections; the SHIELD
+ring is 19, between the shards and the squad):
 
 | depth | what |
 | --- | --- |
@@ -1328,7 +1373,8 @@ neutral` are what keep that true.
 
 **Mapping.** `kill` -> `kill` (bundled; a Titan kill is `titan down` ->
 `titanKill`); `contact` / `breach` -> the same-named cues, level rising with
-`share`; `fire` with hits -> `fireHit`; `pick` -> `pickPerfect` / `pickGood`
+`share`; `fire` with hits -> `fireHit`; `block` -> `block` (a bright clink,
+bundled like `fireHit`, priority 32); `pick` -> `pickPerfect` / `pickGood`
 / `pickBad` / `pickRisk` by grade; `miss`, `rescue`, `wave`, `sense` -> the
 same names; `titan arrive` -> `titanArrive` and a heartbeat (`titanPulse`)
 that quickens over 20 s, since audio cannot see the descent; `titan volley`
@@ -1430,16 +1476,22 @@ cage, so `opened` reads 0 on every probe row: the reward is measured by
 - **Enemy**: append to `ENEMIES` in `data/enemies.ts` with a `tier` (what it
   costs on contact - see `CONTACT`). Movement is a `motion` union with one
   case each in `systems/EnemyMotion.ts`; only genuinely new movement needs a
-  case there, and every case is used by at least one of the nine types.
+  case there, and every case is used by at least one of the ten types. A
+  gun is a `GunSpec`; `shell: true` makes its bullets big slow rounds
+  (the Mortar). Add a row to `CREATURE_ART` and two textures, or the type
+  draws as the fallback disc.
 - **Bonus**: append to `CANDIDATES` in `data/gates.ts` plus one case in the
   progression model. Magnitudes are never hardcoded — every bonus draws from the
   root table in `data/roots.ts` and presents the draw according to its form.
   The discrete axes do too: from `GATES.scaleDiscreteFrom` held, `+N GUNS` and
   `+N PIERCE` are the whole number whose effect is nearest the draw
   (`Progression.discreteAmount`), so `OfferContext` carries `guns`, `pierce`
-  and `sense` beside the pools. A bonus that changes no damage number - MOVE,
-  TIME, SENSE - is a RISK axis (`RISK_AXES`): priced at zero, never taken by
-  par, told RISK when the player takes it; `npm run model` asserts the zero.
+  , `sense` and `shield` beside the pools. A bonus that changes no damage
+  number - MOVE, TIME, SENSE, SHIELD - is a RISK axis (`RISK_AXES`): priced
+  at zero, never taken by par, told RISK when the player takes it; `npm run
+  model` asserts the zero. A ninth axis also means a ninth pause tile
+  (`PauseBonuses` is a 3x3 grid of 160x64 tiles since 1.1) and, if it has
+  live state, a rail column - run `npm run rail` after touching either.
   Colour names the axis and both forms of an axis share it, so the player cannot
   read the raw-versus-multiplicative choice off the tint instead of doing the
   conversion.
