@@ -1303,8 +1303,8 @@ bullets are `eshell` - a black-outlined disc with a highlight, 20px on
 screen around `ENEMY_FIRE.shellRadius` (9) - in `COLORS.enemyShell`
 (scarlet). `EnemyBullet.shell` carries the flag; `EnemyBullets.radiusOf`
 picks the hit radius per bullet, so the swept test is per bullet too. The
-only shell gun is the **Mortar**'s (`data/enemies.ts`: medium tier, wave 6,
-weight 22, `interval 3.2, speed 105, damage 2, aimed`), so a shell costs
+only shell gun is the **Mortar**'s (`data/enemies.ts`: medium tier, wave 10,
+weight 11 and `interval 6` since 1.3, `speed 105, damage 2, aimed`), so a shell costs
 twice a dart through the same `powerShare` arithmetic. The Mortar is drawn
 upright as a squat pot with a black muzzle (`c-mortar`) and the loaded shell
 glowing in it as its accent (`a-mortar`, pulsing like the Bomber's ember).
@@ -1481,7 +1481,12 @@ cage, so `opened` reads 0 on every probe row: the reward is measured by
 ## Extending content
 
 - **Enemy**: append to `ENEMIES` in `data/enemies.ts` with a `tier` (what it
-  costs on contact - see `CONTACT`). Movement is a `motion` union with one
+  costs on contact - see `CONTACT`). A type with a `gun` is a shooter: half
+  the weight its body would carry, and one new shooter per five waves
+  (Spitter 5, Mortar 10, Lancer 15) is the shooter curve since 1.3 - the
+  author chose spawn rates over a live cap so clearing a ranged body is
+  rewarded rather than answered. The guns fire every 3 / 4.5 / 6s
+  (Spitter / Lancer / Mortar) since 1.3. Movement is a `motion` union with one
   case each in `systems/EnemyMotion.ts`; only genuinely new movement needs a
   case there, and every case is used by at least one of the ten types. A
   gun is a `GunSpec`; `shell: true` makes its bullets big slow rounds

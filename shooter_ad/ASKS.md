@@ -687,3 +687,30 @@ LIVE shooters (not spawned per wave) by wave band, with the roll
 re-drawn from the non-shooter pool when it is full, and `npm run balance`
 / `npm run from` printing live shooters and shots-per-minute so the cap
 is set against a reading. Waiting on the author's numbers.
+
+## 2. The author's answer (verbatim)
+
+> I'm thinking for determinism's sake that we don't constrain the spawns
+> per se but tune the spawn rates instead. I think the system you designed
+> makes sense but also basically "punishes" the player for clearing ranged
+> mobs by instantaneously spawning them again, basically. Rather, players
+> are benefitted by clearing them and that's the game.
+>
+> So I think ranged enemies let's reduce their chances to spawn by half
+> relative to the other mobs. Then if we have new ranged enemies spawning
+> at later waves, that'll auto-tune the difficulty. Let's change it so
+> spitter spawns starting at wave 5, mortar at wave 10, and lancer at wave
+> 15.
+
+Status: `landed`, version **1.3**. `data/enemies.ts`: Spitter weight 30 to
+15 at wave 5 (was 4), Mortar 22 to 11 at wave 10 (was 6), Lancer 24 to 12
+at wave 15 (was 7). The live cap is declined and recorded as such in
+`notes.md` ("Shooters spawn at half weight, one new type per five waves").
+Shooter share of spawns is 6% at wave 5, 9% from 10, 12% from 15, against
+12 / 21 / 21% before.
+
+> Can we change it so that the spitter's shot is ever 3s, the lancer's shot
+> is every 4.5s and the mortar's shot is every 6s?
+
+Status: `landed`, in 1.3. `interval` 2.1 to 3, 2.6 to 4.5, 3.2 to 6. The
+Titan's gun (3.4s) is untouched.
