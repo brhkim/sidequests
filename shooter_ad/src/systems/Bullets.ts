@@ -134,9 +134,10 @@ export class Bullets {
  * Consumption starts from the LOWEST pierce level, because those are the shots
  * that have already hit the most bodies - the leading edge of the stream - and
  * the leading edge is what meets the next body first. A consumed shot with
- * pierce left drops one level (`through`); one at level 0 is spent. Cages stop
- * every shot that hits them whatever its pierce, so they call with `through`
- * false.
+ * pierce left drops one level (`through`); one at level 0 is spent. `through`
+ * false would make a body spend every shot whatever its pierce; nothing calls
+ * it that way since 1.2 (cages did, until the author asked for pierce to
+ * carry past them), and it stays for the fully-armoured case a test may want.
  *
  * A bullet standing for one shot reduces to the old rule exactly: one hit, one
  * pierce spent or the bullet gone. That is the property that keeps the whole

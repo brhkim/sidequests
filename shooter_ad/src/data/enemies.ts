@@ -118,6 +118,14 @@ export interface EnemyType {
   readonly splitCount?: number;
 }
 
+/**
+ * Shooters (a `gun`, the Titan aside) carry HALF the weight their body size
+ * would suggest and arrive one at a time - the Spitter at wave 5, the Mortar
+ * at 10, the Lancer at 15 (1.3, the author's call). Nothing counts live
+ * shooters: the author chose rates over a cap so that clearing a ranged body
+ * is rewarded with a quieter field rather than answered by another one. The
+ * pool gaining a shooter every five waves is what steps the fire up.
+ */
 export const ENEMIES: readonly EnemyType[] = [
   {
     id: 'grunt', name: 'Grunt',
@@ -163,8 +171,8 @@ export const ENEMIES: readonly EnemyType[] = [
     id: 'spitter', name: 'Spitter',
     motion: { kind: 'waypoint', lateral: 58, span: 150 },
     color: 0x3fc9c9, accent: 0xf4fbff,
-    radius: 12, hp: 16, speed: 30, tier: 'medium', armor: 0, weight: 30, minWave: 4,
-    gun: { interval: 2.1, count: 1, spread: 0, speed: 210, damage: 1, aimed: true },
+    radius: 12, hp: 16, speed: 30, tier: 'medium', armor: 0, weight: 15, minWave: 5,
+    gun: { interval: 3, count: 1, spread: 0, speed: 210, damage: 1, aimed: true },
   },
   {
     id: 'lancer', name: 'Lancer',
@@ -173,8 +181,8 @@ export const ENEMIES: readonly EnemyType[] = [
     // Indigo, deliberately: the old rose was a shade off the enemy-bullet
     // magenta, and a Lancer read as one of its own darts at a glance.
     color: 0x6a5acd, accent: 0xe8e2ff,
-    radius: 13, hp: 22, speed: 38, tier: 'medium', armor: 0.1, weight: 24, minWave: 7,
-    gun: { interval: 2.6, count: 3, spread: 0.42, speed: 185, damage: 1, aimed: false },
+    radius: 13, hp: 22, speed: 38, tier: 'medium', armor: 0.1, weight: 12, minWave: 15,
+    gun: { interval: 4.5, count: 3, spread: 0.42, speed: 185, damage: 1, aimed: false },
   },
   {
     id: 'mortar', name: 'Mortar',
@@ -186,8 +194,8 @@ export const ENEMIES: readonly EnemyType[] = [
     // Stone grey, a hue no other body wears; the accent is the loaded shell
     // glowing in its muzzle, in the shell's own scarlet.
     color: 0xa39a8e, accent: 0xff3b3b,
-    radius: 14, hp: 30, speed: 24, tier: 'medium', armor: 0.1, weight: 22, minWave: 6,
-    gun: { interval: 3.2, count: 1, spread: 0, speed: 105, damage: 2, aimed: true, shell: true },
+    radius: 14, hp: 30, speed: 24, tier: 'medium', armor: 0.1, weight: 11, minWave: 10,
+    gun: { interval: 6, count: 1, spread: 0, speed: 105, damage: 2, aimed: true, shell: true },
   },
   {
     id: 'titan', name: 'Titan',

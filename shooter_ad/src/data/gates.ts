@@ -119,7 +119,7 @@ const CANDIDATES: readonly Candidate[] = [
   { axis: 'sense',  form: 'raw',  weight: 30,  minWave: 2 },
   // Protection. Blocks a few enemy bullets every few seconds and nothing
   // else; a RISK axis like SENSE, capped and filtered out at the cap. From
-  // wave 3, one wave before the first gun (the Spitter) can appear.
+  // wave 3, two waves before the first gun (the Spitter, wave 5) can appear.
   { axis: 'shield', form: 'raw',  weight: 30,  minWave: 3 },
 ];
 

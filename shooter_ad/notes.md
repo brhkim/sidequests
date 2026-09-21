@@ -922,6 +922,16 @@ card is sized to the player's pool and par applies the same N to its
 smaller one, which nudges par UP when the player is ahead - it closes the
 gap slightly rather than widening it, and it is small.
 
+### Pierce carries past a cage
+
+**Decided, 2026-09-21 (1.2), the author's ask** ("RESCUE boxes seem not to
+be affected by PIERCE but should be"). Until then the bars spent every shot
+that hit them, whatever its pierce - a code comment's rule that these notes
+never carried. A cage is now a body to the stream like any other: the shots
+that open it spend one pierce and fly on to whatever is behind it, so a
+pierce build shooting out a cage keeps the column it paid for, and the
+cage's price stays what it was (its HP, a fraction of a Titan's).
+
 ## The field starts where the HUD ends
 
 **Decided, 2026-09-20 (1.0).** Enemies and cages spawn at the bottom edge of
@@ -994,13 +1004,35 @@ standing near zero, where before they ended at a Titan near par. That is the
 designed consequence for a player who does not move; whether it is right for
 one who does is a question for the author under fire.
 
+### Shooters spawn at half weight, one new type per five waves
+
+**Decided, 2026-09-21 (1.3), the author's call.** The fire felt too heavy
+("between the Mortars and the other shooters, the difficulty curve seems
+too hard in terms of enemy projectiles"). Nothing decided the shooter count
+before: one weighted draw per spawn with no memory, so shooters were 21%
+of every spawn from wave 7, waves shortened as spawn rates rose, and an
+unkilled Spitter (33s), Mortar (41s) or Lancer (65s of harassing descent)
+outlived two or three 9-14s waves, so late waves inherited the shooters of
+the waves before them. A cap on LIVE shooters was proposed and declined:
+it would answer every cleared ranged body with another one, where the game
+is that clearing them makes the field quieter. Instead every gun type
+carries **half the weight** its body would (Spitter 15, Mortar 11, Lancer
+12) and they arrive one at a time - **Spitter at wave 5, Mortar at 10,
+Lancer at 15** - so the pool gaining a shooter every five waves is what
+steps the fire up. Shooter share of spawns: 6% at wave 5, 9% from 10, 12%
+from 15, against 12 / 21 / 21% before.
+
+The guns slowed with it, the author's numbers: the Spitter fires every
+**3s** (was 2.1), the Lancer's trident every **4.5s** (2.6), the Mortar's
+shell every **6s** (3.2). The Titan's fan stays at 3.4s.
+
 ### The Mortar fires a shell: one big slow bullet
 
 **Added 2026-09-21 (1.1), the author's ask** ("one of the enemies to have a
 'Big bullet' type; a slower red bullet rather than just the many small
 bullets ... twice as much relative damage"). The **Mortar** is a new
-medium-tier type from wave 6: a squat stone-grey pot that drifts a little
-and lobs one aimed **shell** every 3.2s - scarlet, nearly twice a dart's
+medium-tier type from wave 10 (wave 6 until 1.3): a squat stone-grey pot that drifts a little
+and lobs one aimed **shell** every 6s (3.2s until 1.3) - scarlet, nearly twice a dart's
 radius, half a dart's speed, and `damage: 2`, so it costs twice the 1% share
 a dart does (2 power at the floor, 2% of the army past 200). The point is
 legibility of threat: the darts are weather, the shell is a thing you see
