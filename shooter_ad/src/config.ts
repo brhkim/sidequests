@@ -522,10 +522,13 @@ export const SIM = {
 export const GATES = {
   /** Seconds between offers descending. */
   interval: 7.5,
-  /** Approach speed at wave 1. Rises with the wave - see `speedPerWave`. */
+  /** Approach speed at wave 1. Rises with the wave - see `maxSpeedMult`. */
   speed: 108,
   /**
-   * Fractional rise in approach speed per wave past the first.
+   * The rise in approach speed: linear from x1 at wave 1 to `maxSpeedMult`
+   * at `speedCapWave` (judgment waves), then flat. The per-wave slope is
+   * derived, `(maxSpeedMult - 1) / (speedCapWave - 1)`, in
+   * `Progression.waveGateSpeedMult`.
    *
    * THE primary difficulty lever on the judgment axis, and deliberately
    * separate from enemy pressure: later waves do not give you a harder sum,
@@ -533,16 +536,16 @@ export const GATES = {
    * (see systems/Difficulty.ts) and never keys off the wave number; this does,
    * because thinking time is not something a shadow player can be budgeted
    * against.
+   *
+   * History: 0.075 a wave to x2.5 at wave 21 ("~3.2s is as short as three
+   * labels can be read in"); then to x3.25 at wave 31 (0.8, two more
+   * five-wave steps of the same slope); now (1.7, the author's ask) x3.5 at
+   * wave 40 (hard: 35), rolling continuously from wave 2 - about 0.064 a
+   * wave, a ~2.6s descent at the cap. Past it the game is testing reflexes,
+   * and that is the point.
    */
-  speedPerWave: 0.075,
-  /**
-   * Ceiling on that rise. It was 2.5, reached at wave 21, on the argument
-   * that ~3.2s is as short as three labels can be read in. The author's
-   * call (2026-09-20, 0.8) is two more five-wave steps of the same slope
-   * rather than a flat line: 3.25, reached at wave 31 (hard: 26), a ~2.8s
-   * descent. Past it the game is testing reflexes, and that is the point.
-   */
-  maxSpeedMult: 3.25,
+  maxSpeedMult: 3.5,
+  speedCapWave: 40,
   /**
    * Card height, and the vertical hit window with it. 88 holds two lines - the
    * magnitude over the axis - so a label stays readable on the narrowest card
@@ -563,54 +566,49 @@ export const GATES = {
    * collect it through the noise of everything else on the field.
    *
    * Keyed on `judgmentWave`, like speed and legibility, so hard mode gets it
-   * five waves earlier. `fromWave` is the last wave WITHOUT it: zero through
-   * wave 4, then `perWave` more every wave - 6px at wave 5, 12 at 6, 36 on the
-   * second Titan at 10 - capped at `max` from wave 16 (hard: wave 11).
-   * In the player's units: three lanes across 540px are 180px each, so at
-   * wave 16 a lane holds a 108px gate and the leader must be within ±54px of
-   * its centre; the card is drawn exactly as wide as it hits.
+   * five waves earlier. `fromWave` is the last wave WITHOUT it; from the
+   * next wave it rises linearly to `max` at `capWave` and holds. One slope
+   * since 1.7 (the author's ask: "0 through wave 9, then continue through
+   * wave 30 from there progressively"): zero through wave 9, ~4.6px a wave
+   * from wave 10, 97px at wave 30 (hard: 25). In the player's units: three
+   * lanes across 540px are 180px each, so the wave-30 lane holds an 83px
+   * gate and the leader must be within +-41px of its centre; the card is
+   * drawn exactly as wide as it hits. `max` is what `minWidth` allows: the
+   * axis word (`PIERCE`, 14px tracked) needs ~76px and the magnitude
+   * already shrinks to fit, so a 180px lane can lose at most 100.
    *
-   * The first stage reaches `max` (72px, a 108px gate) at wave 16. It used
-   * to flatten there; the author's call (2026-09-20, 0.8) is two more
-   * five-wave steps rather than a plateau, so a second stage continues at
-   * `latePerWave` from wave 16 to `lateMax` at wave 26 (hard: 21). The late
-   * slope is shallower than the first because 6px a wave for ten more waves
-   * would leave a 48px card, which cannot hold its own label: 2.5px a wave
-   * ends at 97px of dead space, an 83px gate, and the leader within ±41px.
-   *
-   * `lateMax` is derived from `minWidth`: the axis word (`PIERCE`, 14px
-   * tracked) needs ~76px and the magnitude already shrinks to fit, so the
-   * lane can lose at most 100. `minWidth` clamps regardless so a future lane
-   * count cannot squeeze a card past legibility.
+   * History: 6px a wave from wave 5 to 72px at wave 16 (0.5), then a second
+   * stage at 2.5px a wave to 97px at wave 26 (0.8).
    */
-  deadSpace: { fromWave: 4, perWave: 6, max: 72, latePerWave: 2.5, lateMax: 97 },
+  deadSpace: { fromWave: 9, capWave: 30, max: 97 },
   /** A gate is never narrower than this, whatever the dead space asks. */
   minWidth: 80,
   /**
-   * Gate SWAY: once dead space stops growing (judgment wave 26, normal),
+   * Gate SWAY: once dead space stops growing (judgment wave 30, normal),
    * each card drifts left and right inside its own lane (1.6, the author's
    * ask). The fifth judgment lever, and the first that moves the target
    * rather than shrinking it.
    *
    * `fromWave` is the last wave WITHOUT it - the wave dead space reaches
-   * `lateMax` - so sway begins the wave after the last width change. Its
+   * `max`, the end of the width's own five-wave bracket - so sway begins in
+   * the bracket after the last width change (1.7, the author's ask). Its
    * pace is in PERIODS PER DESCENT: how many full left-right-left cycles a
    * card completes between its spawn and the lane line, whatever the
    * descent's speed in seconds. `periods[i]` is the pace of tier i, and a
-   * tier lasts `tierWaves` waves: 0.5 a descent from wave 27 (a slow drift
+   * tier lasts `tierWaves` waves: 0.5 a descent from wave 31 (a slow drift
    * from one side of the lane to the other and back to centre), 1 from
-   * wave 32, 1.5 from wave 37 and forever after. The phase is a function
+   * wave 36, 1.5 from wave 41 and forever after. The phase is a function
    * of the card's y and nothing else - no RNG, no clock - so a seed still
    * replays and `+TIME` slows the sway with the descent it slows.
    *
    * The amplitude is what the lane leaves: half its dead space, so the
    * card's edge touches the lane boundary at the extremes and never
    * crosses into a neighbour. At 97px of dead space that is +-48.5px; at
-   * 1.5 periods over a ~2.8s descent the card's peak lateral speed is
-   * ~165px/s against a 195px/s squad at x1 MOVE. The lane itself is drawn
+   * 1.5 periods over a ~2.6s descent the card's peak lateral speed is
+   * ~175px/s against a 195px/s squad at x1 MOVE. The lane itself is drawn
    * as a faint grey track behind the card so the limits are visible.
    */
-  sway: { fromWave: 26, tierWaves: 5, periods: [0.5, 1, 1.5] },
+  sway: { fromWave: 30, tierWaves: 5, periods: [0.5, 1, 1.5] },
   /**
    * GUN and PIERCE are whole numbers, so they cannot draw a root the way the
    * pools do - and a flat `+1` shrinks as you stack them: the fourth gun is

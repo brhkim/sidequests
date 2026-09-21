@@ -6,9 +6,9 @@ Paste everything below the line into a fresh session.
 
 You are picking up `shooter_ad`, a browser game in the `brhkim/sidequests` repo,
 on branch `claude/laughing-feynman-ghh9r3` (no PR open; the branch is ahead
-of `main` by six sessions' work; the last commit is this session's, 1.6, on
-top of `422ad35`, the 1.5 commit). The version tag is **1.6**; a seed only
-compares with another 1.6 run. Nothing is blocked. §4 is what the author
+of `main` by six sessions' work; the last two commits are this session's,
+1.6 and 1.7, on top of `422ad35`, the 1.5 commit). The version tag is
+**1.7**; a seed only compares with another 1.7 run. Nothing is blocked. §4 is what the author
 still has to do or decide, §5 what nobody has verified.
 
 ## 1. Orient before touching anything
@@ -40,18 +40,18 @@ Then:
 
 ```bash
 cd shooter_ad && npm ci && npm run build && npm run verify && npm run model
-npm run sway       # sway-26/27/32/37.png: still, then the three tiers on their grey tracks
+npm run sway       # sway-30/31/36/41.png: still, then the three tiers on their grey tracks
 npm run hud        # hud-echo.png: a full ghost ring left, a half ring right, three columns
 npm run endscreen  # pause-mid.png: the MOVE INVEST tile reads x1.00; start-invited.png v1.6
 npm run moments    # moment-block-body.png: a body into a shielded ring
 npm run rescue     # the pierce-past-a-cage check at 0 / 1 / 2
 npm run rail       # the rail at 88 / 100 / 96 / 100 / 76
 npm run from -- --dps=1e5            # the only instrument that meets a shooter
-npm run from -- --dps=1e5 --wave=37  # the bot under full sway
+npm run from -- --dps=1e5 --wave=41  # the bot under full sway
 ```
 
 Do not start until you have looked at `.verify/screenshot.png`,
-`.verify/sway-37.png`, `.verify/sway-27.png`, `.verify/pause-mid.png` and
+`.verify/sway-41.png`, `.verify/sway-31.png`, `.verify/pause-mid.png` and
 `.verify/moment-block-body.png`.
 
 ## 2. What the game is
@@ -62,15 +62,16 @@ they arrive, which most increases your damage output. A stat is
 ever dominant. Difficulty is closed-loop against a shadow "par" player who
 takes the best DPS option every time and collects nothing else. Five
 judgment levers rise with the wave: descent speed, root granularity, raw
-rounding, dead space between the gates, and (from wave 27) the gates'
+rounding, dead space between the gates, and (from wave 31) the gates'
 sway inside their lanes. MOVE, TIME, SENSE and SHIELD
 are INVEST axes (RISK until 1.5): worth zero to the scoring, never taken
 by par, the player's gamble. ECHO is the tenth axis and a damage one.
 
 ## 3. What changed this session, in the order it landed
 
-Every item is the author's ask, recorded verbatim in `ASKS.md`. One
-version, 1.6, three balance changes:
+Every item is the author's ask, recorded verbatim in `ASKS.md`. Two
+versions: 1.6 (three features) and 1.7 (the curve re-bracketed after the
+author read 1.6's).
 
 1. **MOVE is three levels on a slower base.** `SQUAD.moveSpeed` 260 to 195
    (a quarter off). `Upgrades.move` 0 to 3 replaces `moveMult`; the ladder
@@ -78,10 +79,10 @@ version, 1.6, three balance changes:
    the card is `+MOVE` (was a root draw `x1.05` to `x1.5`), filtered out at
    three held through `OfferContext.move`. HUD carries `move` and the
    derived `moveMult`; the pause tile and the guide say the ladder.
-2. **Gate sway.** `GATES.sway` `{ fromWave: 26, tierWaves: 5, periods:
-   [0.5, 1, 1.5] }`: none until dead space caps (judgment wave 26), then
-   0.5 / 1 / 1.5 periods per descent from waves 27 / 32 / 37 (hard five
-   earlier), held after. Amplitude is half the dead space (+-48.5px), so a
+2. **Gate sway.** `GATES.sway` `{ fromWave: 30, tierWaves: 5, periods:
+   [0.5, 1, 1.5] }` (26 in 1.6): none through the bracket in which dead
+   space caps, then 0.5 / 1 / 1.5 periods per descent from waves 31 / 36 /
+   41 (hard five earlier), held after. Amplitude is half the dead space (+-48.5px), so a
    card touches its lane edge and never crosses; `swayOffset` is a sine of
    the card's descent progress (centre at spawn and at the line), a
    function of y alone, so `repeat` is 0.00% and `+TIME` slows it with the
@@ -89,17 +90,29 @@ version, 1.6, three balance changes:
    set from `g.y` each step. The track: `RENDER.gate.track` grey at 0.09
    fill, 0.28 hairline, lane-wide, depth 3, drawn only on a swaying card.
    The reading of "1.5x periods of movement across the whole length of the
-   screen" as 1.5 cycles per descent is mine; the author has not confirmed.
+   screen" as 1.5 cycles per descent is mine; the author said "great" to
+   the walkthrough that stated it.
 3. **Every price on the army is a share of its peak.**
    `Contact.damageBase(power, peak)` = `max(held, peak x 0.5)`
    (`ARMY_DAMAGE.mercy`); `contactCost` takes the peak, `bulletCost` is new
    and `applyIncomingFire` reads it; `Squad.peak` is the lazy high-water
    mark. Floors unchanged. Event `share` clamped to 1.
 
-Instruments: `npm run sway` (new; four pages, movement / lane bound /
-track count asserted, four stills); `npm run model` prints sway columns on
-the judgment curve, the decline table from a peak of 1,000 and the MOVE
-ladder, and asserts all three features; `npm run moments` holds 24 power
+4. **1.7 - the curve in brackets** (the author, after a walkthrough of
+   where each lever shifts): descent speed rolls continuously from wave 2
+   to **x3.5 at wave 40** (`speedCapWave`; `speedPerWave` deleted, the
+   slope derived); dead space **0 through wave 9, one slope to 97px at
+   wave 30** (`{ fromWave: 9, capWave: 30, max: 97 }`, the two stages
+   gone); legibility tiers at **1 / 5 / 15 / 25**; shooters at **5 / 15 /
+   25** (Spitter / Mortar / Lancer); sway from 31 as above. Hard mode is
+   every one of those five waves earlier.
+
+Instruments: `npm run sway` (new; four pages at 30 / 31 / 36 / 41,
+movement / lane bound / track count asserted, four stills); `npm run
+model` prints sway columns on the judgment curve, the decline table from a
+peak of 1,000 and the MOVE ladder, and asserts every 1.6 and 1.7 number
+(the shooter waves, the legibility waves, the constant dead-space step,
+both cap waves, the sway brackets); `npm run moments` holds 24 power
 before the MISS wait (on 1.6 the seed's army of 3 died at 25% of par
 before a fourth offer arrived - the seed, not a bug).
 
@@ -120,8 +133,16 @@ steps aside pays the highest rate a player would. `from --wave=37` (full
 sway): 84.4 / 86.0 / 59.5s, 10 / 11 / 7 decisions, one death to a Titan -
 swaying cards are still taken by a bot that steers to their live x.
 
-`verify`, `model`, `repeat` (0.00%), `sway`, `moments`, `hud`, `endscreen`,
-`rescue` and `rail` pass on 1.6.
+**1.7, measured.** `npm run balance` seeds 1-3: 33.9 / 34.3 / 43.9s, the
+1.5 numbers to the decimal (the bot dies at wave 3, where nothing in 1.7
+has started). `npm run from -- --dps=1e5` (wave 16): seed 2 hit the 150s
+budget at wave 32 (a floor), seed 3 83.5s; seed 1's row was cut from the
+log and is unrecorded. Wave 16 is easier than it was - 32px of dead space
+against 72, no Mortar until 15 and no Lancer until 25 - so a longer run
+there is the curve moving, not a bug. `from --wave=41` (full sway, x3.5
+descent): 79.8 / 69.4 / 79.3s, 10 / 8 / 10 decisions, no Titan landing.
+`verify`, `model`, `repeat` (0.00%), `sway`, `moments` (wave-16 cards
+147.7px), `endscreen`, `rescue` and `rail` pass on 1.7.
 
 ## 4. What the author still has to do or decide
 

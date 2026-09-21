@@ -1,5 +1,5 @@
 /**
- * Gate sway (1.6): the instrument. From judgment wave 27 each card drifts
+ * Gate sway (1.6): the instrument. From judgment wave 31 each card drifts
  * left and right inside its own lane, and the grey track behind it shows
  * the limits. `verify` never reaches wave 27 and `from` does not look at
  * the cards, so this injects a late state through `__startOverride` at
@@ -45,7 +45,7 @@ await mkdir(OUT_DIR, { recursive: true });
 // A late build that survives long enough to see two offers, from `hud-late`.
 const START = { power: 38400, upgrades: { damageBonus: 18.4, damageMult: 9.65, rateBonus: 7.2, rateMult: 4.4, guns: 4, pierce: 3 } };
 // The last still wave, then the first wave of each sway tier, normal mode.
-const WAVES = [26, 27, 32, 37];
+const WAVES = [30, 31, 36, 41];
 const errors = [];
 const rows = [];
 
@@ -75,7 +75,7 @@ for (const wave of WAVES) {
   await page.waitForTimeout(250);
   const b = await read();
   await page.screenshot({ path: join(OUT_DIR, `sway-${wave}.png`) });
-  const expectSway = wave > 26;
+  const expectSway = wave > 30;
   const moved = a.cards.map((c) => {
     const later = b.cards.find((d) => d.laneX === c.laneX && d.periods === c.periods);
     return later ? Math.abs(later.x - c.x) : 0;

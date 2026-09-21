@@ -294,23 +294,21 @@ of dead space opens between them and grows, so players not only need to make
 the decision, but need increasing precision in movement to do so despite the
 noise of everything going on - and so they can fully miss a bonus. This was a
 bug fixed a while ago (a gap at wave 1 let a player slide between two blocks
-by accident) and is now part of the design instead: zero until wave 4, 6px a
-wave from wave 5, to 72px at wave 16, where a 180px lane holds a 108px
-gate. Hard mode starts it five waves in like the other judgment levers.
-A missed offer shows `MISS` at the lane line and is graded as the worst pick.
+by accident) and is now part of the design instead. Hard mode starts it
+five waves in like the other judgment levers. A missed offer shows `MISS`
+at the lane line and is graded as the worst pick.
 
-**It no longer flattens there** (the author, 2026-09-20, 0.8: "scale up two
-more times, similar curve as-is, in two more increments for 5 waves rather
-than flattening out completely"). A second stage runs from wave 16 to wave
-26 at 2.5px a wave, ending at 97px of dead space and an 83px gate - the
-leader within ±41px. The late slope is shallower than the first on purpose:
-6px a wave for ten more waves would leave a 48px card that cannot hold its
-own axis word, so the shape is kept and the size is what the label allows;
-`GATES.minWidth` fell 100 to 80 with it. Gate speed got the same treatment
-with no compromise: the 0.075-a-wave rise that used to cap at ×2.5 (wave
-21) now runs to ×3.25 at wave 31, a ~2.8s descent. `npm run model` asserts
-both caps land on those waves and that the curve does not flatten after
-the first cap.
+**The curve is the author's (2026-09-21, 1.7): zero through wave 9, then
+one slope to wave 30.** About 4.6px a wave from wave 10 to 97px of dead
+space at wave 30, an 83px gate, the leader within ±41px; flat after. It
+replaces two earlier shapes - 6px a wave from wave 5 to 72px at wave 16
+(0.5), then a shallower second stage to 97px at wave 26 (0.8, "two more
+increments for 5 waves rather than flattening out completely"). 97px is
+what the label allows: the axis word needs ~76px and `GATES.minWidth` is
+80. Gate speed is likewise one continuous rise, from ×1 at wave 1 to
+**×3.5 at wave 40** (1.7; it capped at ×2.5 at 21, then ×3.25 at 31), a
+~2.6s descent at the cap. `npm run model` asserts both caps land on those
+waves and prints the whole curve per wave.
 
 To keep every label legible at the narrowest width the cards became taller
 and the label two-line - magnitude over axis - rather than the numbers
@@ -318,14 +316,16 @@ smaller. A late `+1840% DMG` still reads.
 
 ### Gates sway inside their lane
 
-**Built (2026-09-21, 1.6, the author's ask).** Once the cards stop
-narrowing (wave 26) the next lever is that they MOVE: each card drifts
+**Built (2026-09-21, 1.6, the author's ask; rewaved in 1.7).** Once the
+cards stop narrowing the next lever is that they MOVE: each card drifts
 left and right inside its own third of the screen, slowly at first and
 then in two more steps, never outrageously - the author's ceiling is "up
 to 1.5x periods of movement across the whole length of the screen", which
-is read as one and a half full cycles over the card's descent. So: 0.5
-periods a descent from wave 27, 1 from wave 32, 1.5 from wave 37 and held
-there; hard mode five waves earlier like every judgment lever. The swing
+is read as one and a half full cycles over the card's descent. The
+motion starts in the five-wave bracket AFTER the one holding the last
+width change (the author, 1.7): widths finish at wave 30, so 0.5 periods
+a descent from wave 31, 1 from wave 36, 1.5 from wave 41 and held there;
+hard mode five waves earlier like every judgment lever. The swing
 is half the dead space, +-48.5px, so the card touches the lane edge at
 the extremes and never enters a neighbour's lane. The pace is in periods
 per descent rather than seconds on purpose: `+TIME` slows the fall and
@@ -339,7 +339,7 @@ replays.
 What it asks of the player is the same thing dead space asks, timed: the
 leader has to be under a moving 83px card at the moment it crosses the
 line. The bot steers to the card's live x every step and takes 7 to 11
-gates from wave 37 (`npm run from -- --dps=1e5 --wave=37`); a human has
+gates from wave 41 (`npm run from -- --dps=1e5 --wave=41`); a human has
 not played it.
 
 ---
@@ -474,13 +474,14 @@ mechanic changes — only how hard the arithmetic is.
 
 This is the axis that scales furthest, because it never stops being interesting.
 
-**When the decimals appear today.** The author's schedule, four tiers of
-five waves, built 2026-09-20: waves 1-5 draw three values (`1.1, 1.25,
-1.5`); 6-10 the tenths (`1.1` to `1.5`, no `1.25`); 11-15 every `.05`;
-16 on every `.01` with three significant figures, which is when `×1.07` and
-`+1840%` start showing up. Hard mode is five waves ahead: tenths from wave
-1, hundredths from wave 11. `npm run model` prints the whole curve per wave
-under "the judgment curve".
+**When the decimals appear today.** The author's schedule (2026-09-21,
+1.7: "steps 0-4, then 5-14, then 15-24, then 25-34"; it was four tiers of
+five waves at 1 / 6 / 11 / 16 from 2026-09-20): waves 1-4 draw three
+values (`1.1, 1.25, 1.5`); 5-14 the tenths (`1.1` to `1.5`, no `1.25`);
+15-24 every `.05`; 25 on every `.01` with three significant figures, which
+is when `×1.07` and `+1840%` start showing up. Hard mode is five waves
+ahead: tenths from wave 1, hundredths from wave 20. `npm run model` prints
+the whole curve per wave under "the judgment curve".
 
 **"No mechanic changes" was a constraint on the tables' MEAN, and the author
 chose to relax it.** The original coarse table bunched low - 1.32% less per
@@ -1158,7 +1159,7 @@ standing near zero, where before they ended at a Titan near par. That is the
 designed consequence for a player who does not move; whether it is right for
 one who does is a question for the author under fire.
 
-### Shooters spawn at half weight, one new type per five waves
+### Shooters spawn at half weight, one new type per ten waves
 
 **Decided, 2026-09-21 (1.3), the author's call.** The fire felt too heavy
 ("between the Mortars and the other shooters, the difficulty curve seems
@@ -1171,10 +1172,11 @@ the waves before them. A cap on LIVE shooters was proposed and declined:
 it would answer every cleared ranged body with another one, where the game
 is that clearing them makes the field quieter. Instead every gun type
 carries **half the weight** its body would (Spitter 15, Mortar 11, Lancer
-12) and they arrive one at a time - **Spitter at wave 5, Mortar at 10,
-Lancer at 15** - so the pool gaining a shooter every five waves is what
-steps the fire up. Shooter share of spawns: 6% at wave 5, 9% from 10, 12%
-from 15, against 12 / 21 / 21% before.
+12) and they arrive one at a time - **Spitter at wave 5, Mortar at 15,
+Lancer at 25** since 1.7 (5 / 10 / 15 in 1.3) - so the pool gaining a
+shooter every ten waves is what steps the fire up. Shooter share of spawns
+(measured on the 1.3 waves): 6% at wave 5, 9% from the Mortar, 12% from
+the Lancer, against 12 / 21 / 21% before.
 
 The guns slowed with it, the author's numbers: the Spitter fires every
 **3s** (was 2.1), the Lancer's trident every **4.5s** (2.6), the Mortar's
@@ -1185,7 +1187,7 @@ shell every **6s** (3.2). The Titan's fan stays at 3.4s.
 **Added 2026-09-21 (1.1), the author's ask** ("one of the enemies to have a
 'Big bullet' type; a slower red bullet rather than just the many small
 bullets ... twice as much relative damage"). The **Mortar** is a new
-medium-tier type from wave 10 (wave 6 until 1.3): a squat stone-grey pot that drifts a little
+medium-tier type from wave 15 (wave 6 until 1.3, 10 until 1.7): a squat stone-grey pot that drifts a little
 and lobs one aimed **shell** every 6s (3.2s until 1.3) - scarlet, nearly twice a dart's
 radius, half a dart's speed, and `damage: 2`, so it costs twice the 1% share
 a dart does (2 power at the floor, 2% of the army past 200). The point is

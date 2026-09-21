@@ -902,3 +902,49 @@ topic says the rule.
 > the board!
 
 Status: the three are in; none has been played by a human.
+
+## 2. After seeing the 1.6 curve (verbatim)
+
+> The motion should be introduced in brackets after the "difficulty"
+> section of the last width adjustment.
+>
+> Can you walk me through the difficulty gates and waves and where things
+> shift? I think I expected it to be in 5-wave increments
+
+Walked through in chat: speed and dead space moved every wave, legibility
+and the Titans stepped in fives, and 1.6's sway started at 27 across the
+brackets. The author's tuning followed:
+
+> 1. Descent speed, let's get it to x3.5 and have it roll continuously
+> from wave 2 to 40
+
+Status: `landed`, version **1.7**. `GATES.maxSpeedMult` 3.5,
+`speedCapWave` 40 (`speedPerWave` is gone; the slope is derived, ~0.064 a
+wave). Hard mode caps at real wave 35.
+
+> 2. Dead space, let's make it 0 through wave 9, then continue through
+> wave 30 from there progressively
+
+Status: `landed`, in 1.7. `GATES.deadSpace` `{ fromWave: 9, capWave: 30,
+max: 97 }`: one linear slope, ~4.62px a wave from wave 10 to 97px at 30,
+in place of the two stages (6px to 72 at 16, 2.5px to 97 at 26). The cap
+is unchanged at 97px (an 83px card, what the label allows).
+
+> 3. Number legibility, let's change to steps 0-4, then 5-14, then 15-24,
+> then 25-34
+
+Status: `landed`, in 1.7. `LEGIBILITY` minWave 1 / 5 / 15 / 25 (was 1 / 6
+/ 11 / 16). The finest tier holds from 25 on; there is no fifth table for
+35+, so 25-34 and 35+ read the same hundredths ladder.
+
+> 4. New shooter types at 5, 15, 25
+
+Status: `landed`, in 1.7. Spitter 5, Mortar 15, Lancer 25 (`minWave` in
+the roster; the order is unchanged). `npm run model` asserts the three
+waves.
+
+> 5. Sway should then be as you note 31-35, 36-40, 41 onward
+
+Status: `landed`, in 1.7. `GATES.sway.fromWave` 30. Peak lateral speed at
+the last tier is 177px/s on the faster descent (164 in 1.6), still under
+the 195px/s squad; `npm run model` fails if it ever outruns it.

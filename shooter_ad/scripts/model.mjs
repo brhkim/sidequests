@@ -447,8 +447,8 @@ if (Math.abs(worstVsFine / fine - 1) > MEAN_DRIFT) {
     + ' per draw - past the drift the author accepted',
   );
 }
-if (LEGIBILITY.length !== 4 || LEGIBILITY.map((t) => t.minWave).join() !== '1,6,11,16') {
-  throw new Error('the legibility schedule is four tiers at waves 1 / 6 / 11 / 16');
+if (LEGIBILITY.length !== 4 || LEGIBILITY.map((t) => t.minWave).join() !== '1,5,15,25') {
+  throw new Error('the legibility schedule is four tiers at waves 1 / 5 / 15 / 25 (1.7)');
 }
 
 
@@ -498,8 +498,8 @@ const printCurve = (mode, waves) => {
       r.speed.toFixed(3).padStart(8),
       String(r.roots).padStart(6),
       String(r.sigFigs).padStart(9),
-      String(r.dead).padStart(8),
-      String(r.width).padStart(8),
+      r.dead.toFixed(1).padStart(8),
+      r.width.toFixed(1).padStart(8),
       r.swayPeriods.toFixed(1).padStart(10),
       r.swayAmp.toFixed(1).padStart(8),
       r.swaySpeed.toFixed(0).padStart(10),
@@ -509,42 +509,43 @@ const printCurve = (mode, waves) => {
   setMode('normal');
   return rows;
 };
-const curveNormal = printCurve('normal', Array.from({ length: 40 }, (_, i) => i + 1));
-const curveHard = printCurve('hard', Array.from({ length: 35 }, (_, i) => i + 1));
-for (const r of curveNormal.slice(0, 3)) {
-  if (r.dead !== 0) throw new Error(`dead space is ${r.dead}px at normal wave ${r.wave}; must be 0 through wave 3`);
+const curveNormal = printCurve('normal', Array.from({ length: 45 }, (_, i) => i + 1));
+const curveHard = printCurve('hard', Array.from({ length: 40 }, (_, i) => i + 1));
+for (const r of curveNormal.slice(0, G.deadSpace.fromWave)) {
+  if (r.dead !== 0) throw new Error(`dead space is ${r.dead}px at normal wave ${r.wave}; must be 0 through wave ${G.deadSpace.fromWave}`);
 }
+if (curveNormal[G.deadSpace.fromWave].dead <= 0) throw new Error(`dead space is still 0 at wave ${G.deadSpace.fromWave + 1}`);
 for (const rows of [curveNormal, curveHard]) {
   for (let i = 1; i < rows.length; i++) {
     if (rows[i].dead < rows[i - 1].dead) throw new Error(`dead space fell at wave ${rows[i].wave}`);
   }
   for (const r of rows) {
-    if (r.dead > G.deadSpace.lateMax) throw new Error(`dead space ${r.dead}px exceeds the cap at wave ${r.wave}`);
+    if (r.dead > G.deadSpace.max + 1e-9) throw new Error(`dead space ${r.dead}px exceeds the cap at wave ${r.wave}`);
     if (r.width < G.minWidth) throw new Error(`gate width ${r.width}px under minWidth at wave ${r.wave}`);
   }
 }
-if (curveNormal[curveNormal.length - 1].dead !== G.deadSpace.lateMax) {
-  throw new Error('dead space never reaches its cap by normal wave 40');
+if (curveNormal[curveNormal.length - 1].dead !== G.deadSpace.max) {
+  throw new Error('dead space never reaches its cap by normal wave 45');
 }
-// Two stages, the author's shape (0.8): the first cap is reached at wave
-// 16 and held for no wave at all - the second stage starts at once and
-// runs to wave 26; speed likewise reaches its cap at wave 31, not 21.
-const firstCapWave = G.deadSpace.fromWave + G.deadSpace.max / G.deadSpace.perWave;
-if (curveNormal[firstCapWave - 1].dead !== G.deadSpace.max) {
-  throw new Error(`dead space is not ${G.deadSpace.max}px at normal wave ${firstCapWave}`);
-}
-if (curveNormal[firstCapWave].dead <= G.deadSpace.max) {
-  throw new Error('dead space flattens after its first cap; the second stage is missing');
+// One slope (1.7): zero through `fromWave`, linear to `max` at `capWave`,
+// then flat; speed reaches its cap at `speedCapWave`, rolling from wave 2.
+const deadCapWave = curveNormal.findIndex((r) => r.dead >= G.deadSpace.max) + 1;
+if (deadCapWave !== G.deadSpace.capWave) throw new Error(`dead space caps at wave ${deadCapWave}, expected ${G.deadSpace.capWave}`);
+if (curveNormal[deadCapWave - 2].dead >= G.deadSpace.max) throw new Error('dead space caps a wave early');
+const deadPerWave = G.deadSpace.max / (G.deadSpace.capWave - G.deadSpace.fromWave);
+for (let w = G.deadSpace.fromWave + 1; w < G.deadSpace.capWave; w++) {
+  const step = curveNormal[w].dead - curveNormal[w - 1].dead;
+  if (Math.abs(step - deadPerWave) > 1e-9) throw new Error(`dead space step at wave ${w + 1} is ${step}px, not ${deadPerWave}`);
 }
 const speedCapWave = curveNormal.findIndex((r) => r.speed >= G.maxSpeedMult) + 1;
-if (speedCapWave !== 31) throw new Error(`gate speed caps at wave ${speedCapWave}, expected 31`);
-const deadCapWave = curveNormal.findIndex((r) => r.dead >= G.deadSpace.lateMax) + 1;
-if (deadCapWave !== 26) throw new Error(`dead space caps at wave ${deadCapWave}, expected 26`);
+if (speedCapWave !== G.speedCapWave) throw new Error(`gate speed caps at wave ${speedCapWave}, expected ${G.speedCapWave}`);
+if (curveNormal[speedCapWave - 2].speed >= G.maxSpeedMult) throw new Error('gate speed caps a wave early');
+if (curveNormal[1].speed <= curveNormal[0].speed) throw new Error('gate speed does not rise from wave 2');
 if (curveHard[0].dead !== curveNormal[OFFSET].dead) {
   throw new Error(`hard wave 1 dead space (${curveHard[0].dead}) is not normal wave ${1 + OFFSET} (${curveNormal[OFFSET].dead})`);
 }
-if (LANE - G.deadSpace.lateMax < G.minWidth) {
-  throw new Error('GATES.deadSpace.lateMax leaves a card narrower than GATES.minWidth');
+if (LANE - G.deadSpace.max < G.minWidth) {
+  throw new Error('GATES.deadSpace.max leaves a card narrower than GATES.minWidth');
 }
 // Sway (1.6): none until dead space has stopped growing, then three tiers
 // of five waves at 0.5 / 1 / 1.5 periods a descent, the last held; the
@@ -581,9 +582,17 @@ if (curveHard[0].swayPeriods !== curveNormal[OFFSET].swayPeriods) throw new Erro
     + ` ${G.sway.periods.map((_, t) => deadCapWave + 1 + t * G.sway.tierWaves).join(' / ')}; +-${top.swayAmp}px inside a ${LANE}px lane,`
     + ` peak ${top.swaySpeed.toFixed(0)}px/s at wave ${top.wave} against a ${SQUAD_CFG.moveSpeed}px/s squad; at centre at spawn and at the line`);
 }
-console.log(`  dead space: 0 through normal wave ${G.deadSpace.fromWave}, +${G.deadSpace.perWave}px a wave to ${G.deadSpace.max}px at wave ${firstCapWave},`
-  + ` then +${G.deadSpace.latePerWave}px a wave to ${G.deadSpace.lateMax}px at wave ${deadCapWave}`
-  + ` (gate ${LANE - G.deadSpace.lateMax}px of a ${LANE}px lane); speed x${G.maxSpeedMult} from wave ${speedCapWave}; hard wave 1 = normal wave ${1 + OFFSET}`);
+console.log(`  dead space: 0 through normal wave ${G.deadSpace.fromWave}, +${deadPerWave.toFixed(2)}px a wave to ${G.deadSpace.max}px at wave ${deadCapWave}`
+  + ` (gate ${LANE - G.deadSpace.max}px of a ${LANE}px lane); speed x${G.maxSpeedMult} from wave ${speedCapWave}; hard wave 1 = normal wave ${1 + OFFSET}`);
+
+// The shooter curve (1.3, rewaved 1.7): one new gun type per TEN waves at
+// 5 / 15 / 25, in the roster's own order.
+{
+  const { ENEMIES: ROSTER } = await import('../src/data/enemies.ts');
+  const shooters = ROSTER.filter((e) => e.gun && e.weight > 0).map((e) => e.minWave).sort((a, b) => a - b);
+  if (shooters.join() !== '5,15,25') throw new Error(`shooters arrive at waves ${shooters}, expected 5 / 15 / 25`);
+  console.log(`  shooters at waves ${shooters.join(' / ')}`);
+}
 
 
 // ---------------------------------------------------------------------------

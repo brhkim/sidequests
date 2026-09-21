@@ -230,10 +230,10 @@ await holdPower(24);
   if (!s.titan) errors.push('titan-bar: no Titan on the board on wave 5');
 }
 
-// --- dead space: a wave-16 offer, where the cards are narrowest ------------
-// Wave 16 is where `GATES.deadSpace` caps (108px cards in 180px lanes), so
-// this is the two-line label at the smallest size it ever renders, with the
-// gaps an offer can be missed through beside it. The wave is set through the
+// --- dead space: a wave-16 offer, where the cards have narrowed -------------
+// Wave 16 is a third of the way down `GATES.deadSpace`'s slope since 1.7
+// (it capped there at 108px until then), so this is the two-line label on a
+// narrowed card with the gaps an offer can be missed through beside it. The wave is set through the
 // same seam `npm run from` uses and the next offer forced rather than waited
 // for. The squad is given a wave-16-sized army first: the wave-16 bodies that
 // arrive in the ~4s the offer takes to descend would otherwise walk a

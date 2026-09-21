@@ -31,7 +31,7 @@ npm run titan      # parks a squad under the boss and reports where on its desce
 npm run roster     # photographs every enemy type, the cage, every gun's volley, hits and kills
 npm run rescue     # forces a cage open at seven army sizes; asserts the reward and its label
 npm run rail       # forces the rail's widest state; fails if two neighbouring texts touch
-npm run sway       # injects waves 26 / 27 / 32 / 37; asserts the cards sway inside their lane, with tracks
+npm run sway       # injects waves 30 / 31 / 36 / 41; asserts the cards sway inside their lane, with tracks
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -544,9 +544,10 @@ factors gone, par's valuation and the budget are the same number.
 `systems/Mode.ts` holds the active mode and one number: `waveOffset`. Hard mode
 sets it to 5, and `judgmentWave(wave) = wave + offset` feeds exactly two things
 — `waveGateSpeedMult` and the legibility tier `rollOffer` draws from. A hard
-run's first offer therefore descends at wave-6 speed (×1.375) and draws from
-the wave-6 root table; the top legibility tier arrives at real wave 6 instead of
-11, and gate speed caps at real wave 16 instead of 21.
+run's first offer therefore descends at wave-6 speed (×1.32) and draws from
+the wave-6 root table (the tenths); the finest legibility tier arrives at
+real wave 20 instead of 25, dead space caps at 25 instead of 30, gate speed
+at 35 instead of 40, and sway begins at 26 instead of 31 (the 1.7 curve).
 
 Three things are deliberately NOT mode-dependent, and `npm run model` fails if
 any of them becomes so:
@@ -574,7 +575,9 @@ people compare off a screenshot, so the two must not share an identity.
 ### Gate approach speed is the judgment-axis difficulty lever
 
 `GATES.speedPerWave` raises how fast offers descend, capped at
-`GATES.maxSpeedMult` (3.25 from 0.8, reached at wave 31; it was 2.5 at 21). Later waves do not hand you a harder sum, they give you
+`GATES.maxSpeedMult` (**3.5 at `speedCapWave` 40 since 1.7**, rolling
+continuously from wave 2 at a derived ~0.064 a wave; it was 3.25 at 31 and
+2.5 at 21 before). Later waves do not hand you a harder sum, they give you
 less time to do it in - deliberately separate from enemy pressure, which is
 closed-loop against par and never keys off the wave number. `+TIME` divides it
 back down for the rest of the run.
@@ -593,9 +596,11 @@ like SENSE, SHIELD and ECHO; `HudPayload` carries `move` and the derived
 
 ### Gate sway is the fifth judgment lever
 
-From judgment wave 27 (normal; hard 22) - the wave after dead space reaches
-`lateMax` - each card drifts left and right inside its lane. `GATES.sway`
-is `{ fromWave: 26, tierWaves: 5, periods: [0.5, 1, 1.5] }`, read through
+From judgment wave 31 (normal; hard 26) - the bracket after the one in
+which dead space reaches `max` at wave 30 (1.7: "introduced in brackets
+after the difficulty section of the last width adjustment") - each card
+drifts left and right inside its lane. `GATES.sway` is `{ fromWave: 30,
+tierWaves: 5, periods: [0.5, 1, 1.5] }`, read through
 `Progression.gateSway(wave)` (periods per descent and the amplitude, half
 the dead space) and `swayOffset(y, periods, amplitude)` (a sine of the
 card's descent progress: centre at spawn, `periods` cycles by the lane
@@ -606,8 +611,8 @@ line). `Gates.spawnOffer` fixes a card's `laneX`, `swayPeriods` and
 here reads the RNG or a clock: `npm run repeat` is 0.00%. Because the pace
 is per descent, `+TIME` slows the sway with the fall.
 
-Tiers: 0.5 periods a descent at waves 27-31, 1 at 32-36, 1.5 from 37 on;
-peak lateral speed 50 / 110 / 164px/s against the 195px/s squad. The
+Tiers: 0.5 periods a descent at waves 31-35, 1 at 36-40, 1.5 from 41 on;
+peak lateral speed 49 / 109 / 177px/s against the 195px/s squad. The
 author's ceiling was "up to 1.5x periods of movement across the whole
 length of the screen"; `npm run model` fails if the fastest tier is not
 1.5, if a tier starts on the wrong wave, if the amplitude exceeds half the
@@ -616,25 +621,26 @@ speed outruns the squad. `render/GateCards` draws a TRACK behind a swaying
 card - `RENDER.gate.track` grey, `trackFill` 0.09, a 1px stroke at
 `trackStroke` 0.28, the lane's width less the gap, at depth 3 under the
 card - and none behind a still one. `npm run sway` injects a late build at
-waves 26 / 27 / 32 / 37 and asserts movement (or none), the lane bound and
+waves 30 / 31 / 36 / 41 and asserts movement (or none), the lane bound and
 the track count per state, photographing `sway-NN.png`.
 
 ### Dead space is the fourth judgment lever
 
-From wave 5 (judgment wave) each gate is narrower than its lane, and the band
-between neighbours belongs to no option: `GATES.deadSpace` is `{ fromWave: 4,
-perWave: 6, max: 72 }`, read through `Progression.gateDeadSpace(wave)` beside
-`waveGateSpeedMult`, so a 180px lane holds a 174px gate at wave 5, 144px on
-the second Titan at wave 10, and 108px at wave 16 - the leader must then
-be within ±54px of a card's centre. It keys off `judgmentWave` like speed and
-legibility, so hard mode starts at 12px. **From 0.8 the curve has a second
-stage** (the author's ask): `latePerWave` 2.5 from wave 16 to `lateMax` 97
-at wave 26 (hard: 21), an 83px gate, the leader within ±41px; `minWidth`
-fell 100 to 80 because the axis word needs ~76px and the magnitude already
-shrinks. Gate speed likewise runs to `maxSpeedMult` 3.25 at wave 31 instead
-of 2.5 at 21. `gateDeadSpace` adds the two stages; `npm run model` asserts
-the first cap at wave 16, no flattening after it, and the two final caps at
-waves 26 and 31. The width
+From wave 10 (judgment wave) each gate is narrower than its lane, and the
+band between neighbours belongs to no option: `GATES.deadSpace` is
+`{ fromWave: 9, capWave: 30, max: 97 }` since 1.7, read through
+`Progression.gateDeadSpace(wave)` beside `waveGateSpeedMult` - zero through
+wave 9, then one linear slope of ~4.62px a wave to 97px at wave 30 and
+flat after, so a 180px lane holds a 175px gate at wave 10, 129px on the
+fourth Titan at wave 20, and 83px from wave 30 - the leader must then be
+within ±41px of a card's centre. It keys off `judgmentWave` like speed and
+legibility, so hard mode starts it at real wave 5 and caps at 25. `max` is
+what `minWidth` (80) allows: the axis word needs ~76px and the magnitude
+already shrinks. `npm run model` asserts the zero through `fromWave`, the
+constant step, the cap at `capWave` and that `max` never breaches
+`minWidth`. History: 6px a wave from wave 5 to 72px at 16 (0.5), a second
+2.5px stage to 97px at 26 (0.8), the author's one slope from 10 to 30
+(1.7). The width
 IS the hit test (`checkGates` and `FieldRender.findTarget` both read
 `g.width`) and the card is drawn exactly as wide as it hits; `GATES.gap` is
 the drawn inset on top of that, so what the eye sees as a gap is dead space
@@ -986,9 +992,10 @@ sums. For a while every tier was held to the same geometric mean within 0.5%
 (`[1.05, 1.15, 1.25, 1.3, 1.4, 1.5]` matched on both means).
 
 **The schedule is now the author's, and it drifts on purpose.** `LEGIBILITY`
-in `data/roots.ts` is four tiers at waves 1 / 6 / 11 / 16: `[1.1, 1.25,
-1.5]`, the tenths from 1.1, every `.05`, every `.01` (three significant
-figures on raw numbers from wave 16, two before). Round tables inside a fixed
+in `data/roots.ts` is four tiers at waves 1 / 5 / 15 / 25 (1.7; it was
+1 / 6 / 11 / 16): `[1.1, 1.25, 1.5]`, the tenths from 1.1, every `.05`,
+every `.01` (three significant figures on raw numbers from wave 25, two
+before). Round tables inside a fixed
 [1.05, 1.5] cannot share the ladders' mean: measured against the hundredths,
 the tenths sit +1.91% per draw and the first tier +0.38%. The author read
 that and accepted it. `npm run model` prints the drift per tier under
@@ -1564,8 +1571,9 @@ cage, so `opened` reads 0 on every probe row: the reward is measured by
 
 - **Enemy**: append to `ENEMIES` in `data/enemies.ts` with a `tier` (what it
   costs on contact - see `CONTACT`). A type with a `gun` is a shooter: half
-  the weight its body would carry, and one new shooter per five waves
-  (Spitter 5, Mortar 10, Lancer 15) is the shooter curve since 1.3 - the
+  the weight its body would carry, and one new shooter per TEN waves
+  (Spitter 5, Mortar 15, Lancer 25 since 1.7; 5 / 10 / 15 in 1.3) is the
+  shooter curve - the
   author chose spawn rates over a live cap so clearing a ranged body is
   rewarded rather than answered. The guns fire every 3 / 4.5 / 6s
   (Spitter / Lancer / Mortar) since 1.3. Movement is a `motion` union with one

@@ -53,12 +53,13 @@ function ladder(step: number, from: number = ROOT_RANGE.min): number[] {
  */
 export const LEGIBILITY: readonly Legibility[] = [
   /**
-   * The author's schedule, four tiers of five waves:
+   * The author's schedule (1.7: "steps 0-4, then 5-14, then 15-24, then
+   * 25-34"), one short tier then three of ten waves:
    *
-   *   1-5    three round values a player can hold in their head
-   *   6-10   the tenths
-   *   11-15  every twentieth
-   *   16+    every hundredth, rounded to three figures
+   *   1-4    three round values a player can hold in their head
+   *   5-14   the tenths
+   *   15-24  every twentieth
+   *   25+    every hundredth, rounded to three figures
    *
    * The two round tables sit ABOVE the ladders on the mean: about +2.0% per
    * draw for the tenths and +0.4% for the first tier on the geometric mean,
@@ -72,9 +73,9 @@ export const LEGIBILITY: readonly Legibility[] = [
    * learning pay a little more, and the drift ends as the ladders begin.
    */
   { minWave: 1,  sigFigs: 2, roots: [1.1, 1.25, 1.5] },
-  { minWave: 6,  sigFigs: 2, roots: ladder(0.1, 1.1) },
-  { minWave: 11, sigFigs: 2, roots: ladder(0.05) },
-  { minWave: 16, sigFigs: 3, roots: ladder(0.01) },
+  { minWave: 5,  sigFigs: 2, roots: ladder(0.1, 1.1) },
+  { minWave: 15, sigFigs: 2, roots: ladder(0.05) },
+  { minWave: 25, sigFigs: 3, roots: ladder(0.01) },
 ];
 
 export function legibilityFor(wave: number): Legibility {

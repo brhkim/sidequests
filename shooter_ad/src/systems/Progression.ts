@@ -195,7 +195,8 @@ export function waveGateSpeedMult(wave: number): number {
   // speed. Par reads it through the same call, so the two cannot disagree
   // about how long a decision was available for.
   const w = judgmentWave(wave);
-  return Math.min(GATES.maxSpeedMult, 1 + Math.max(0, w - 1) * GATES.speedPerWave);
+  const perWave = (GATES.maxSpeedMult - 1) / (GATES.speedCapWave - 1);
+  return Math.min(GATES.maxSpeedMult, 1 + Math.max(0, w - 1) * perWave);
 }
 
 /**
@@ -203,7 +204,7 @@ export function waveGateSpeedMult(wave: number): number {
  * the leader has to be placed rather than merely on the right third of the
  * screen. The fourth judgment lever - see `GATES.deadSpace` for the numbers -
  * and, like the other three, it reads `judgmentWave` so hard mode starts it
- * five waves in. Zero through wave 4 (normal), 6px at wave 5; capped at `max`.
+ * five waves in. Zero through wave 9 (normal), then linear to `max` at `capWave`.
  *
  * NOT priced by `reach`. Reach measures how far the squad can travel while an
  * offer descends, in lane widths; dead space narrows the target inside the
@@ -213,13 +214,11 @@ export function waveGateSpeedMult(wave: number): number {
  * bullets a player has to dodge to get there.
  */
 export function gateDeadSpace(wave: number): number {
-  const { fromWave, perWave, max, latePerWave, lateMax } = GATES.deadSpace;
+  const { fromWave, capWave, max } = GATES.deadSpace;
   const w = judgmentWave(wave);
-  const first = Math.min(max, Math.max(0, w - fromWave) * perWave);
-  // The second stage starts the wave the first reaches its cap.
-  const capWave = fromWave + max / perWave;
-  const late = Math.min(lateMax - max, Math.max(0, w - capWave) * latePerWave);
-  return first + late;
+  if (w <= fromWave) return 0;
+  if (w >= capWave) return max;
+  return max * (w - fromWave) / (capWave - fromWave);
 }
 
 /** Px/s an offer descends at, for this wave and this run's accumulated `+TIME`. */
@@ -234,8 +233,8 @@ export function moveSpeed(u: Upgrades): number {
 
 /**
  * Gate sway at this wave: how many full left-right-left periods a card
- * completes over its descent, and how far it swings. Zero until dead space
- * has stopped growing (`GATES.sway.fromWave`, judgment wave), then one
+ * completes over its descent, and how far it swings. Zero until the bracket
+ * after dead space stops growing (`GATES.sway.fromWave`, judgment wave), then one
  * tier of `GATES.sway.periods` per `tierWaves` waves, the last held for the
  * rest of the run. The amplitude is half the lane's dead space, so the card
  * stays inside its own third of the screen and touches the lane edge at
