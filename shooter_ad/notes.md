@@ -922,6 +922,16 @@ card is sized to the player's pool and par applies the same N to its
 smaller one, which nudges par UP when the player is ahead - it closes the
 gap slightly rather than widening it, and it is small.
 
+### Pierce carries past a cage
+
+**Decided, 2026-09-21 (1.2), the author's ask** ("RESCUE boxes seem not to
+be affected by PIERCE but should be"). Until then the bars spent every shot
+that hit them, whatever its pierce - a code comment's rule that these notes
+never carried. A cage is now a body to the stream like any other: the shots
+that open it spend one pierce and fly on to whatever is behind it, so a
+pierce build shooting out a cage keeps the column it paid for, and the
+cage's price stays what it was (its HP, a fraction of a Titan's).
+
 ## The field starts where the HUD ends
 
 **Decided, 2026-09-20 (1.0).** Enemies and cages spawn at the bottom edge of

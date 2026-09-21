@@ -82,6 +82,42 @@ for (const power of POWERS) {
   );
 }
 
+// Pierce carries past a cage (1.2, the author's ask). At each pierce level a
+// one-hit cage is dropped over the squad on a cleared field and, in the frame
+// it opens, the bullets that met it are counted: with no pierce the opening
+// shot is spent at the bars, with one it flies on with a shot at the level
+// below. The count is taken INSIDE the poll that sees the open - a bullet
+// crosses the field in under a second, and a round trip later it may already
+// have met the next spawn.
+console.log('\npierce  bullets flying on past the cage they opened');
+for (const pierce of [0, 1, 2]) {
+  await page.evaluate((pl) => {
+    const g = window.game.scene.getScene('Game');
+    g.squad.progress.power = 19;
+    g.squad.progress.upgrades.pierce = pl;
+    g.squad.rebuild();
+    for (const c of g.enemies.cages) c.active = false;
+    for (const e of g.enemies.items) e.active = false;
+    // And no bullets in flight: the cage is 140px up, and a shot spawned
+    // under the previous level would be the one to open it.
+    for (const b of g.bullets.items) b.active = false;
+    g.enemies.cages.push({ x: g.squad.x, y: g.squad.y - 140, hp: 1, maxHp: 1, hitFlash: -1, active: true, probe: pl });
+  }, pierce);
+  const seen = await page.waitForFunction((pl) => {
+    const g = window.game.scene.getScene('Game');
+    const cage = g.enemies.cages.find((c) => c.probe === pl);
+    if (!cage || cage.active) return null;
+    const met = g.bullets.items.filter((b) => b.struck.includes(cage));
+    return { met: met.length, through: met.filter((b) => b.active).length};
+  }, pierce, { timeout: 8000, polling: 1 })
+    .then((h) => h.jsonValue())
+    .catch(() => { errors.push(`pierce ${pierce}: the cage did not open inside 8s`); return { met: 0, through: 0 }; });
+  const want = pierce > 0;
+  if (seen.met === 0) errors.push(`pierce ${pierce}: no bullet on record met the cage`);
+  if ((seen.through > 0) !== want) errors.push(`pierce ${pierce}: ${seen.through} bullets flew on past the cage; expected ${want ? 'some' : 'none'}`);
+  console.log(`${String(pierce).padStart(6)}  ${seen.through} of ${seen.met} that met it`);
+}
+
 await browser.close();
 dist.close();
 if (errors.length) {

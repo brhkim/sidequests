@@ -1158,6 +1158,13 @@ Four rules, each with a reason:
   `kills++` - standing in the stream would otherwise farm the count.
   `Difficulty.observeSpawn` already credited par with the body at spawn.
   Contact with a cage does nothing.
+- **A cage is a body to the stream** (1.2, the author's ask). The shots
+  that open it spend one pierce and fly on, the rest carry on untouched,
+  and a bullet meets a cage once through the same `struck` guard a body
+  has. Until 1.2 `collide` called `strike` with `through` false and the
+  bars spent every shot whatever its pierce. `npm run rescue` drops a
+  one-hit cage at pierce 0 / 1 / 2 and asserts the opener is spent at 0
+  and flies on at 1 and 2.
 - **Step order is `collide -> applyContacts -> checkGates -> applyBreaches ->
   applyIncomingFire`.** Bullets first, so a body a shot kills on the same step
   is a kill and never a contact; contacts before breaches, so a body that

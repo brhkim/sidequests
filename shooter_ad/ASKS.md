@@ -642,3 +642,48 @@ pay for itself.
 - **SHIELD's colour is bronze** (`0xd9a066`). Nine axes on one wheel is
   crowded; it sits between RATE's yellow and DMG's red-orange and reads as
   neither on the stills, but that is a phone question.
+
+# Author's asks — session of 2026-09-21 (fifth session, pierce past cages and the shooter count)
+
+## 1. Opening brief (verbatim)
+
+> Two hopefully small changes to check:
+>
+> 1. RESCUE boxes seem not to be affected by PIERCE but should be
+
+Status: `landed`, version **1.2**. It was a rule, not a bug: `GameScene.collide`
+called `strike(b, c.hp, b.damage, false)` for a cage, so the bars spent every
+shot that hit them whatever its pierce (the comment said so; `notes.md` never
+did). A cage is now a body to the stream: the shots that open it spend one
+pierce and fly on, the rest carry on untouched, and a bullet meets a cage
+once through the same `struck` guard a body has - without it a piercing
+shot would be charged against the bars on every step inside them, the Titan
+double-hit of 0.6 again. `npm run rescue` now drops a one-hit cage at pierce
+0 / 1 / 2 on a cleared field and asserts, in the frame it opens, that the
+opener is spent at pierce 0 and flies on at 1 and 2. Balance change by
+construction (a pierce build's stream past a cage is different), so 1.1 to
+1.2; `npm run balance` seeds 1-3 read identical to 1.1 to the decimal, which
+is the bot's reach (it never aims at a cage and holds pierce by luck), not a
+null result.
+
+> 2. Right now, between the Mortars and the other shooters, the difficulty
+> curve seems too hard in terms of enemy projectiles. I think we should
+> constrain the number of spawned projectile-shooters per round (not
+> inclusive of the Titan) to some number by difficulty range (1-5, 6-10,
+> etc. etc.). Can you talk this through with me to think about it?
+> Especially because the Waves move faster in the later
+> difficulties/waves, we need this to not feel crazy. How do we decide it
+> right now?
+
+Status: `open` - discussed, not built. The answer given: nothing decides it
+today. `rollEnemy` is one weighted draw per spawn with no memory, so the
+shooter count per wave is `duration x spawnRate x shooter weight share`
+(12% at wave 4, 21% from wave 7: about 2.7 shooters at wave 4, 5.7 at
+wave 7, 7.7 at wave 20, 10.7 at wave 30), and the count ALIVE is higher
+because shooters outlive the wave (an unkilled Spitter is on screen 33s,
+a Mortar 41s, a Lancer 65s against waves of 9-14s), so late waves inherit
+the shooters of the two before them. Proposal on the table: a cap on
+LIVE shooters (not spawned per wave) by wave band, with the roll
+re-drawn from the non-shooter pool when it is full, and `npm run balance`
+/ `npm run from` printing live shooters and shots-per-minute so the cap
+is set against a reading. Waiting on the author's numbers.

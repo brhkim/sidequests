@@ -720,9 +720,16 @@ export class GameScene extends Phaser.Scene {
         const dx = c.x - b.x, dy = c.y - b.y;
         const r = CAGE.radius + WEAPON.bulletRadius;
         if (dx * dx + dy * dy > r * r) continue;
-        // A cage stops every shot that hits it, pierce or not; shots past the
-        // one that opens it carry on.
-        const consumed = strike(b, c.hp, b.damage, false);
+        // A cage is a body to the stream: the shots that open it spend one
+        // pierce and fly on, the rest carry on untouched, and a bullet meets
+        // a cage once - the same `struck` guard as an enemy, without which a
+        // piercing shot would be charged against the bars on every step it
+        // was inside them. Until 1.2 a cage spent every shot whatever its
+        // pierce (the author: "RESCUE boxes seem not to be affected by PIERCE
+        // but should be").
+        if (b.struck.includes(c)) continue;
+        b.struck.push(c);
+        const consumed = strike(b, c.hp, b.damage, true);
         c.hp -= consumed * b.damage;
         c.hitFlash = this.elapsed;
         if (c.hp <= 0) {
