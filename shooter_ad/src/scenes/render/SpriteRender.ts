@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { COLORS, RENDER, SHIELD, SQUAD } from '../../config';
+import { COLORS, ECHO, RENDER, SHIELD, SQUAD } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
 import { EnemyBullets } from '../../systems/EnemyBullets';
 import { bulletTint, tierRow } from '../../data/tiers';
+import { echoCopies } from '../../systems/Progression';
 import type { Bullets } from '../../systems/Bullets';
 import type { Enemies } from '../../systems/Enemies';
 import type { Squad } from '../../systems/Squad';
@@ -232,9 +233,25 @@ export class SpriteRender {
       // selects a gate: drawn larger, and the only head with a visor.
       const lead = u.slot === 0;
       const scale = (lead ? SQUAD.leaderScale : 1) * 0.5;
-      this.bodyPool.claim().setPosition(u.x, u.y + (lead ? 3 : 2)).setScale(scale).setTint(tier.shirt);
+      this.bodyPool.claim().setPosition(u.x, u.y + (lead ? 3 : 2)).setScale(scale).setTint(tier.shirt).setAlpha(1);
       this.headPool.claim(lead ? 'head-lead' : 'head')
-        .setPosition(u.x, u.y - 20 * scale).setScale(scale).setTint(SKIN);
+        .setPosition(u.x, u.y - 20 * scale).setScale(scale).setTint(SKIN).setAlpha(1);
+    }
+    // The echoes: the same ring, translucent, `ECHO.offset` to the left at
+    // one held and the right at two, in the army's own shirts. A ghost
+    // driven past the edge is simply drawn there (Phaser culls it), which is
+    // what its bullets do too.
+    const copies = echoCopies(w.squad.upgrades.echo);
+    for (let c = 1; c < copies; c++) {
+      const dx = c === 1 ? -ECHO.offset : ECHO.offset;
+      for (const u of w.squad.units) {
+        const tier = tierRow(u.tier);
+        const lead = u.slot === 0;
+        const scale = (lead ? SQUAD.leaderScale : 1) * 0.5;
+        this.bodyPool.claim().setPosition(u.x + dx, u.y + (lead ? 3 : 2)).setScale(scale).setTint(tier.shirt).setAlpha(RENDER.echoAlpha);
+        this.headPool.claim(lead ? 'head-lead' : 'head')
+          .setPosition(u.x + dx, u.y - 20 * scale).setScale(scale).setTint(SKIN).setAlpha(RENDER.echoAlpha);
+      }
     }
     this.bodyPool.end(); this.headPool.end();
   }

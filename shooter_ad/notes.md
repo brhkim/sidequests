@@ -316,10 +316,17 @@ smaller. A late `+1840% DMG` still reads.
 Each level is worth a fixed share of an extra hit:
 
 ```
-expected hits = 1 + q × P        (P = pierce level, q = 0.5)
+expected hits = 1 + q × P        (P = pierce level, q = 0.7)
 ```
 
-so pierce 1 → 1.5×, 2 → 2×, 3 → 2.5×, 10 → 6×. Three things keep `q` below 1:
+so pierce 1 → 1.7×, 2 → 2.4×, 3 → 3.1×, 10 → 8×. **`q` went 0.5 to 0.7 in
+1.4, the author's call**: "it's definitely pulling higher weight than a 1.5x
+damage bonus; I'd call it 1.7x for adjustment". The instrument agrees: on
+the 1.3 build a pierce-2 bot at wave 17 measured 2.2 to 2.5 hits per landing
+shot against a claim of 2.0, so par was budgeting enemies against less
+damage than a pierce build delivers. The paragraphs below were written at
+0.5 and their arithmetic is that of 0.5; the argument is unchanged. Three
+things keep `q` below 1:
 
 1. **Path occupancy** — the bullet must actually meet another body.
 2. **Overkill** — damage past a kill is wasted, so a weak straggler behind a
@@ -987,6 +994,49 @@ that as the bot's floor, not the design's verdict — a human who targets the
 cage is buying +2 army for three seconds early, and +10% for three seconds
 late — but it is the number to watch if real play says cages feel like walls.
 `CAGE.hpTitanFraction` is the lever.
+
+## SHIELD blocks a body too, never a breach
+
+**Decided, 2026-09-21 (1.4), the author's ask** ("Shield should also block
+any enemies' body damage to the player (but NOT those that make it past
+the end-zone)"). A body that touches the ring while a charge is ready is
+consumed for nothing and spends the charge - one charge per body whatever
+its tier, the same rule as a shell. A body that walks past the ring and
+over the line is a breach and is never blocked: the ring blocks what
+reaches it, not what it let by. **The Titan is never blocked** (my call,
+not asked): the run ends on it, and a charge that negated the boss would
+make its deadline a suggestion.
+
+## +ECHO: a ghost army beside yours
+
+**Added 2026-09-21 (1.4), the author's ask**, verbatim: "a 'ghost' double of
+the player's army to the left (first level) and then the right (second
+level) that shoots exactly the same as the player's army. For Par, it
+should count as roughly 1.7x. Echoes can take no damage, cannot block
+enemies, cannot hit projectiles, and cannot take upgrades. If the player
+moves too far left/right that the echoes go off the screen, they should
+just go off the screen (damage wastage, basically) but with no other
+consequence (they can come back)."
+
+As built: `ECHO` in config is `{ maxLevel: 2, offset: 200, value: 0.7 }`.
+Every honoured bullet the army fires is spawned once per column - the
+army's, then 200px left at one held, 200px right too at two - with the
+same bundle, so an echo fires exactly what the army fires and a bullet
+spawned past the edge is culled on its first step (the wastage). The
+columns all count against the simulation's shot cap, so the pool sees no
+more spawns than before. The ghosts are drawn as the ring itself at 38%
+alpha in the army's shirts; nothing in the simulation has a body for
+them, so they take no damage, touch no enemy and meet no dart. Priced at
+`1 + 0.7 × level` (1.7×, 2.4×) through `squadDps`, so par takes it, the
+grade counts it and the budget sees it; `singleTargetDps` leaves it out
+because a ghost 200px to the side lands nothing on a Titan under the
+leader, so the boss is not sized against it. Offered from wave 4 at
+weight 24 (GUNS's), filtered out at two held like SENSE. It is the tenth
+axis: the pause BONUSES grid is 4x3 of 120x64, the DETAILS page has a
+seventh line, and its colour is slate `0x9fb4c8`, a ghost's non-colour.
+Decisions I made rather than asked: the offset (200px, a formation and a
+half), the weight and wave, the colour, and that the price is per echo
+(1.7× at one, 2.4× at two) rather than 1.7× total.
 
 ## Enemy fire scales with the army
 

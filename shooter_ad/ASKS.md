@@ -714,3 +714,45 @@ Shooter share of spawns is 6% at wave 5, 9% from 10, 12% from 15, against
 
 Status: `landed`, in 1.3. `interval` 2.1 to 3, 2.6 to 4.5, 3.2 to 6. The
 Titan's gun (3.4s) is untouched.
+
+## 3. The last gameplay round (verbatim)
+
+> 1. Shield should also block any enemies' body damage to the player (but
+> NOT those that make it past the end-zone)
+
+Status: `landed`, version **1.4**. `GameScene.applyContacts` offers each
+touching body to the pool first: one charge per body whatever its tier,
+consumed for nothing, a BLOCK word with `body: true`. Breaches are never
+blocked. **The Titan is never blocked** - my call: the run ends on it, and
+a charge that negated the boss would make its deadline a suggestion. Say
+so if you want it blockable. `npm run moments` forces it
+(`moment-block-body.png`: BLOCK, blocked 1, contact loss 0).
+
+> 2. I'd like to make another bonus type, +ECHO. This will make a "ghost"
+> double of the player's army to the left (first level) and then the right
+> (second level) that shoots exactly the same as the player's army. For
+> Par, it should count as roughly 1.7x. Echoes can take no damage, cannot
+> block enemies, cannot hit projectiles, and cannot take upgrades. If the
+> player moves too far left/right that the echoes go off the screen, they
+> should just go off the screen (damage wastage, basically) but with no
+> other consequence (they can come back)
+
+Status: `landed`, in 1.4. `notes.md` "+ECHO: a ghost army beside yours"
+has the build and the decisions I made unasked: 200px offset, weight 24
+from wave 4, slate colour, and the price as **per echo** (1.7x at one,
+2.4x at two) rather than 1.7x total - tell me if you meant the latter.
+`hud-echo.png` is the still; `npm run model` asserts the arithmetic. No
+instrument plays with it: the bot takes it when the scoring says so, and
+`from` does not print whether it did.
+
+> 3. I think PIERCE needs to be adjusted for PAR; right now, it's
+> definitely one of the best upgrades and "feels" the strongest because it
+> increases our damage relative to par even if we don't quite realize it.
+> But basically, it's definitely pulling higher weight than a 1.5x damage
+> bonus; I'd call it 1.7x for adjustment
+
+Status: `landed`, in 1.4. `WEAPON.pierceQ` 0.5 to 0.7: pierce 1 / 2 / 3 are
+1.7x / 2.4x / 3.1x. The instrument backs the feel: `from --dps=1e5` on
+1.3 measured 2.2 to 2.5 hits per landing shot at pierce 2 against a claim
+of 2.0. `discreteAmount` now offers `+2 PIERCE` at 3 held where it offered
+`+3`.

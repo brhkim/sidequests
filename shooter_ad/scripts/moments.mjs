@@ -168,6 +168,22 @@ await holdPower(24);
   const s = await stats();
   console.log(`moment-block.png  blocked ${s.blocked} of 3 (2 charges held)`);
   if (s.blocked !== 2) errors.push(`block: expected 2 blocked with one level held, got ${s.blocked}`);
+  // A body into the ring with a charge held: blocked, consumed for nothing.
+  await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    g.squad.shield.update(1 / 60, 1);
+    g.squad.shield.charges = 2;
+  });
+  const beforeBody = await stats();
+  const okBody = await withEnemy('e.x = g.squad.x; e.y = g.squad.y - 2; e.hp = e.maxHp = 1e9;');
+  if (!okBody) errors.push('block-body: no live enemy to move');
+  await page.waitForTimeout(120);
+  await shoot('moment-block-body');
+  expect('moment-block-body', await shownTexts(), ['BLOCK']);
+  const sb = await stats();
+  console.log(`moment-block-body.png  blocked ${sb.blocked - beforeBody.blocked}, contact loss ${sb.contactLoss - beforeBody.contactLoss}`);
+  if (sb.blocked - beforeBody.blocked < 1) errors.push('block-body: a body into a shielded ring was not blocked');
+  if (sb.contactLoss !== beforeBody.contactLoss) errors.push(`block-body: a blocked body still cost ${sb.contactLoss - beforeBody.contactLoss}`);
   await page.evaluate(() => {
     const g = window.game.scene.getScene('Game');
     g.squad.progress.upgrades.shield = 0;

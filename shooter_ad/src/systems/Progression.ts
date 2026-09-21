@@ -1,4 +1,4 @@
-import { ARENA, CAGE, GATES, SENSE, SHIELD, SQUAD, WEAPON } from '../config';
+import { ARENA, CAGE, ECHO, GATES, SENSE, SHIELD, SQUAD, WEAPON } from '../config';
 import { unitStats } from '../data/tiers';
 import type { GateType } from '../data/gates';
 import { judgmentWave } from './Mode';
@@ -38,6 +38,12 @@ export interface Upgrades {
    * `SHIELD.windowSeconds` (`systems/Shield.ts`), a RISK axis like SENSE.
    */
   shield: number;
+  /**
+   * `+ECHO` held, 0 to `ECHO.maxLevel`: ghost armies beside this one that
+   * fire what it fires. A DAMAGE axis, priced at `ECHO.value` of the army
+   * per echo (`echoMultiplier`), so par takes it and the grade counts it.
+   */
+  echo: number;
 }
 
 /** Everything a gate can change. The squad owns one; the difficulty model
@@ -50,8 +56,25 @@ export interface Progress {
 export function freshUpgrades(): Upgrades {
   return {
     damageBonus: 0, damageMult: 1, rateBonus: 0, rateMult: 1, guns: 1, pierce: 0,
-    moveMult: 1, gateSpeedMult: 1, sense: 0, shield: 0,
+    moveMult: 1, gateSpeedMult: 1, sense: 0, shield: 0, echo: 0,
   };
+}
+
+/** Highest echo a squad can hold; offered until it is. */
+export const MAX_ECHO = ECHO.maxLevel;
+
+/**
+ * What the echoes are worth beside the army: `1 + value x level`. Under the
+ * full mirror (`1 + level`) on purpose - see `ECHO` in config - and the one
+ * price par, the grade and the difficulty budget all read.
+ */
+export function echoMultiplier(echo: number): number {
+  return 1 + ECHO.value * Math.max(0, Math.min(MAX_ECHO, Math.floor(echo)));
+}
+
+/** Columns the stream is fired in: the army's plus one per echo held. */
+export function echoCopies(echo: number): number {
+  return 1 + Math.max(0, Math.min(MAX_ECHO, Math.floor(echo)));
 }
 
 /** Highest shield a squad can hold; offered until it is. */
@@ -222,7 +245,7 @@ export function squadDps(p: Progress): number {
     dps += (WEAPON.baseDamage * stats.damage * dmg)
       * (WEAPON.baseFireRate * stats.fireRate * rate);
   }
-  return dps * p.upgrades.guns * pierceMultiplier(p.upgrades.pierce);
+  return dps * p.upgrades.guns * pierceMultiplier(p.upgrades.pierce) * echoMultiplier(p.upgrades.echo);
 }
 
 /**
@@ -239,7 +262,9 @@ export function squadDps(p: Progress): number {
  * damage it cannot deliver.
  */
 export function singleTargetDps(p: Progress): number {
-  return squadDps(p) / pierceMultiplier(p.upgrades.pierce);
+  // Echoes fire 200px to either side and land nothing on a body under the
+  // leader, so they are out too.
+  return squadDps(p) / pierceMultiplier(p.upgrades.pierce) / echoMultiplier(p.upgrades.echo);
 }
 
 /**
@@ -276,7 +301,9 @@ export function shotsPerSecond(p: Progress): number {
  * again and it is true.
  */
 export function bundleFactor(p: Progress): number {
-  return Math.max(1, shotsPerSecond(p) / WEAPON.maxSimShotsPerSecond);
+  // Every column counts against the cap: an echo's bullet is a spawned
+  // bullet like the army's, carrying the same bundle.
+  return Math.max(1, shotsPerSecond(p) * echoCopies(p.upgrades.echo) / WEAPON.maxSimShotsPerSecond);
 }
 
 /** Applies a gate. Returns the label for the floating feedback text. */
@@ -322,6 +349,9 @@ export function applyGate(p: Progress, gate: GateType): string {
       break;
     case 'shield':
       u.shield = Math.min(MAX_SHIELD, u.shield + gate.value);
+      break;
+    case 'echo':
+      u.echo = Math.min(MAX_ECHO, u.echo + gate.value);
       break;
   }
   return gate.label;
