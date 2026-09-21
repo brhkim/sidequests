@@ -2,7 +2,7 @@
  * Enemy behaviour instrument.
  *
  * `verify` proves the game boots; `balance` proves it is roughly survivable.
- * Neither can tell you whether nine enemy types actually move differently -
+ * Neither can tell you whether ten enemy types actually move differently -
  * which is exactly the failure this project already shipped once, with five
  * types falling through to the same `default` case while the roster claimed
  * otherwise. A typecheck could not see it and neither could a screenshot.

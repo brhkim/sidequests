@@ -6,14 +6,14 @@ import { compact, FONT, hex, SMALL, type HudPayload } from './types';
 
 /** Height of the whole rail, including the standing bar along its lower edge. */
 export const RAIL_HEIGHT = HUD_ROWS.rail;
-/** The rail's right edge is the pause button's; the four columns share the rest. */
+/** The rail's right edge is the pause button's; the five columns share the rest. */
 export const RAIL_PAUSE_WIDTH = 80;
 
 const LABEL = SMALL;
 const VALUE = '#e8ecf8';
 
 /**
- * Four columns, ordered by how load-bearing they are rather than by tradition.
+ * Five columns, ordered by how load-bearing they are rather than by tradition.
  *
  * ARMY used to sit here and now lives in the strip beneath the red line with
  * the other DPS inputs: it is a conversion input exactly as the damage pool
@@ -26,8 +26,22 @@ const VALUE = '#e8ecf8';
 // The words a first-time player reads, with the game's own in them: YOUR
 // DPS is damage per second, PAR DPS the shadow player's, and the PAR
 // column's sub-line says whose it is (the author, 2026-09-20: nothing on
-// screen may assume the reader knows what PAR is).
-const COLUMNS = ['WAVE', 'YOUR DPS', 'PAR DPS', 'SENSE'] as const;
+// screen may assume the reader knows what PAR is). SHIELD joined SENSE in
+// 1.1: the other bonus about the player rather than the squad's damage,
+// and the one whose state (charges ready) changes under fire, so it has
+// to be on screen. Five lanes of unequal width - WAVE needs the least, the
+// two DPS columns and SENSE the most (`>999% PAR`, `BEST PLAY` and `75%
+// MARKED` are the widest sub-lines) - and the labels and sub-lines came
+// down a point (14 to 13px, the sub-lines untracked) so no two neighbours
+// touch. `npm run rail` forces the widest state of every column and fails
+// under 8px between neighbours; that is the check, not a still.
+const COLUMNS = ['WAVE', 'YOUR DPS', 'PAR DPS', 'SENSE', 'SHIELD'] as const;
+const LANES: Record<(typeof COLUMNS)[number], number> = {
+  WAVE: 82, 'YOUR DPS': 100, 'PAR DPS': 96, SENSE: 100, SHIELD: 82,
+};
+const AXIS_OF: Partial<Record<(typeof COLUMNS)[number], number>> = {
+  SENSE: AXIS_COLOR.sense, SHIELD: AXIS_COLOR.shield,
+};
 
 /**
  * Par DPS is on screen permanently rather than saved for the death readout.
@@ -47,14 +61,14 @@ export class TopRail {
   private above: boolean | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {
-    const lane = (VIEW.width - RAIL_PAUSE_WIDTH) / COLUMNS.length;
-
-    COLUMNS.forEach((name, i) => {
-      const cx = lane * i + lane / 2;
+    let left = 0;
+    COLUMNS.forEach((name) => {
+      const cx = left + LANES[name] / 2;
+      left += LANES[name];
       scene.add.text(cx, 9, name, {
-        fontFamily: FONT, fontSize: '14px',
-        color: name === 'SENSE' ? hex(AXIS_COLOR.sense) : LABEL, fontStyle: 'bold',
-      }).setOrigin(0.5, 0).setLetterSpacing(1.4);
+        fontFamily: FONT, fontSize: '13px',
+        color: AXIS_OF[name] !== undefined ? hex(AXIS_OF[name] as number) : LABEL, fontStyle: 'bold',
+      }).setOrigin(0.5, 0).setLetterSpacing(1);
 
       this.values.push(scene.add.text(cx, 22, '-', {
         fontFamily: FONT, fontSize: '23px', color: VALUE, fontStyle: 'bold',
@@ -63,9 +77,10 @@ export class TopRail {
       // Sub-lines sit on one baseline under non-adjacent columns, so no two of
       // them can ever grow into each other.
       this.subs.push(scene.add.text(cx, 49, '', {
-        fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: LABEL,
-      }).setOrigin(0.5, 0).setLetterSpacing(1));
+        fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: LABEL,
+      }).setOrigin(0.5, 0));
     });
+    if (left !== VIEW.width - RAIL_PAUSE_WIDTH) throw new Error('rail lanes must fill the rail');
 
     const barY = RAIL_HEIGHT - 6;
     this.barTrack = scene.add.rectangle(0, barY, VIEW.width, 6, 0x232b40).setOrigin(0, 0);
@@ -93,11 +108,18 @@ export class TopRail {
     this.subs[0].setText(`${compact(h.kills)} KILLS`);
     this.subs[2].setText('BEST PLAY');
     // Past 999% the exact number has stopped being information, and the column
-    // is 135px wide.
+    // is 100px wide.
     const percent = Math.round(ratio * 100);
     this.subs[1].setText(percent > 999 ? '>999% PAR' : `${percent}% PAR`).setColor(color);
     this.subs[3].setText(h.sense > 0 ? `${Math.round(h.senseChance * 100)}% MARKED` : '')
       .setColor(hex(AXIS_COLOR.sense));
+    // Charges ready over the pool's size - `4/6` - rather than pips: six
+    // pips at the value size are 123px, wider than the lane. The state of
+    // the gamble, live, where the offer it came from was read.
+    this.values[4].setText(h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0')
+      .setColor(h.shield > 0 ? hex(AXIS_COLOR.shield) : '#4d5670');
+    this.subs[4].setText(h.shield > 0 ? 'READY' : '')
+      .setColor(hex(AXIS_COLOR.shield));
 
     this.barFill.width = Math.max(1, Math.min(1, ratio) * VIEW.width);
     this.barFill.fillColor = Phaser.Display.Color.HexStringToColor(color).color;

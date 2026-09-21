@@ -25,9 +25,9 @@ const TOPICS: readonly Topic[] = [
   { key: 'sum', label: 'THE SUM', color: 0xffc93c, text:
     '+% cards add to a pool you keep; × cards multiply. Once the pool is big, a +% card is worth less than it looks: at +200%, a +30% card is only ×1.10. So which card is bigger depends on what you already hold. A × ARMY card always adds at least one soldier. The BONUSES tab does this sum with your own numbers.' },
   { key: 'panels', label: 'THE TOP PANELS', color: 0x9fe8ff, text:
-    'Top row: the wave, your damage per second (DPS) beside PAR\'s, and your SENSE pips. The bar under it is you against PAR; the white tick is the pass mark. The second panel is everything you hold, one cell per stat, in the cards\' own colours.' },
+    'Top row: the wave, your damage per second (DPS) beside PAR\'s, your SENSE pips and your SHIELD charges. The bar under it is you against PAR; the white tick is the pass mark. The second panel is everything you hold, one cell per stat, in the cards\' own colours.' },
   { key: 'damage', label: 'TAKING DAMAGE', color: 0xff4d5e, text:
-    'Enemies walk down the screen. One that touches your squad, or slips past it over the red line, takes soldiers away - more for bigger enemies. Enemy shots cost a little too. At zero soldiers the run ends.' },
+    'Enemies walk down the screen. One that touches your squad, or slips past it over the red line, takes soldiers away - more for bigger enemies. Enemy shots cost a little too: the small magenta darts one soldier in a hundred, the slow red shells a Mortar lobs twice that. Step out of a shell\'s way. At zero soldiers the run ends.' },
   { key: 'titan', label: 'THE TITAN', color: 0xbf8fdc, text:
     'Every 5th wave a huge boss descends slowly. Its purple health bar sits under the top panels. Kill it before it reaches you or the run ends on the spot. PIERCE does nothing against it: it is one body.' },
   { key: 'rescue', label: 'RESCUES', color: 0xb9a06a, text:
@@ -35,7 +35,7 @@ const TOPICS: readonly Topic[] = [
   { key: 'par', label: 'PAR', color: 0x6ee7a0, text:
     'PAR is a shadow player who takes the best card every single time. Enemies get tougher as PAR grows, not as waves pass - so the game is exactly as hard as your picks are bad. Keep your DPS near PAR\'s and you are fine.' },
   { key: 'risk', label: 'RISK', color: 0xc9a7ff, text:
-    'MOVE, TIME and SENSE add no damage. MOVE: walk faster. TIME: cards fall slower. SENSE: some offers arrive with the best card outlined in white. PAR never takes them and the score counts them as no growth - a gamble, for when the help is worth more than the damage.' },
+    'MOVE, TIME, SENSE and SHIELD add no damage. MOVE: walk faster. TIME: cards fall slower. SENSE: some offers arrive with the best card outlined in white. SHIELD: a ring that blocks 2 enemy shots every 5s per level, a big shell counting as one. PAR never takes them and the score counts them as no growth - a gamble, for when the help is worth more than the damage.' },
   { key: 'score', label: 'THE SCORE', color: 0xffd166, text:
     'Every card you take is graded against the best of its three: PERFECT, GOOD or BAD. A gamble is RISK; a card you never reached is MISS. The end screen\'s percentage is how much of the possible growth you captured. Waves survived is the headline.' },
   { key: 'code', label: 'MATCH CODES', color: 0x9fe8ff, text:

@@ -1,6 +1,6 @@
 import { drawRoot, formatRoot, legibilityFor, roundSf } from './roots';
 import { judgmentWave } from '../systems/Mode';
-import { discreteAmount, MAX_SENSE } from '../systems/Progression';
+import { discreteAmount, MAX_SENSE, MAX_SHIELD } from '../systems/Progression';
 
 /**
  * Gates descend as an offer and the player drives through one of them. Every
@@ -11,7 +11,7 @@ import { discreteAmount, MAX_SENSE } from '../systems/Progression';
  * reasoned about beforehand or scored afterwards.
  */
 export type BonusAxis =
-  | 'army' | 'rate' | 'damage' | 'guns' | 'pierce' | 'move' | 'time' | 'sense';
+  | 'army' | 'rate' | 'damage' | 'guns' | 'pierce' | 'move' | 'time' | 'sense' | 'shield';
 
 /**
  * The central mechanic. `raw` feeds an additive pool, `mult` multiplies the
@@ -37,8 +37,9 @@ export interface OfferContext {
   /** Discrete axes scale with what is held past `GATES.scaleDiscreteFrom`. */
   readonly guns: number;
   readonly pierce: number;
-  /** `+SENSE` leaves the pool once the cap is held. */
+  /** `+SENSE` and `+SHIELD` leave the pool once their cap is held. */
   readonly sense: number;
+  readonly shield: number;
 }
 
 /**
@@ -80,6 +81,10 @@ export const AXIS_COLOR: Record<BonusAxis, number> = {
   move: 0x4ea8ff,
   time: 0xff9fe0,
   sense: 0xeaf2ff,
+  // Bronze: a buckler's colour, and the one warm hue between RATE's yellow
+  // and DMG's red-orange that neither reads as. Nine axes on one hue wheel
+  // is crowded; this is the phone question of 1.1.
+  shield: 0xd9a066,
 };
 
 interface Candidate {
@@ -112,6 +117,10 @@ const CANDIDATES: readonly Candidate[] = [
   // their best option marked. Capped, and filtered out of the pool once the
   // cap is held rather than offered as a no-op - see `rollOffer`.
   { axis: 'sense',  form: 'raw',  weight: 30,  minWave: 2 },
+  // Protection. Blocks a few enemy bullets every few seconds and nothing
+  // else; a RISK axis like SENSE, capped and filtered out at the cap. From
+  // wave 3, one wave before the first gun (the Spitter) can appear.
+  { axis: 'shield', form: 'raw',  weight: 30,  minWave: 3 },
 ];
 
 export { CANDIDATES };
@@ -155,6 +164,8 @@ function build(c: Candidate, root: number, sigFigs: number, ctx: OfferContext): 
     }
     case 'sense':
       return { axis: 'sense', form: 'raw', value: 1, label: '+SENSE', color };
+    case 'shield':
+      return { axis: 'shield', form: 'raw', value: 1, label: '+SHIELD', color };
     case 'move':
       return { axis: 'move', form: 'mult', value: root, label: `×${formatRoot(root)} MOVE`, color };
     case 'time': {
@@ -192,7 +203,9 @@ export function rollOffer(
   // the design's own rule, and offering one would make a third of that offer
   // a formality.
   const pool = CANDIDATES.filter((c) =>
-    c.minWave <= wave && !(c.axis === 'sense' && ctx.sense >= MAX_SENSE));
+    c.minWave <= wave
+    && !(c.axis === 'sense' && ctx.sense >= MAX_SENSE)
+    && !(c.axis === 'shield' && ctx.shield >= MAX_SHIELD));
   const chosen: GateType[] = [];
   const taken = new Set<Candidate>();
 

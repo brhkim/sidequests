@@ -153,6 +153,27 @@ await holdPower(24);
   expect('moment-fire', await shownTexts(), ['-']);
 }
 
+// --- block: a shield level held, a shell and two darts into the ring ------
+{
+  await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    g.squad.progress.upgrades.shield = 1;
+    g.squad.shield.update(1 / 60, 1);
+    g.enemyFire.spawn(g.squad.x, g.squad.y - 34, 0, 400, 2, true);
+    for (let i = 0; i < 2; i++) g.enemyFire.spawn(g.squad.x + (i - 0.5) * 14, g.squad.y - 30, 0, 400, 1);
+  });
+  await page.waitForTimeout(330);
+  await shoot('moment-block');
+  expect('moment-block', await shownTexts(), ['BLOCK']);
+  const s = await stats();
+  console.log(`moment-block.png  blocked ${s.blocked} of 3 (2 charges held)`);
+  if (s.blocked !== 2) errors.push(`block: expected 2 blocked with one level held, got ${s.blocked}`);
+  await page.evaluate(() => {
+    const g = window.game.scene.getScene('Game');
+    g.squad.progress.upgrades.shield = 0;
+  });
+}
+
 // --- rescue: a one-hit cage dropped into the column ------------------------
 {
   await page.evaluate(() => {

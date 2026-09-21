@@ -573,3 +573,72 @@ See the table in `RESTART.md` §3: `npm run balance` seeds 1-5 at skill
 The bot never aims at a cage and does not reach wave 16, so the reward is
 measured by `rescue` and the spawn line by `model` and the stills, not by
 survival.
+
+# Author's asks — session of 2026-09-21 (fourth session, the shell and the shield)
+
+Same rules as above: verbatim, in order, a status per ask. Version **1.1**
+(a new enemy in the wave-6 pool and a new card in the wave-3 pool both move
+the seeded stream, so no 1.0 seed compares with a 1.1 one).
+
+## 1. Opening brief (verbatim)
+
+> Okay a couple new fixes:
+>
+> 1. We need one of the enemies to have a "Big bullet" type; a slower red
+> bullet rather than just the many small bullets. Let's have it do twice as
+> much relative damage as a smaller bullet, and it should be fired by a
+> specific enemy type (maybe new?)
+
+Status: `landed`. A new type, the **Mortar** (`data/enemies.ts`): medium
+tier, wave 6, weight 22, a squat stone-grey pot with a black muzzle that
+lobs one aimed **shell** every 3.2s. The shell is `GunSpec.shell`: drawn
+as a scarlet round (`eshell`, `COLORS.enemyShell` 0xff3b3b) nearly twice a
+dart's size on screen, with a 9px hit circle against the dart's 5, at 105
+px/s against the darts' 165-210, and `damage: 2` - so it costs exactly
+twice a dart through the same `ENEMY_FIRE.powerShare` arithmetic (2 power
+at the floor, 2% of the army past 200). The swept collision reads the
+radius per bullet. `npm run model` asserts the type exists, fires a shell,
+costs 2 and is slower than every dart; `npm run behaviour` lists it among
+the shooters; `npm run roster` puts a shell beside the darts. The guide's
+TAKING DAMAGE topic names it. Decisions I made rather than asked: it is a
+NEW type (your "maybe new?"), medium tier by body size (r 14), and the
+Mortar's body wears grey with the shell's red as its glowing accent so the
+body that fires shells is read before it fires one.
+
+> 2. We also ought to create a SHIELD upgrade. The mechanic should be
+> something like, blocks up to 2 bullet per 5s per level of SHIELD (up to
+> 3 levels, same as SENSE). Also incurs RISK rather than DPS/Par benefit
+
+Status: `landed`. `+SHIELD` is a fourth RISK axis (`RISK_AXES`,
+`Upgrades.shield`, `SHIELD` in config: `blocksPerLevel 2, windowSeconds 5,
+maxLevel 3`). `systems/Shield.ts` is a charge pool the squad owns: `2 ×
+level` charges, refilling continuously at that many per 5s, one charge
+spent per landing bullet whatever it cost (a shell is one block), filled
+to capacity the moment a level is taken. Priced at zero, never taken by
+par, told RISK, counted as no growth, out of the offer pool at three held
+- all as SENSE is, and `npm run model` asserts each. Offered from wave 3
+at weight 30 (SENSE's weight), one wave before the first gun. On screen:
+a bronze arc ring around the leader with one segment per charge (lit while
+ready), a BLOCK word over each absorbed bullet, a clink, the rail's fifth
+column `ready/capacity` over READY, a ninth pause tile (the BONUSES grid
+is now 3x3), the RISK and TOP PANELS guide topics, a demo offer on the
+start screen. `npm run moments` forces one level and three bullets and
+asserts two BLOCK words and `stats.blocked === 2`; `npm run balance`
+prints `shield: N held, M blocked` per seed. One judgment call to check:
+the pick FILLS the pool at once rather than starting it empty - the card
+is felt on the next volley, which I read as what a RISK pick has to do to
+pay for itself.
+
+## 2. Things the work forced, not asked
+
+- **The rail has five columns.** SHIELD's charges change under fire, so
+  they have to be on screen; four 115px lanes became 82 / 100 / 96 / 100 /
+  82 and the labels and sub-lines went 14 to 13px. `npm run rail` (new)
+  forces the widest state and asserts 8px between neighbours; its first
+  run failed on six pips at 123px, which is why the value is `4/6` and not
+  pips.
+- **The pause BONUSES grid is 3x3 of 160x64 tiles**, not 4x2 of 120x88:
+  a ninth tile in a 4x2 needed a third row that ran into the note.
+- **SHIELD's colour is bronze** (`0xd9a066`). Nine axes on one wheel is
+  crowded; it sits between RATE's yellow and DMG's red-orange and reads as
+  neither on the stills, but that is a phone question.

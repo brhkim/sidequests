@@ -244,6 +244,14 @@ export const MOTION = {
 export const ENEMY_FIRE = {
   maxBullets: 240,
   radius: 5,
+  /**
+   * Hit radius of a SHELL - the Mortar's slow red round (`GunSpec.shell`).
+   * Twice a dart's `damage` and nearly twice its radius, at half the speed:
+   * one bullet you can see coming and must step out of, against the many
+   * small ones you weather. SHIELD blocks it as ONE bullet, so a shield
+   * charge is worth twice as much against a Mortar as against a Spitter.
+   */
+  shellRadius: 9,
   /** Nothing shoots from off-screen; a gun only opens up below this line. */
   minFireY: 40,
   /**
@@ -590,7 +598,23 @@ export const GATES = {
  * only ever needs DPS should only ever take DPS, and the three are the
  * player's gamble alone.
  */
-export const RISK_AXES = ['move', 'time', 'sense'] as const;
+export const RISK_AXES = ['move', 'time', 'sense', 'shield'] as const;
+
+/**
+ * `+SHIELD`: the fourth RISK axis (the author's ask, 2026-09-21, 1.1). Each
+ * level held blocks up to `blocksPerLevel` enemy bullets every
+ * `windowSeconds` - a charge pool of `blocksPerLevel x level`, refilling at
+ * that many per window, in `systems/Shield.ts`. A blocked bullet costs
+ * nothing, whatever it was: a Mortar's shell is one block like a Spitter's
+ * dart. Capped at `maxLevel` and out of the pool at the cap, like SENSE.
+ * It moves no damage number, so it is priced at zero, never taken by par,
+ * and told RISK when taken.
+ */
+export const SHIELD = {
+  blocksPerLevel: 2,
+  windowSeconds: 5,
+  maxLevel: 3,
+} as const;
 
 /**
  * `+SENSE`: the one bonus about the player rather than the squad. Each level
@@ -736,5 +760,7 @@ export const COLORS = {
   text: '#e8ecf8',
   cage: 0xb9a06a,
   enemyBullet: 0xff2fa6,
+  /** The Mortar's shell: scarlet, off the dart magenta and off every body. */
+  enemyShell: 0xff3b3b,
   shield: 0xbcd8ff,
 } as const;

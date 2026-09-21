@@ -22,6 +22,7 @@ import { VERSION } from '../version';
 import {
   bundleFactor, cageReward, moveSpeed, pierceMultiplier, senseChance, type Upgrades,
 } from '../systems/Progression';
+import { Shield } from '../systems/Shield';
 import { mulberry32 } from '../systems/Rng';
 import { armorAgainst } from '../systems/EnemyMotion';
 import { strike } from '../systems/Bullets';
@@ -99,6 +100,8 @@ export class GameScene extends Phaser.Scene {
   private contactLoss = 0;
   private breachLoss = 0;
   private fireLoss = 0;
+  /** Enemy bullets the SHIELD absorbed this run. */
+  private blocked = 0;
   /**
    * What the simulation did this step, for the renderer. Pushed only inside
    * `step`, drained at the top of `render`; nothing in `systems/` reads it.
@@ -367,6 +370,7 @@ export class GameScene extends Phaser.Scene {
     this.contactLoss = 0;
     this.breachLoss = 0;
     this.fireLoss = 0;
+    this.blocked = 0;
     this.sim.drain();
     this.sprites.reset();
     this.field.reset();
@@ -451,6 +455,7 @@ export class GameScene extends Phaser.Scene {
       guns: this.squad.upgrades.guns,
       pierce: this.squad.upgrades.pierce,
       sense: this.squad.upgrades.sense,
+      shield: this.squad.upgrades.shield,
     }, this.squad.upgrades);
 
     if (newWave) {
@@ -820,7 +825,17 @@ export class GameScene extends Phaser.Scene {
    * standing still, and the two need to read differently.
    */
   private applyIncomingFire(): void {
-    const hits = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius);
+    // SHIELD sees each landing bullet first and may absorb it: one charge
+    // per bullet, shell or dart, and an absorbed bullet costs nothing. The
+    // pool is the squad's, stepped in `Squad.update`; the decision is here so
+    // `EnemyBullets` stays a pool of bullets.
+    const shield = this.squad.shield;
+    const hits = this.enemyFire.collide(this.squad.units, SQUAD.unitRadius, (b) => {
+      if (!shield.tryBlock()) return false;
+      this.blocked++;
+      this.sim.push({ kind: 'block', x: b.x, y: b.y, shell: b.shell, left: shield.ready });
+      return true;
+    });
     if (hits <= 0) return;
     // A bullet costs a share of the army you hold, floored to whole power and
     // never less than one - read once, from the power before this step's
@@ -937,6 +952,8 @@ export class GameScene extends Phaser.Scene {
       contactLoss: Math.round(this.contactLoss),
       breachLoss: Math.round(this.breachLoss),
       fireLoss: Math.round(this.fireLoss),
+      blocked: this.blocked,
+      shield: u.shield,
       cages: this.enemies.cagesSpawned,
       rescues: this.rescues,
       rescuedPower: this.rescuedPower,
@@ -987,6 +1004,9 @@ export class GameScene extends Phaser.Scene {
       gateSpeedMult: u.gateSpeedMult,
       sense: u.sense,
       senseChance: senseChance(u.sense),
+      shield: u.shield,
+      shieldReady: this.squad.shield.ready,
+      shieldCapacity: Shield.capacity(u.shield),
       titan: (() => { const t = this.enemies.titan; return t ? { hpFrac: t.hp / t.maxHp, progress: Enemies.titanProgress(t) } : null; })(),
     };
     this.game.events.emit('hud', hud);

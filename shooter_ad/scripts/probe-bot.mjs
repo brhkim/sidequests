@@ -227,5 +227,7 @@ export async function playSeed(
     hitsPerLanding: last?.hitsPerLanding ?? 0,
     landed: last?.landed ?? 0,
     sense: last?.sense ?? 0,
+    shield: last?.shield ?? 0,
+    blocked: last?.blocked ?? 0,
   };
 }

@@ -64,15 +64,20 @@ Confirmed for the current round of work (author's answers, 2026-09-19):
 - **Contact/breach damage scales with army size by tier**, floored in raw
   power: Basic 2% (floor 1), Medium 4% (floor 2), Large 6% (floor 3),
   Titan 100%. Tiers by body size: Basic = Grunt, Runner; Medium = Shielder,
-  Spitter, Splitter, Lancer; Large = Brute, Bomber.
+  Spitter, Splitter, Lancer, Mortar (1.1); Large = Brute, Bomber.
 - **The Healer (Medic) is removed** from the roster.
 - **Enemy bullets must read as bullets**, never as small enemies.
 - **Audio is minimal and procedural**: quiet stacking enemy-death sounds,
   distinct sounds for gate pickup, rescue, wave clear, damage taken, Titan
   events. No music for now.
-- **MOVE, TIME and SENSE are RISK axes** (2026-09-20): worth zero to the
-  scoring, never taken by par, told RISK rather than graded when the player
-  takes one. The shadow player only ever needs DPS.
+- **MOVE, TIME, SENSE and SHIELD are RISK axes** (2026-09-20; SHIELD
+  2026-09-21): worth zero to the scoring, never taken by par, told RISK
+  rather than graded when the player takes one. The shadow player only ever
+  needs DPS.
+- **SHIELD blocks up to 2 enemy bullets per 5s per level, three levels**
+  (2026-09-21): a charge pool, one charge per bullet whatever it cost.
+- **The Mortar fires a shell** (2026-09-21): one slow red round, twice a
+  dart's cost, nearly twice its size; the one enemy bullet to step out of.
 - **No automatic army** (2026-09-20): no wave-clear or streak army, on either
   side. Every unit held was chosen at a gate or shot out of a cage. Cages roll
   at 40% per wave duration.
@@ -101,8 +106,8 @@ Confirmed for the current round of work (author's answers, 2026-09-19):
 - Working title on the start screen: **DPS GOLF**. The pitch copy on that
   screen is the author's, near verbatim, and is not to be rewritten without
   asking.
-- Vocabulary: ARMY, DMG, RATE, GUNS, PIERCE, MOVE, TIME, SENSE, PAR, WAVE,
-  Titan, rescue cage, match code, standing.
+- Vocabulary: ARMY, DMG, RATE, GUNS, PIERCE, MOVE, TIME, SENSE, SHIELD,
+  PAR, WAVE, Titan, Mortar, shell, rescue cage, match code, standing.
 - Dark playfield. The rank palette in `src/data/tiers.ts` and the axis
   colours in `src/data/gates.ts` are load-bearing game vocabulary, not
   decoration, and must survive any restyle.
