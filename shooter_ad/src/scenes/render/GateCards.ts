@@ -94,6 +94,14 @@ function shade(color: number, k: number): number {
 }
 
 /**
+ * The note stack's depths. Above every body, cage, health bar and shard on
+ * the road (7-11.45 in `SpriteRender`), below the squad's stream (12.5) and
+ * the labels (15): a card passing over a body hides it under its face as
+ * well as its text. It sat at 3-4.3, under the bodies, until 2026-09-24.
+ */
+const NOTE_DEPTH = { shadow: 11.6, glow: 11.65, body: 11.7, rim: 11.75, edge: 11.8 } as const;
+
+/**
  * The descending offer cards, drawn as NOTES on the highway. Each is a
  * rounded, baked-gradient card in its axis colour (NineSlice, 3-sliced, so
  * the continuous width dead space and sway ask for costs no redraw) with a
@@ -229,11 +237,11 @@ export class GateCards {
       s.add.nineslice(0, 0, key, undefined, w, hh, sl, sl, 0, 0).setDepth(depth).setVisible(false);
     const v: GateVisual = {
       track: nine(HW.groove, 100, h, slice, 2),
-      shadow: nine(HW.noteShadow, 100 + pad * 2, h + pad * 2, slice + pad, 3).setTint(0x000000),
-      glow: nine(HW.noteGlow, 100 + pad * 2, h + pad * 2, slice + pad, 3.5).setBlendMode(Phaser.BlendModes.ADD),
-      body: nine(HW.note, 100, h, slice, 4),
-      rim: nine(HW.noteRim, 100, h, slice, 4.2),
-      edge: nine(HW.noteEdge, 100, h, slice, 4.3),
+      shadow: nine(HW.noteShadow, 100 + pad * 2, h + pad * 2, slice + pad, NOTE_DEPTH.shadow).setTint(0x000000),
+      glow: nine(HW.noteGlow, 100 + pad * 2, h + pad * 2, slice + pad, NOTE_DEPTH.glow).setBlendMode(Phaser.BlendModes.ADD),
+      body: nine(HW.note, 100, h, slice, NOTE_DEPTH.body),
+      rim: nine(HW.noteRim, 100, h, slice, NOTE_DEPTH.rim),
+      edge: nine(HW.noteEdge, 100, h, slice, NOTE_DEPTH.edge),
       op: s.add.image(0, 0, HW.opAdd).setDepth(15).setVisible(false),
       magnitude: s.add.text(0, 0, '', {
         fontFamily: FONT, fontSize: `${TYPE.number.size}px`, fontStyle: TYPE.number.weight, color: '#ffffff',
