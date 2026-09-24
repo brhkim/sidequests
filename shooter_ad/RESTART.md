@@ -103,8 +103,13 @@ identical against the pre-session build, `repeat` 0.00%.
   "Sound" the intent. Effects in the music's key, four tracks, a Titan
   boss mode, SOUND and MUSIC separate. `npm run music` (new) and `npm run
   audio` are the instruments; `.verify/music/*.wav` and `.verify/audio/*.wav`
-  are what to listen to. An audition page for the author is linked in the
-  session's final message.
+  are what to listen to. The audition page
+  https://claude.ai/artifact/4pDDGzZtAmpLkmytj2XjMc (private to the author)
+  runs the real engine live; **read its marks first**: `ArtifactData`
+  `list` on that URL, collection `verdicts` (ids `track-neon`,
+  `track-overdrive`, `track-breakline`, `track-chiprush`, `titan-theme`,
+  `arrangement`, `fx-picks`, `fx-kills`, `fx-damage`, `mix`; `verdict`
+  keep / revise / rollback / null, `note`).
 - **Unverified**: nobody has listened to any of it; real-time audio load on
   a phone is unmeasured (offline proxy: 0.09x on this machine).
 

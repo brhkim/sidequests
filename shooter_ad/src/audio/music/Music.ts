@@ -92,6 +92,11 @@ export class Music {
     if (immediately) { this.applyPending(); this.nextStepAt = -1; }
   }
 
+  /** Moves to track `index` at the next barline (the audition page). */
+  selectTrack(index: number): void {
+    this.pendingTrack = ((index % TRACKS.length) + TRACKS.length) % TRACKS.length;
+  }
+
   setPaused(on: boolean): void {
     if (!this.ctx || !this.rig) return;
     const t = this.ctx.currentTime;
