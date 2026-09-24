@@ -59,7 +59,11 @@ export class Shards {
     const phase = (now * 7) % (Math.PI * 2);
     for (let k = 0; k < count; k++) {
       const h = hash01(this.cursor);
-      const a = phase + (k * Math.PI * 2) / count + (h - 0.5) * 0.9;
+      // Spokes only for a big burst (a Titan's twelve); a small pop throws
+      // each shard at its own hashed angle, so three never sit 120deg apart.
+      const a = count >= 6
+        ? phase + (k * Math.PI * 2) / count + (h - 0.5) * 0.9
+        : phase + h * Math.PI * 2;
       const v = speed * (0.8 + 0.4 * hash01(this.cursor + 977));
       const s = this.ring[this.cursor];
       this.cursor = (this.cursor + 1) % this.ring.length;

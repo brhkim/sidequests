@@ -67,10 +67,10 @@ const WOUND_BLEACH = 0.55;
 
 /**
  * The pops, as shapes: diameters in multiples of the size handed to `pop`.
- * An ordinary kill's ring is a small, soft pulse gone before its shards:
- * wide (4.4x) and bright (0.95), it lingered in empty lanes like a reticle.
+ * An ordinary kill has no ring at all (finish review, round 2): a ring with
+ * three shards round it read as a gun sight in an empty lane at any size.
+ * Only the Titan's death rings.
  */
-const KILL_RING: FxShape = { texture: 'fx-ring-kill', from: 1.4, to: 2.6, alpha: 0.55 };
 const KILL_FLASH: FxShape = { texture: 'fx-glow', from: 3.4, to: 2.2, alpha: 0.9 };
 const TITAN_RING: FxShape = { texture: 'fx-ring', from: 1.6, to: 6.5, alpha: 1 };
 const TITAN_FLASH: FxShape = { texture: 'fx-glow', from: 3.5, to: 6, alpha: 1 };
@@ -195,7 +195,6 @@ export class SpriteRender {
         } else {
           this.shards.pop(ev.x, ev.y, RENDER.shardsPerKill, RENDER.shardLife, ev.color, 150, now);
           this.pops.pop(KILL_FLASH, ev.x, ev.y, ev.radius, 0.1, bleach(ev.color, 0.5), now);
-          this.pops.pop(KILL_RING, ev.x, ev.y, ev.radius, 0.2, ev.color, now);
         }
       } else if (ev.kind === 'contact' && !ev.titan) {
         this.shards.pop(ev.x, ev.y, RENDER.shardsPerContact, RENDER.contactLife, IMPACT, 70, now);
