@@ -1,10 +1,18 @@
 import Phaser from 'phaser';
-import { ECHO, WEAPON } from '../../config';
+import { ECHO, VIEW, WEAPON } from '../../config';
 import { tierFor, tierRow, unitStats } from '../../data/tiers';
 import {
   damageFactor, echoMultiplier, pierceMultiplier, rateFactor, unitShares, type Upgrades,
 } from '../../systems/Progression';
-import { compact, FONT, MONO, SMALL, type HudPayload } from './types';
+import { INK } from '../theme';
+import { compact, FONT, MONO, type HudPayload } from './types';
+
+const MARGIN = 26;
+const TOP = 144;
+const LINE = 21;
+const ROWS = 27;
+/** The working's measure: the page's width between the margins. */
+const MEASURE = VIEW.width - MARGIN * 2;
 
 /**
  * The pause screen's DETAILS page: the DPS number on the rail, derived in
@@ -14,22 +22,32 @@ import { compact, FONT, MONO, SMALL, type HudPayload } from './types';
  * same functions the squad fires with, so the last line IS the rail's number;
  * if it ever is not, one of them is wrong and this page is where that shows.
  * `endscreen.mjs` asserts exactly that.
+ *
+ * Monospace on purpose: the working is counted characters - each step's
+ * terms sit under the step's number - and the columns only line up in a
+ * fixed pitch. Every line is written to fit the 488px measure at 15px
+ * (~54 characters); a line that grows past it (a late build's numbers)
+ * shrinks the WHOLE block by one factor, so the columns stay aligned.
+ * Three inks: the step headings bright, the working a step down, the
+ * answer line the one white bold line.
  */
 export class PauseDetails {
   readonly root: Phaser.GameObjects.Container;
   private readonly lines: Phaser.GameObjects.Text[] = [];
+  private readonly styles: string[] = [];
 
   constructor(scene: Phaser.Scene) {
     const parts: Phaser.GameObjects.GameObject[] = [];
-    parts.push(scene.add.text(26, 104, 'YOUR DAMAGE PER SECOND (DPS), STEP BY STEP', {
-      fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
-    }).setOrigin(0, 0).setLetterSpacing(1.5));
-    for (let i = 0; i < 26; i++) {
-      const t = scene.add.text(26, 128 + i * 22, '', {
-        fontFamily: MONO, fontSize: '16px', color: WORKING,
-      }).setOrigin(0, 0);
+    parts.push(scene.add.text(MARGIN, 118, 'YOUR DAMAGE PER SECOND (DPS), STEP BY STEP', {
+      fontFamily: FONT, fontSize: '14px', color: INK.caption, fontStyle: '700',
+    }).setLetterSpacing(1.6));
+    for (let i = 0; i < ROWS; i++) {
+      const t = scene.add.text(MARGIN, TOP + i * LINE, '', {
+        fontFamily: MONO, fontSize: '15px', color: WORKING,
+      });
       parts.push(t);
       this.lines.push(t);
+      this.styles.push('');
     }
     this.root = scene.add.container(0, 0, parts).setVisible(false);
   }
@@ -70,15 +88,15 @@ export class PauseDetails {
 
     const lines = [
       `1  ARMY ${compact(h.power)} power`,
-      `   → ${shares.length} soldiers of ${low === lead ? compact(lead) : `${compact(low)}–${compact(lead)}`} power each, rank ${rank}`,
-      `   that rank: damage ×${num(stats.damage)}, fire rate ×${stats.fireRate.toFixed(2)}`,
+      `   → ${shares.length} soldiers of ${low === lead ? compact(lead) : `${compact(low)}–${compact(lead)}`} power, rank ${rank}`,
+      `   that rank: damage ×${num(stats.damage)}, rate ×${stats.fireRate.toFixed(2)}`,
       '',
       '2  DAMAGE PER SHOT  (the leader)',
-      `   ${WEAPON.baseDamage} base × ${num(stats.damage)} rank × (1 + ${pct}% pool) × ${h.damageMult.toFixed(2)}`,
+      `   ${WEAPON.baseDamage} base × ${num(stats.damage)} rank × (1 + ${pct}%) × ${h.damageMult.toFixed(2)}`,
       `   = ${num(shotDamage)}`,
       '',
       '3  SHOTS PER SECOND  (the leader)',
-      `   ${WEAPON.baseFireRate} base × ${stats.fireRate.toFixed(2)} rank × (1 + ${rpct}% pool) × ${h.rateMult.toFixed(2)}`,
+      `   ${WEAPON.baseFireRate} base × ${stats.fireRate.toFixed(2)} rank × (1 + ${rpct}%) × ${h.rateMult.toFixed(2)}`,
       `   = ${num(shotsPerSec)}`,
       '',
       '4  ONE SOLDIER, THEN ALL OF THEM',
@@ -86,29 +104,40 @@ export class PauseDetails {
       `   all ${shares.length} soldiers together = ${num(ring)} /s`,
       '',
       `5  × ${h.guns} GUN${h.guns === 1 ? '' : 'S'}  = ${num(withGuns)} /s`,
-      '',
-      `6  × PIERCE ${h.pierce}  (each level +${WEAPON.pierceQ} of a hit → ×${pm.toFixed(2)})`,
-      `7  × ECHO ${h.echo}  (a full ghost army priced ${ECHO.value} of yours, a half ${ECHO.value / 2} → ×${em.toFixed(2)})`,
+      `6  × PIERCE ${h.pierce}  (+${WEAPON.pierceQ} of a hit a level) → ×${pm.toFixed(2)}`,
+      `7  × ECHO ${h.echo}  (full ghost ${ECHO.value}, half ${ECHO.value / 2}) → ×${em.toFixed(2)}`,
       `   = ${num(total)} /s`,
       '',
       `=  ${compact(total)} DPS      par ${compact(h.parDps)}  →  ${standing}%`,
       '   PAR: the best card taken, every time',
       '',
-      'against one body (the Titan), pierce and echoes add nothing:',
+      'one body (the Titan): pierce and echoes add nothing',
       `   ${compact(withGuns)} /s`,
-      'MOVE, TIME, SENSE and SHIELD add nothing here (INVEST)',
+      'MOVE, TIME, SENSE, SHIELD add nothing here (INVEST)',
     ];
-    // The answer is the one bright, bold line; the working stays quieter.
+    let widest = 0;
     this.lines.forEach((t, i) => {
       const line = lines[i] ?? '';
-      const answer = line.startsWith('=');
-      t.setText(line).setStyle({ color: answer ? '#ffffff' : WORKING, fontStyle: answer ? 'bold' : 'normal' });
+      // The answer is the one bright, bold line; a step heading is bright;
+      // the working stays a step quieter.
+      const style = line.startsWith('=') ? 'answer' : /^\d/.test(line) ? 'step' : 'work';
+      if (t.text !== line) t.setText(line);
+      if (this.styles[i] !== style) {
+        this.styles[i] = style;
+        t.setStyle({
+          color: style === 'answer' ? '#ffffff' : style === 'step' ? INK.primary : WORKING,
+          fontStyle: style === 'work' ? 'normal' : 'bold',
+        });
+      }
+      widest = Math.max(widest, t.width);
     });
+    const fit = Math.min(1, MEASURE / Math.max(1, widest));
+    for (const t of this.lines) t.setScale(fit);
   }
 }
 
-/** The working lines: readable (~9:1), but a step under the answer. */
-const WORKING = '#c9d2ea';
+/** The working lines: readable (~8:1 on the lane bed), a step under the headings. */
+const WORKING = INK.secondary;
 
 /** Short numbers with a sensible precision: 0.94, 19.6, 641, 12.1k. */
 function num(v: number): string {

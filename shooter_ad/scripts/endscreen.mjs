@@ -34,6 +34,8 @@ const RUNS = [
   { name: 'end-hard', seed: 7, skill: 1.0, mode: 'hard' },
 ];
 const PLAY_SECONDS = 45;
+/** Death beat plus the end screen's whole entrance, with margin for a slow scene clock. */
+const END_SETTLE_MS = 2600;
 
 const server = createServer(async (req, res) => {
   const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname));
@@ -128,10 +130,12 @@ for (const run of RUNS) {
     return { decisions: s.decisions, optimal: s.optimal, tally: s.tally, wave: s.wave, mode: g.mode };
   });
   // The end screen is held back for the death beat (RENDER.moments.deathBeat,
-  // 480ms) and then fades in over 200ms, so the texts are read AFTER the wait
-  // rather than in the same evaluate as the emit - at that instant the screen
-  // is not yet visible, by design.
-  await page.waitForTimeout(900);
+  // 480ms) and then enters over ~1.5s of UI-scene time (the lane wipe, the
+  // headline's count-up, the results rows one by one - 2026-09-24), so the
+  // texts are read and the still taken AFTER the wait rather than in the
+  // same evaluate as the emit - at that instant the screen is not yet
+  // visible, by design. `END_SETTLE_MS` is that whole entrance with margin.
+  await page.waitForTimeout(END_SETTLE_MS);
   summary.texts = await visibleTexts(page);
   await page.screenshot({ path: join(OUT_DIR, `${run.name}.png`) });
   // "Replay this match" must be the same match: same seed, run restarted.

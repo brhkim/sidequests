@@ -3,29 +3,30 @@ import { SQUAD, VIEW } from '../../config';
 import { AXIS_COLOR, type BonusAxis } from '../../data/gates';
 import { MAX_ECHO, MAX_MOVE, MAX_SENSE, MAX_SHIELD, senseChance } from '../../systems/Progression';
 import { ECHO, MOVE, SHIELD } from '../../config';
+import { SCREEN_PIXEL } from '../art/screens';
+import { INK, SURFACE } from '../theme';
 import { CardTile } from './CardTile';
 import { standingColor } from './TopRail';
-import { CAPTION, compact, FONT, formatMult, hex, MONO, SMALL, type HudPayload } from './types';
+import { compact, FONT, formatMult, GRADE_COLOR, hex, MONO, type HudPayload } from './types';
 
 /** The roots a bonus can draw, at the bottom, middle and top of the range. */
 const SAMPLE_ROOTS = [1.1, 1.25, 1.4] as const;
 
-/** Every axis, in the order the DETAILS page multiplies them, then the RISK four. */
+/** Every axis, in the order the DETAILS page multiplies them, then the INVEST four. */
 const AXES: readonly BonusAxis[] = ['army', 'damage', 'rate', 'guns', 'pierce', 'echo', 'move', 'time', 'sense', 'shield'];
-const GRID_X = 22;
-const GRID_Y = 298;
-const GRID_GAP = 5;
+/** Where each axis sits in the 4x3 grid: six DPS axes over two rows, the INVEST four the third. */
+const SLOT = [0, 1, 2, 3, 4, 5, 8, 9, 10, 11] as const;
+const GRID = { x: 22, y: 288, cols: 4, gap: 5, rowGap: 6 } as const;
 /**
- * Four tiles a row, three rows, since ECHO made ten axes (1.4; 3x3 of
- * 160x64 held the nine of 1.1). The tiles are the field's own card width
- * and shorter (120x64 against 120x88) so the third row still leaves room
- * for a four-line note beneath it and the standing line at 664. Four of
- * 120 and three 5px gaps fill the 496px between the margins; two slots of
- * the last row are empty. The anatomy is the same card.
+ * Ten notes on a 4x3 grid of the field note's width, shorter (120x64
+ * against 120x88) so the page still has room for the ruler above and a
+ * five-line note below. The four INVEST axes take the whole third row and
+ * the two free slots of the second row name them, so a tile's caption is
+ * only ever its axis word - `MOVE INVEST` ran past a 120px tile.
  */
-const GRID_COLS = 4;
-const GRID_ROWS = 3;
 const PAUSE_TILE = { width: 120, height: 64 } as const;
+const NOTE_Y = 506;
+const MARGIN = 26;
 
 interface Ruler {
   head: Phaser.GameObjects.Text;
@@ -35,7 +36,7 @@ interface Ruler {
 
 /**
  * The pause screen's BONUSES page: the conversion, taught against the
- * player's own pools, and every bonus held - as gate cards.
+ * player's own pools, and every bonus held - as notes.
  *
  * A raw draw is scaled to your pool as `a = (root - 1) * (1 + pool)`, so
  * `+31% DMG` and `x1.1 DMG` are the same bonus at a +210% pool and wildly
@@ -43,13 +44,11 @@ interface Ruler {
  * it there: it prints a RULER - three offers the player could plausibly be
  * shown, each with the multiplier it is actually worth to them right now.
  *
- * Beneath the ruler, what you hold is nine card tiles in the field's own
- * anatomy (the author's call, 2026-09-20, over ten text rows): one per axis,
- * the magnitude the strip shows over the axis word, held tiles lit and unheld
- * tiles dim exactly as strip cells are. One line under the grid says what
- * the tapped tile does; it opens on ARMY and follows the finger, so the
- * teaching is one sentence at a time rather than ten at once. The four RISK
- * axes say so on the tile.
+ * Beneath the ruler, what you hold is ten notes in the field's anatomy (the
+ * author's call, 2026-09-20, over ten text rows): the magnitude the strip
+ * shows over the axis word, held notes lit and unheld dim. The line under
+ * the grid says what the tapped note does; it opens on ARMY and follows the
+ * finger, so the teaching is one sentence at a time.
  *
  * Every note is written for somebody who has not read HOW TO PLAY (the
  * author, 2026-09-20): a term is explained where it is used.
@@ -68,69 +67,64 @@ export class PauseBonuses {
     const cx = VIEW.width / 2;
     const b: Phaser.GameObjects.GameObject[] = [];
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => { b.push(o); return o; };
+    const text = (x: number, y: number, s: string, size: number, color: string, weight = '500') =>
+      add(scene.add.text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: weight }));
 
-    add(scene.add.text(cx, 104, 'a +% card adds to a pool you keep  ·  a × card multiplies', {
-      fontFamily: FONT, fontSize: '15px', color: '#9fe8ff', align: 'center',
-    }).setOrigin(0.5, 0));
+    text(cx, 118, 'a +% card adds to a pool you keep  ·  a × card multiplies', 15, '#9fe8ff').setOrigin(0.5, 0);
 
     // Two rulers side by side, because damage and rate are separate pools and
     // a player deep in one is often empty in the other - seeing the same
     // offer convert differently per axis is the lesson.
     for (const [i, axis] of (['damage', 'rate'] as const).entries()) {
-      const x = 26 + i * 254;
-      const color = AXIS_COLOR[axis];
-      const head = add(scene.add.text(x, 134, '', {
-        fontFamily: FONT, fontSize: '16px', color: hex(color), fontStyle: 'bold',
-      }).setOrigin(0, 0));
-      const divide = add(scene.add.text(x, 154, '', {
-        fontFamily: FONT, fontSize: '14px', color: CAPTION,
-      }).setOrigin(0, 0));
-      const lines = SAMPLE_ROOTS.map((_, r) => add(scene.add.text(x, 176 + r * 22, '', {
-        fontFamily: MONO, fontSize: '17px', color: '#e8ecf8', fontStyle: 'bold',
-      }).setOrigin(0, 0)));
+      const x = MARGIN + i * 254;
+      const head = text(x, 146, '', 15, hex(AXIS_COLOR[axis]), '700').setLetterSpacing(0.6);
+      const divide = text(x, 166, '', 14, INK.caption);
+      const lines = SAMPLE_ROOTS.map((_, r) => add(scene.add.text(x, 188 + r * 21, '', {
+        fontFamily: MONO, fontSize: '16px', color: INK.primary, fontStyle: 'bold',
+      })));
       this.rulers.push({ head, divide, lines });
     }
 
-    add(scene.add.text(cx, 246, 'Neither kind is better. Convert, then take the bigger one.', {
-      fontFamily: FONT, fontSize: '15px', color: '#9fe8ff', align: 'center',
-    }).setOrigin(0.5, 0));
+    text(cx, 254, 'Neither kind is better. Convert, then take the bigger one.', 15, '#9fe8ff').setOrigin(0.5, 0);
+    add(scene.add.image(cx, 280, SCREEN_PIXEL).setDisplaySize(VIEW.width - 52, 1).setTint(SURFACE.hairline));
 
-    add(scene.add.rectangle(cx, 284, VIEW.width - 52, 1, 0x2a3350));
-
-    // The grid: three tiles a row, three rows, in DPS order then the RISK four.
+    const at = (slot: number) => {
+      const col = slot % GRID.cols, row = Math.floor(slot / GRID.cols);
+      return {
+        x: GRID.x + PAUSE_TILE.width / 2 + col * (PAUSE_TILE.width + GRID.gap),
+        y: GRID.y + PAUSE_TILE.height / 2 + row * (PAUSE_TILE.height + GRID.rowGap),
+      };
+    };
     AXES.forEach((axis, i) => {
-      const col = i % GRID_COLS, row = Math.floor(i / GRID_COLS);
-      const x = GRID_X + PAUSE_TILE.width / 2 + col * (PAUSE_TILE.width + GRID_GAP);
-      const y = GRID_Y + PAUSE_TILE.height / 2 + row * (PAUSE_TILE.height + GRID_GAP);
-      const tile = new CardTile(scene, x, y, AXIS_COLOR[axis], PAUSE_TILE.width, PAUSE_TILE.height, axis === 'sense');
+      const { x, y } = at(SLOT[i]);
+      const tile = new CardTile(scene, x, y, AXIS_COLOR[axis], PAUSE_TILE.width, PAUSE_TILE.height, axis === 'sense', 24);
       for (const p of tile.parts) add(p);
-      const hit = add(scene.add.rectangle(x, y, PAUSE_TILE.width, PAUSE_TILE.height, 0xffffff, 0.001)
-        .setInteractive({ useHandCursor: true }));
+      // A fixed hit area over the whole note, taller than the 44px floor.
+      const hit = add(scene.add.zone(x, y, PAUSE_TILE.width, PAUSE_TILE.height).setInteractive({ useHandCursor: true }));
       hit.on('pointerdown', (p: Phaser.Input.Pointer) => { p.event.stopPropagation(); this.select(i); });
       this.tiles.push(tile);
     });
 
-    // One line of teaching at a time, under the grid, headed by the axis;
-    // the hint that says how sits between the grid and the line it explains.
-    const gridBottom = GRID_Y + GRID_ROWS * PAUSE_TILE.height + (GRID_ROWS - 1) * GRID_GAP;
-    add(scene.add.text(cx, gridBottom + 6, 'tap a card for what it does', {
-      fontFamily: FONT, fontSize: '14px', color: SMALL,
-    }).setOrigin(0.5, 0));
-    const noteY = gridBottom + 30;
-    this.noteHead = add(scene.add.text(26, noteY, '', {
-      fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
-    }).setOrigin(0, 0).setLetterSpacing(1.5));
-    this.note = add(scene.add.text(26, noteY + 22, '', {
-      fontFamily: FONT, fontSize: '17px', color: '#c9d2ea', wordWrap: { width: VIEW.width - 52 },
-    }).setOrigin(0, 0).setLineSpacing(4));
+    // The two free slots of the second row name the row beneath them: the
+    // INVEST word in its grade colour, and what it means.
+    const label = at(6);
+    const lx = label.x - PAUSE_TILE.width / 2 + 10;
+    text(lx, label.y - 20, 'INVEST', 20, hex(GRADE_COLOR.risk), 'italic 800').setLetterSpacing(1).setPadding(0, 0, 8, 0);
+    text(lx, label.y + 6, 'the row below adds no damage', 14, INK.secondary);
+
+    // One line of teaching at a time, under the grid, headed by the axis,
+    // with the hint that says how at the head's right.
+    this.noteHead = text(MARGIN, NOTE_Y, '', 14, INK.caption, '700').setLetterSpacing(1.6);
+    text(VIEW.width - MARGIN, NOTE_Y + 1, 'tap a card for what it does', 13, INK.caption).setOrigin(1, 0);
+    this.note = add(scene.add.text(MARGIN, NOTE_Y + 24, '', {
+      fontFamily: FONT, fontSize: '16px', color: INK.secondary, fontStyle: '500',
+      wordWrap: { width: VIEW.width - MARGIN * 2 },
+    }).setLineSpacing(3));
 
     // Your DPS against par, in the standing colour the rail uses for it.
-    add(scene.add.text(cx, 664, 'your damage per second  ·  the shadow player\'s', {
-      fontFamily: FONT, fontSize: '13px', color: SMALL,
-    }).setOrigin(0.5, 0));
-    this.standing = add(scene.add.text(cx, 682, '', {
-      fontFamily: FONT, fontSize: '16px', color: SMALL, fontStyle: 'bold',
-    }).setOrigin(0.5, 0));
+    add(scene.add.image(cx, 678, SCREEN_PIXEL).setDisplaySize(VIEW.width - 52, 1).setTint(SURFACE.hairline));
+    text(MARGIN, 690, 'YOU  ·  THE SHADOW PLAYER', 13, INK.caption, '600').setLetterSpacing(1.2);
+    this.standing = text(VIEW.width - MARGIN, 686, '', 17, INK.caption, '800').setOrigin(1, 0);
 
     this.root = scene.add.container(0, 0, b);
   }
@@ -152,14 +146,17 @@ export class PauseBonuses {
       : 'at +0% both kinds are the same');
     SAMPLE_ROOTS.forEach((rootValue, i) => {
       const percent = Math.round((rootValue - 1) * factor * 100);
-      r.lines[i].setText(`+${percent}%  =  ×${rootValue.toFixed(2)}`);
+      // Padded so the `=` column holds when a pool pushes a figure to three digits.
+      r.lines[i].setText(`${`+${percent}%`.padEnd(6)} =  ×${rootValue.toFixed(2)}`);
     });
   }
 
   private select(i: number): void {
     this.selected = i;
     this.tiles.forEach((t, j) => t.select(j === i));
-    this.noteHead.setText(AXES[i].toUpperCase()).setColor(hex(AXIS_COLOR[AXES[i]]));
+    const invest = i >= 6;
+    this.noteHead.setText(invest ? `${AXES[i].toUpperCase()}  ·  INVEST` : AXES[i].toUpperCase())
+      .setColor(hex(AXIS_COLOR[AXES[i]]));
     this.note.setText(this.notes[i]);
   }
 
@@ -192,17 +189,17 @@ export class PauseBonuses {
     this.setTile(5, String(h.echo), 'ECHO', h.echo > 0,
       `Ghost armies beside yours that fire what you fire: a half-size one on the left at 1 held, one on the right at 2, then each grows to full at 3 and 4 (${MAX_ECHO} max). They take no damage and block nothing; a ghost pushed off the edge fires into nothing. PAR counts a full one as ${Math.round(ECHO.value * 100)}% of your army (${formatMult(h.echoMult)} right now).`);
     const moveLadder = MOVE.mult.slice(1).map((m) => formatMult(m)).join(' / ');
-    this.setTile(6, formatMult(h.moveMult), 'MOVE INVEST', h.move > 0,
+    this.setTile(6, formatMult(h.moveMult), 'MOVE', h.move > 0,
       `How fast your squad walks: ${moveLadder} at 1 / 2 / 3 held (${h.move} of ${MAX_MOVE}). Adds no damage, so it is an INVEST card: it helps you reach the card you want, but the shadow player (PAR) never takes it and the score counts it as no growth.`);
     const time = Math.round((1 / h.gateSpeedMult - 1) * 100);
-    this.setTile(7, `+${time}%`, 'TIME INVEST', time > 0,
+    this.setTile(7, `+${time}%`, 'TIME', time > 0,
       `Cards fall ${time > 0 ? `${time}% ` : ''}slower, so you have longer to compare them. Adds no damage, so it is an INVEST card: PAR never takes it and the score counts it as no growth.`);
     const chances = Array.from({ length: MAX_SENSE }, (_, i) => Math.round(senseChance(i + 1) * 100));
     this.tiles[8].setPips(h.sense);
     this.setTile(8, '', `SENSE ${Math.round(h.senseChance * 100)}%`, h.sense > 0,
       `${Math.round(h.senseChance * 100)}% of offers arrive with the best card outlined in white (${chances.join(' / ')}% at 1 / 2 / 3 held). Adds no damage, so it is an INVEST card: PAR never takes it and the score counts it as no growth.`);
     const perLevel = SHIELD.blocksPerLevel;
-    this.setTile(9, h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0', 'SHIELD INVEST', h.shield > 0,
+    this.setTile(9, h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0', 'SHIELD', h.shield > 0,
       `Blocks enemy shots, and enemies that touch your ring, before they cost you soldiers: ${perLevel} blocks every ${SHIELD.windowSeconds}s per level held (${h.shield} of ${MAX_SHIELD}; ${h.shieldReady} ready now). A shell or a body is one block; one that walks past you is not blocked. Adds no damage, so it is an INVEST card: PAR never takes it and the score counts it as no growth.`);
     this.select(this.selected);
   }

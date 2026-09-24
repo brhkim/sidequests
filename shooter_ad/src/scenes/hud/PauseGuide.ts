@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { VIEW } from '../../config';
 import { cardButton, type CardButton } from './CardTile';
-import { FONT, SMALL, hex } from './types';
+import { INK } from '../theme';
+import { FONT, hex } from './types';
 
 interface Topic { key: string; label: string; color: number; text: string }
 
@@ -44,11 +45,13 @@ const TOPICS: readonly Topic[] = [
     'Hard starts the run five waves in: cards fall faster from the first offer, the numbers are harder to compare (×1.35 against +47%), and the cards narrow and then sway sooner. Enemies are no tougher - only the decision is.' },
 ];
 
-const GRID_TOP = 114;
+const GRID_TOP = 118;
 const COLS = 2;
 const BUTTON_W = 240;
 const BUTTON_H = 44;
-const GAP = 8;
+const GAP_X = 8;
+const GAP_Y = 6;
+const MARGIN = 26;
 
 export class PauseGuide {
   readonly root: Phaser.GameObjects.Container;
@@ -61,25 +64,27 @@ export class PauseGuide {
     const parts: Phaser.GameObjects.GameObject[] = [];
     TOPICS.forEach((t, i) => {
       const col = i % COLS, row = Math.floor(i / COLS);
-      const x = cx - (BUTTON_W + GAP) / 2 + col * (BUTTON_W + GAP);
-      const y = GRID_TOP + BUTTON_H / 2 + row * (BUTTON_H + GAP);
+      const x = cx - (BUTTON_W + GAP_X) / 2 + col * (BUTTON_W + GAP_X);
+      const y = GRID_TOP + BUTTON_H / 2 + row * (BUTTON_H + GAP_Y);
       const b = cardButton(scene, x, y, BUTTON_W, BUTTON_H, t.color, t.label, 14, 'secondary')
         .bind(() => this.select(i));
       this.buttons.push(b);
       parts.push(...b.parts);
     });
     const rows = Math.ceil(TOPICS.length / COLS);
-    const gridBottom = GRID_TOP + rows * (BUTTON_H + GAP) - GAP;
-    parts.push(scene.add.text(cx, gridBottom + 8, 'tap a topic', {
-      fontFamily: FONT, fontSize: '14px', color: SMALL,
-    }).setOrigin(0.5, 0));
-    this.head = scene.add.text(26, gridBottom + 34, '', {
-      fontFamily: FONT, fontSize: '14px', color: SMALL, fontStyle: 'bold',
-    }).setOrigin(0, 0).setLetterSpacing(1.5);
-    // The page's only content: the working-text step, a shade above caption.
-    this.body = scene.add.text(26, gridBottom + 56, '', {
-      fontFamily: FONT, fontSize: '17px', color: '#c9d2ea', wordWrap: { width: VIEW.width - 52 },
-    }).setOrigin(0, 0).setLineSpacing(4);
+    const gridBottom = GRID_TOP + rows * (BUTTON_H + GAP_Y) - GAP_Y;
+    // The open topic's name, with the hint that says how at its right.
+    this.head = scene.add.text(MARGIN, gridBottom + 16, '', {
+      fontFamily: FONT, fontSize: '14px', color: INK.caption, fontStyle: '700',
+    }).setLetterSpacing(1.6);
+    parts.push(scene.add.text(VIEW.width - MARGIN, gridBottom + 17, 'tap a topic', {
+      fontFamily: FONT, fontSize: '13px', color: INK.caption, fontStyle: '500',
+    }).setOrigin(1, 0));
+    // The page's only content: the working-text step, a shade under primary.
+    this.body = scene.add.text(MARGIN, gridBottom + 40, '', {
+      fontFamily: FONT, fontSize: '16px', color: INK.secondary, fontStyle: '500',
+      wordWrap: { width: VIEW.width - MARGIN * 2 },
+    }).setLineSpacing(3);
     parts.push(this.head, this.body);
     this.root = scene.add.container(0, 0, parts).setVisible(false);
     this.select(0);
