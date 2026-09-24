@@ -92,7 +92,30 @@ frame 10.0 / 17-21 / 23-27ms -> 6.7 / 12 / 16ms (med / p95 / p99); draws
 full-screen Graphics fills -> two). SwiftShader frame rate: level late
 (~22fps), ~33.5 -> ~29.6fps at wave 1.
 
+## 3b. Eighth session (2026-09-24): depth and sound
+
+Asks in `ASKS.md` (last section). Rendering / audio only; `neutral` 5/5
+identical against the pre-session build, `repeat` 0.00%.
+
+- **Notes draw above every body on the road** (`GateCards` `NOTE_DEPTH`
+  11.6-11.8; `SpriteRender` depths). `roster-notes.png` is the still.
+- **Audio rebuilt**: `CLAUDE.md` "Audio" is the mechanics, `notes.md`
+  "Sound" the intent. Effects in the music's key, four tracks, a Titan
+  boss mode, SOUND and MUSIC separate. `npm run music` (new) and `npm run
+  audio` are the instruments; `.verify/music/*.wav` and `.verify/audio/*.wav`
+  are what to listen to. The audition page
+  https://claude.ai/artifact/4pDDGzZtAmpLkmytj2XjMc (private to the author)
+  runs the real engine live; **read its marks first**: `ArtifactData`
+  `list` on that URL, collection `verdicts` (ids `track-neon`,
+  `track-overdrive`, `track-breakline`, `track-chiprush`, `titan-theme`,
+  `arrangement`, `fx-picks`, `fx-kills`, `fx-damage`, `mix`; `verdict`
+  keep / revise / rollback / null, `note`).
+- **Unverified**: nobody has listened to any of it; real-time audio load on
+  a phone is unmeasured (offline proxy: 0.09x on this machine).
+
 ## 4. What the author still has to do or decide
+
+- **Listen** to the four tracks and the palette, and say which to keep.
 
 - **Mark the review page.** Every item is separable; a roll back is a code
   edit in the file the item names (the workstreams landed as four merge

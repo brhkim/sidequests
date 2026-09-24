@@ -38,12 +38,21 @@ const MULTIPLY = Phaser.BlendModes.MULTIPLY;
  * Depths, bottom to top. The order of the old map is kept; what is new slots
  * between. Additive layers are grouped (the stream with the kill pops, the
  * ECHO ghosts alone) so a frame pays for as few blend switches as possible.
- * The field workstream owns 0-6 (ground, cards), 15 (labels), 25 and 27.
+ * The field workstream owns 0-6 (ground, groove, receptors), the NOTE stack
+ * at 11.6-11.8, 15 (labels), 25 and 27.
+ *
+ * Everything that walks the road - bodies, the Titan, cages, their health
+ * bars and their death debris - sits BELOW the note stack (11.6), so a card
+ * passing over a body hides it under both its face and its label (the
+ * author, 2026-09-24: bodies drew over the card's face and under its text).
+ * The squad's stream and the kill flashes it shares a batch with stay above
+ * the note, as they always were; enemy fire stays above everything it can hit.
  */
 const DEPTH = {
   shadow: 7, aura: 7.5, titan: 8, titanGloss: 8.5, titanAccent: 9, body: 10, gloss: 10.5, accent: 11,
-  inmates: 12, stream: 12.5, pops: 12.6, cage: 13, shards: 14, puffs: 14.3,
-  ghosts: 17, ghostHeads: 17.1, barBack: 18, bar: 18.1, squadShadow: 18.9,
+  barBack: 11.1, bar: 11.15, inmates: 11.2, cage: 11.3, shards: 11.4, puffs: 11.45,
+  stream: 12.5, pops: 12.6,
+  ghosts: 17, ghostHeads: 17.1, squadShadow: 18.9,
   shield: 19, soldier: 20, head: 21, trail: 22, enemyFire: 23,
 } as const;
 

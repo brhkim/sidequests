@@ -7,12 +7,16 @@
  * creates nodes without a caught failure; 600 kills 2 ms apart collapse into
  * bundles under the voice caps; `gameover` drains every voice.
  *
- * OFFLINE: renders every cue through a clone of the live chain into
- * `.verify/audio/*.wav` (plus `palette.wav`, every cue in order with 400 ms
- * gaps, and `kill-bundle-N.wav`) and reports duration, peak, RMS, dominant
- * frequency and the share of energy above 200 Hz, so a reader who cannot
- * listen can still check the design. Asserts every cue peaks between -40 and
- * -1 dBFS.
+ * OFFLINE: renders every cue through a clone of the live chain, room
+ * included, into `.verify/audio/*.wav` (stereo; plus `palette.wav`, every
+ * cue in order with 400 ms gaps, `kill-bundle-N.wav`, `kill-climb.wav` - a
+ * run of kills climbing the chord - and `perfect-streak.wav`, five PERFECTs
+ * in a row) and reports duration, peak, RMS, dominant frequency and the
+ * share of energy above 200 Hz, so a reader who cannot listen can still
+ * check the design. Asserts every cue peaks between -40 and -1 dBFS.
+ *
+ * The music has its own instrument, `npm run music`; the live half here only
+ * checks that it starts on the gesture, schedules bars, and stops when asked.
  *
  * Also greps: nothing in `src/systems/` imports `audio/`, and `src/audio/`
  * has no `Math.random` and no `Rng` import.
@@ -27,7 +31,7 @@ const ROOT = new URL('../', import.meta.url).pathname;
 const DIST = join(ROOT, 'dist/');
 const OUT = join(ROOT, '.verify/audio/');
 const RATE = 48000;
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2' };
 const failures = [];
 const fail = (msg) => { failures.push(msg); console.log(`  FAIL ${msg}`); };
 const ok = (cond, msg) => (cond ? console.log(`  ok   ${msg}`) : fail(msg));
@@ -72,7 +76,7 @@ const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', (e) => errors.push(e.message));
-await page.goto(`http://127.0.0.1:${port}/?seed=7&audio=1`, { waitUntil: 'load' });
+await page.goto(`http://127.0.0.1:${port}/?seed=7&audio=1&music=1`, { waitUntil: 'load' });
 await page.waitForFunction(() => window.game?.scene?.getScene('Game')?.sys?.isActive(), null, { timeout: 15000 }).catch(() => {});
 const stats = () => page.evaluate(() => window.__audio.stats);
 
@@ -124,10 +128,23 @@ if (live) {
   ok(stress.kills <= 2, 'kill voices <= 2');
   ok(stress.bundled > 500, 'bundled > 500');
   ok(stress.failed === 0, 'no failures under stress');
+  // The music: it began on the gesture, and it stops when switched off.
+  await page.evaluate(() => window.__audio.setMusic(true));
+  await page.waitForTimeout(2500);
+  const m1 = (await stats()).music;
+  console.log(`  music: track ${m1.track}, section ${m1.section}, ${m1.bars} bars, ${m1.late} late`);
+  ok(m1.running && m1.bars > 0, 'music is scheduling bars after the gesture');
+  ok(m1.late === 0, 'music scheduler never fell behind the audio clock');
+  await page.evaluate(() => window.__audio.setMusic(false));
+  await page.waitForTimeout(700);
+  const m2 = (await stats()).music;
+  await page.waitForTimeout(1200);
+  const m3 = (await stats()).music;
+  ok(!m2.running && m3.bars === m2.bars, `music off stops scheduling (${m2.bars} -> ${m3.bars} bars)`);
   await page.evaluate(() => window.__audio.voice('wave'));
   // The payload the end screen expects, so the UI scene's listener survives it.
   await page.evaluate(() => window.game.events.emit('gameover', {
-    cause: 'overrun', wave: 1, kills: 0, optimal: 0, tally: { top: 0, mid: 0, low: 0 }, contactLoss: 0,
+    cause: 'overrun', wave: 1, kills: 0, optimal: 0, peakDps: 0, series: [], tally: { top: 0, mid: 0, low: 0, risk: 0, miss: 0 }, contactLoss: 0,
     breachLoss: 0, fireLoss: 0, traveled: 0, decisions: 0, code: 'x', version: 'x', mode: 'normal', link: '',
   }));
   await page.waitForFunction(() => window.__audio.stats.voices === 0, null, { timeout: 3000 }).catch(() => {});
@@ -139,21 +156,45 @@ console.log('\noffline:');
 await mkdir(OUT, { recursive: true });
 const render = async (name, seconds, opts) => {
   const r = await page.evaluate(([n, s, o]) => window.__audio.render(n, s, o), [name, seconds ?? null, opts ?? {}]);
-  const bytes = Buffer.from(r.pcm16, 'base64');
-  const out = new Float32Array(bytes.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = bytes.readInt16LE(i * 2) / 0x8000;
-  return out;
+  const dec = (b64) => {
+    const bytes = Buffer.from(b64, 'base64');
+    const out = new Float32Array(bytes.length / 2);
+    for (let i = 0; i < out.length; i++) out[i] = bytes.readInt16LE(i * 2) / 0x8000;
+    return out;
+  };
+  const L = dec(r.left), R = dec(r.right);
+  // Measured on the mid channel; written stereo.
+  const M = new Float32Array(L.length);
+  for (let i = 0; i < L.length; i++) M[i] = (L[i] + R[i]) / 2;
+  M.stereo = [L, R];
+  return M;
 };
 function wav(samples) {
-  const buf = Buffer.alloc(44 + samples.length * 2);
+  const [L, R] = samples.stereo ?? [samples, samples];
+  const n = L.length;
+  const buf = Buffer.alloc(44 + n * 4);
   const v = new DataView(buf.buffer, buf.byteOffset);
-  buf.write('RIFF', 0); v.setUint32(4, 36 + samples.length * 2, true); buf.write('WAVE', 8);
-  buf.write('fmt ', 12); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-  v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
-  buf.write('data', 36); v.setUint32(40, samples.length * 2, true);
-  for (let i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, samples[i])) * 0x7fff, true);
+  buf.write('RIFF', 0); v.setUint32(4, 36 + n * 4, true); buf.write('WAVE', 8);
+  buf.write('fmt ', 12); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+  v.setUint32(24, RATE, true); v.setUint32(28, RATE * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true);
+  buf.write('data', 36); v.setUint32(40, n * 4, true);
+  for (let i = 0; i < n; i++) {
+    v.setInt16(44 + i * 4, Math.max(-1, Math.min(1, L[i])) * 0x7fff, true);
+    v.setInt16(46 + i * 4, Math.max(-1, Math.min(1, R[i])) * 0x7fff, true);
+  }
   return buf;
 }
+const join2 = (parts) => {
+  const n = parts.reduce((k, p) => k + p.length, 0);
+  const L = new Float32Array(n), R = new Float32Array(n), M = new Float32Array(n);
+  let at = 0;
+  for (const p of parts) {
+    const [l, r] = p.stereo ?? [p, p];
+    L.set(l, at); R.set(r, at); M.set(p, at); at += p.length;
+  }
+  M.stereo = [L, R];
+  return M;
+};
 function fft(re, im) {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
@@ -212,15 +253,18 @@ for (const c of cues) {
   if (m.rawPeak >= Math.pow(10, -1 / 20)) fail(`${c.name} peaks above -1 dBFS`);
   if (m.rawPeak <= Math.pow(10, -40 / 20)) fail(`${c.name} peaks below -40 dBFS`);
 }
-const total = palette.reduce((n, s) => n + s.length, 0);
-const joined = new Float32Array(total);
-let at = 0;
-for (const s of palette) { joined.set(s, at); at += s.length; }
-await writeFile(join(OUT, 'palette.wav'), wav(joined));
-console.log('\n  kill bundles (n -> pitch, level):');
+await writeFile(join(OUT, 'palette.wav'), wav(join2(palette)));
+// A run of kills climbing the chord and falling back, 120 ms apart, and five PERFECTs in a row.
+const climb = [];
+for (const c of [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0, 1, 2, 3]) climb.push(await render('kill', 0.12, { climb: c }));
+await writeFile(join(OUT, 'kill-climb.wav'), wav(join2(climb)));
+const streak = [];
+for (const c of [0, 1, 2, 3, 4]) streak.push(await render('pickPerfect', 0.9, { climb: c }));
+await writeFile(join(OUT, 'perfect-streak.wav'), wav(join2(streak)));
+console.log('\n  kill bundles (n -> level, weight):');
 for (const n of [1, 2, 4, 8, 16, 32]) {
   const doublings = Math.log2(n);
-  const opts = { pitch: Math.pow(2, -doublings / 12), gainDb: -1.5 * doublings, ...(n >= 4 ? { subDb: -24 } : {}) };
+  const opts = { gainDb: -1.5 * doublings, ...(n >= 4 ? { subDb: -18 } : {}) };
   const samples = await render('kill', 0.5, opts);
   await writeFile(join(OUT, `kill-bundle-${n}.wav`), wav(samples));
   const m = measure(samples);
@@ -229,7 +273,7 @@ for (const n of [1, 2, 4, 8, 16, 32]) {
 
 await browser.close();
 server.close();
-console.log(`\nwrote ${cues.length + 7} files to ${OUT}`);
+console.log(`\nwrote ${cues.length + 9} files to ${OUT}`);
 console.log(`console errors: ${errors.length}`);
 for (const e of errors) console.log(`  ${e}`);
 if (errors.length) failures.push('console errors');

@@ -343,8 +343,10 @@ export class GameScene extends Phaser.Scene {
     const toggle = () => { if (!this.over && !this.waiting) this.setPaused(!this.paused); };
     this.input.keyboard?.on('keydown-ESC', toggle);
     this.input.keyboard?.on('keydown-P', toggle);
-    // M mutes; the pause screen's SOUND line is the same request by touch.
+    // M mutes the effects and N the music; the pause screen's SOUND and
+    // MUSIC buttons are the same requests by touch.
     this.input.keyboard?.on('keydown-M', () => this.game.events.emit('mutetoggle'));
+    this.input.keyboard?.on('keydown-N', () => this.game.events.emit('musictoggle'));
     // The pause screen holds no state of its own - it reads the last published
     // HUD frame - so resume and restart are requests back into the simulation.
     this.game.events.on('setpaused', (on: boolean) => this.setPaused(on));

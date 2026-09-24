@@ -518,37 +518,73 @@ can never disagree.
 
 ## Sound
 
-Minimal, procedural, and on the same collapse rule as the rings and the
+Procedural, no files, and on the same collapse rule as the rings and the
 bullets: more of a thing past the point it carries information is folded
-into one sound that says how much, not played more times. No music, no
-files, no asset loading; the palette is a table of recipes.
+into one sound that says how much, not played more times. The palette is a
+table of recipes and the music is a table of patterns.
 
-What sounds, and why:
+**Rebuilt 2026-09-24** at the author's ask ("the sound design sorely lags
+... I'd like this to feel really satisfying sonically ... some kind of
+music track (with a separate music disable option) ... multiple types of
+tracks"). "No music" is withdrawn. The audit and what changed are in
+`CLAUDE.md`, "Audio"; the calls below are the intent, and every one of
+them is new and pending the author's ears.
 
-- **Every pick has a grade you can hear.** PERFECT is a rising major triad,
-  GOOD is one flat note twice, BAD is a falling minor second. The halo says
-  it in colour; the sound says it before your eyes have left the gate.
-  A passed offer is a MISS: a quiet whiff, on, at -20 dB.
-- **Kills are a texture, not a count.** One kill is a grain at 1.4 kHz. A
-  burst of them inside 100 ms is ONE grain, a semitone lower per doubling
-  and a little quieter, with a sub-partial from four - so a shredded wave
-  reads as heavier, never as louder, and ten voices a second is the cap.
-- **Damage to the army is felt, not announced.** Contact is a dull thud,
-  breach a heavier one with a sweep that ducks everything else, enemy fire
-  a tick. Each scales with the share of the army it cost.
-- **The Titan has a heartbeat.** A swell and three warning pulses when it
-  arrives, then a low pulse that quickens over its descent; a crunch and a
-  released chord when it dies; a drop and a door closing when it lands on
-  you. Its volleys pop, quietly.
-- **Rescue, streak, wave, sense** are each a short distinct figure, and the
-  SENSE chime fires when a sensed offer SPAWNS, which is when it matters.
-- **Start is one soft tone**: it is also the proof the browser unlocked.
+**The effects:**
 
-Sound is on by default, toggled from the pause screen (SOUND ON / OFF) and
-remembered. Muting plays nothing. Ducking, the twelve-voice budget and the
-priority order in `CLAUDE.md` exist so a Titan landing is never lost under
-a stack of kills. Nothing here touches the simulation: audio reads the
-event stream and a match code sounds the same on every replay.
+- **Rewards are in the music's key.** Every positive cue names a chord tone
+  or a scale step, resolved against the chord the music is playing when it
+  sounds (Tetris Effect's rule: whatever the player does lands inside the
+  mode). A PERFECT is the chord under it, arpeggiated as bells across the
+  stereo field with a sparkle and a bloom; each PERFECT in a row climbs it
+  a chord tone, up to four. GOOD is the fifth rising to the root. INVEST is
+  a sus4 that does not resolve. With music off the chord holds the last
+  tonic, so the effects still agree with each other.
+- **Failure is deliberately not in key.** BAD is a flat second bending
+  flat; a breach carries a flat second against the tonic; damage is noise
+  and drive. Wrong should sound wrong.
+- **Kills climb.** A kill is a click and a small bell on a chord tone; a run
+  of kills walks up the chord and back down, so shredding a wave plays an
+  arpeggio instead of a machine gun. Bundles past 10 a second still become
+  one heavier voice, and no longer drop a semitone (that was a wrong note).
+- **Transient, body, tail.** Every impact has a click or noise attack,
+  which is also all a phone speaker reproduces of a low thud; its tail is a
+  shared room reverb, not the recipe's.
+- **Placed.** Effects pan with where they happened, gently (0.45 at most:
+  a portrait phone has one speaker, or two a hand covers).
+- **Every button ticks**, quietly, on the chord's root.
+
+**The music:**
+
+- Four tracks in rotation - **NEON LANES** (synthwave, 100), **OVERDRIVE**
+  (electro house, 124), **BREAKLINE** (drum and bass, 172) and **CHIPRUSH**
+  (chiptune, 150, the one major key). A new run starts the next track; so
+  does every second Titan felled.
+- **It follows the run, not the clock.** Intensity 1-4 is the wave number,
+  lifted for a while by damage taken; it decides which layers may play.
+  Each level cycles authored sections (intro / groove / build / drop /
+  break, eight bars each), so a drop is followed by something that is not
+  a drop, and the lead plays only in drops and breaks - under two thirds of
+  phrases at the top level. Progressions rotate every two phrases, lead
+  lines per phrase, fills and crashes mark phrase edges.
+- **The Titan has a theme.** On arrival the music turns at the next
+  barline to its boss section - a darker mode (Phrygian: the flat second)
+  under a four-note leitmotif shared by all four tracks - and back, with a
+  crash and a drop, when it falls. With music off the old heartbeat plays
+  instead.
+- **Menu and pause.** The start and end screens play a quiet pad and arp;
+  pausing muffles the music behind the screen rather than stopping it; the
+  run ending closes the filter and fades it.
+- **Effects duck the music**, a little under a pick, more under the Titan,
+  so the reward always reads. `npm run music` checks a PERFECT stands at
+  least 3 LU over the music under it.
+
+SOUND and MUSIC are separate buttons on the pause screen (and on HOW TO
+PLAY), M and N on a keyboard, both remembered. A player who had muted
+SOUND before music existed starts with music off too. The pause screen
+names the track playing. Nothing here touches the simulation: audio reads
+the event stream and the HUD frame, and nothing in it is random - the
+music's arrangement varies per run on purpose, from a hashed run counter.
 
 ## Seeds are shareable
 

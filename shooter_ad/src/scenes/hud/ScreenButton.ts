@@ -137,6 +137,8 @@ export function cardButton(
     hit.on('pointerdown', (p: Phaser.Input.Pointer) => {
       p.event.stopPropagation();
       press();
+      // The tap's tick. Audio listens for it; this file does not know audio exists.
+      scene.game.events.emit('uitap');
       on();
     });
   };

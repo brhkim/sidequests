@@ -4,7 +4,7 @@ import { ENEMIES } from './data/enemies';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
-import { installAudio } from './audio/AudioEvents';
+import { installAudio } from './audio/install';
 import { installAnalytics } from './analytics/Analytics';
 import { loadFonts } from './fonts';
 

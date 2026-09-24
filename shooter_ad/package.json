@@ -27,6 +27,7 @@
     "titan": "node --experimental-strip-types scripts/titan.mjs",
     "roster": "node scripts/roster.mjs",
     "audio": "node scripts/audio.mjs",
+    "music": "node --experimental-strip-types scripts/music.mjs",
     "rail": "node scripts/rail.mjs",
     "sway": "node scripts/sway.mjs",
     "perf": "node scripts/perf.mjs"

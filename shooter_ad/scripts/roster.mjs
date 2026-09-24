@@ -8,6 +8,9 @@
  *   roster-late.png  the same board at `hud-late` power (orange stream)
  *   roster-fx.png    the pops mid-flight: a Titan burst, two kill rings, a
  *                    contact puff, a block ping; SHIELD 3 and ECHO 2 held
+ *   roster-notes.png bodies, a hurt Brute with its bar, a Titan and a cage
+ *                    UNDER a live offer: every one must be hidden by the
+ *                    note's face and its label alike (2026-09-24)
  *
  * The playfield is what a player reads at a glance, and until this existed
  * the roster had never been seen together: `verify` photographs wave 2 (two
@@ -173,6 +176,32 @@ await page.evaluate(() => {
   s.render();
 });
 await shoot('roster-fx');
+
+// Bodies under a live offer. The note stack draws above everything that
+// walks the road, so each card must hide what is under it - face and label
+// alike. Steps until an offer is mid-screen, then lays bodies across it.
+await board(MID);
+await page.evaluate(() => {
+  const s = window.game.scene.getScene('Game');
+  for (let i = 0; i < 1500 && !s.gates.items.some((g) => g.active && g.y > 420); i++) s.step(1 / 60);
+  s.enemies.reset();
+  s.enemies.items.length = 0;
+  s.enemyFire.reset();
+  const types = window.enemyTypes;
+  const by = (id) => types.find((t) => t.id === id);
+  const cards = s.gates.items.filter((g) => g.active).sort((a, b) => a.x - b.x);
+  const [l, m, r] = cards;
+  s.enemies.spawn(by('grunt'), l.x - 18, l.y - 6, 1e7);
+  s.enemies.spawn(by('runner'), l.x + 22, l.y + 30, 1e7);
+  s.enemies.spawn(by('brute'), m.x, m.y + 4, 1e7);
+  const brute = s.enemies.items[s.enemies.items.length - 1];
+  s.enemies.damage(brute, brute.maxHp * 0.5);
+  brute.hitFlash = -1;
+  s.enemies.spawn(by('titan'), m.x, m.y - 110, 1, 1e7);
+  if (r) s.enemies.cages.push({ x: r.x, y: r.y, hp: 10, maxHp: 10, hitFlash: -1, active: true });
+  s.render();
+});
+await shoot('roster-notes');
 
 console.log(`errors: ${errors.length}`);
 for (const e of errors) console.log(`  ${e}`);

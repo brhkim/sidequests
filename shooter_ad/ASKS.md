@@ -1006,3 +1006,34 @@ contact shadows, the duel rail, the results-table end screen.
 - Performance target: **"60fps mid-range phone (Recommended)"** - 60fps
   with no dropped frames on a 3-4 year old mid-range Android under CPU
   throttling, at wave 41 with a full ring, ECHO and a dense stream.
+
+# Author's asks — session of 2026-09-24 (eighth session, depth and sound)
+
+## 1. Opening brief (verbatim)
+
+> Okay, everything really looks PHENOMENAL. A couple of thoughts:
+>
+> 1. Enemies seem to draw on TOP of the upgrade card backgrounds but BEHIND
+> the upgrade card text. I Think they should draw beneath both, right?
+> 2. The visual update is fantastic, and now I worry the sound design sorely
+> lags from there. Can you run a sound design audit and get it upgraded
+> given the tools we have available to us for audio work? You can do some
+> searching and research online to see best practices for audio and sound
+> design, I'd like this to feel really satisfying sonically. I am
+> interested in whether we can put together some kind of music track (with
+> a separate music disable option in the menus) as well, with some
+> sufficient variety so it doesn't drone and get annoying too quickly,
+> perhaps multiple types of tracks
+
+Status: `landed`, pending the author's ears. (1) The note stack now draws
+above every body, cage, health bar and death shard on the road, face and
+label alike (`roster-notes.png`; perf level to better). (2) The effects
+palette was rebuilt (transient / body / tail, rewards in the music's key,
+kills climbing the chord, a PERFECT streak climbing its arpeggio, a room
+reverb, panning, a limiter) and four procedural tracks added - NEON LANES,
+OVERDRIVE, BREAKLINE, CHIPRUSH - with intensity layering, section
+re-sequencing, a Titan boss mode and leitmotif, pause muffling, and
+separate SOUND / MUSIC buttons (M / N). `npm run music` is new; whole mix
+-17 LUFS, every PERFECT 5.7-10.9 LU over the music; `neutral` 5/5
+identical. The review page's `verdicts` collection was read at the start
+of the session and held no marks.

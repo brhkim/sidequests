@@ -87,15 +87,16 @@ export class UIScene extends Phaser.Scene {
       // the screen, because nothing was paused.
       (mode) => { if (mode === 'guide') this.pause.hide(); else this.game.events.emit('setpaused', false); },
       () => this.game.events.emit('restartrequest'),
-      // Audio owns the truth about mute; it answers with `muted`.
+      // Audio owns the truth about mute and music; it answers with `muted` / `music`.
       () => this.game.events.emit('mutetoggle'),
+      () => this.game.events.emit('musictoggle'),
     );
     this.drawPauseButton();
 
     const on: [string, (...args: never[]) => void][] = [
       ['hud', this.onHud], ['moment', this.onMoment], ['gameover', this.onGameOver],
       ['showstart', this.onShowStart], ['restart', this.onRestart], ['paused', this.onPaused],
-      ['muted', this.onMuted],
+      ['muted', this.onMuted], ['music', this.onMusic], ['musictrack', this.onTrack],
     ];
     for (const [name, fn] of on) this.game.events.on(name, fn, this);
     // GameScene.create has already run by now and is waiting for this before it
@@ -177,6 +178,10 @@ export class UIScene extends Phaser.Scene {
   }
 
   private onMuted(muted: boolean): void { this.pause.setMuted(muted); }
+
+  private onMusic(on: boolean): void { this.pause.setMusic(on); }
+
+  private onTrack(name: string): void { this.pause.setTrack(name); }
 
   private onRestart(): void {
     this.endTimer?.remove(false);

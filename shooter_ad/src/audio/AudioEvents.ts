@@ -1,91 +1,117 @@
 /**
  * The game's one sound listener. Subscribes to `game.events` - `moment` (the
- * simulation's account of each frame), `paused`, `restart`, `gameover`,
- * `startmatch`, `mutetoggle` - and answers `mutetoggle` with `muted`. It
- * touches no scene and no system: audio reads events and nothing reads audio,
- * which is what keeps it off the determinism surface.
+ * simulation's account of each frame), `hud`, `paused`, `restart`,
+ * `showstart`, `startmatch`, `gameover`, `mutetoggle`, `musictoggle`,
+ * `uitap` - and answers the toggles with `muted` / `music`. It touches no
+ * scene and no system: audio reads events and nothing reads audio, which is
+ * what keeps it off the determinism surface.
  *
- * The clock the bundler runs on is wall time from `performance.now()`,
- * advanced once per frame. Audio is allowed that because nothing here can
- * reach the simulation; the instrument drives the same code with a synthetic
- * clock through `window.__audio`.
+ * It also CONDUCTS: the music's mode (menu / play / boss), its intensity
+ * level (from the wave and the damage being taken), the track rotation (a
+ * new run, every second Titan felled) and the pause filter are all decided
+ * here from the same events the effects read.
+ *
+ * The clock the bundler runs on is wall time from `performance.now()`.
+ * Audio is allowed that because nothing here can reach the simulation; the
+ * instrument drives the same code with a synthetic clock through
+ * `window.__audio`.
  */
 import type Phaser from 'phaser';
 import type { SimEvent } from '../systems/SimEvents';
-import { Audio, readStoredMute, type Stats } from './Audio';
+import type { HudPayload } from '../scenes/hud/types';
+import { Audio, type Stats } from './Audio';
 import { Bundler, encodeBundle, type Flush } from './collapse';
-import { CUES, CUE_NAMES, cueDuration, type CueName } from './cues';
+import { CUES, type CueName } from './cues';
+import { hash01 } from './music/composer';
 import type { VoiceOpts } from './synth';
 
 const GRADE_CUE = { perfect: 'pickPerfect', good: 'pickGood', bad: 'pickBad', risk: 'pickRisk' } as const;
 const OVER_CUE = { overrun: 'playerDeath', titan: 'titanLand' } as const;
-/** The heartbeat quickens over this long after the Titan arrives; audio has no view of its descent. */
-const TITAN_RAMP_MS = 20000;
 const VOLLEY_GAP_MS = 250;
-/** Kill bundles vary +-3% in pitch so a run of them is a texture, not a metronome. */
-const KILL_JITTER = 0.03;
+/** Kills climb the chord and fall back, a tone a voice, while they keep coming. */
+const KILL_CLIMB = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1];
+const KILL_CHAIN_MS = 600;
+/** A kill voice varies +-8 cents: a texture, not a metronome, and still in tune. */
+const KILL_DETUNE = 0.0046;
+/** Effects sit at most this far off centre: portrait phones have one speaker, or two a hand covers. */
+const PAN_WIDTH = 0.45;
+/** Seconds after the run ends before the menu music fades in under the end screen. */
+const MENU_AFTER_MS = 3500;
+/** Damage raises intensity; this is its half-life, ms. */
+const DANGER_HALF_LIFE = 6000;
 
-/** A counter hashed to [-1, 1): variation without randomness, so a replay sounds the same. */
-function hash01(n: number): number {
-  let x = (n * 0x9e3779b1) >>> 0;
-  x ^= x >>> 15; x = Math.imul(x, 0x85ebca6b) >>> 0;
-  x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35) >>> 0;
-  x ^= x >>> 16;
-  return (x / 0x100000000) * 2 - 1;
-}
+/** Per-event extras the seam may pass: `share` sizes a charge, `x` places it. */
+export interface CueExtras { share?: number; x?: number }
 
-/** Per-event extras the seam may pass: `share` sizes a charge, `count` weights a kill. */
-export interface CueExtras { share?: number; count?: number }
-
-export interface AudioSeam {
-  play(name: CueName, extras?: CueExtras & { t?: number }): boolean;
-  voice(name: CueName, opts?: VoiceOpts): boolean;
-  tick(t?: number): void;
-  render(name: CueName, seconds?: number, opts?: VoiceOpts): Promise<{ sampleRate: number; pcm16: string }>;
-  cues(): { name: CueName; durationMs: number; db: number; category: string; priority: number; enabled: boolean }[];
-  setMuted(on: boolean): void;
-  stopAll(): void;
-  readonly muted: boolean;
-  readonly stats: Stats;
-  voicesOf(name: CueName): number;
-}
+const panOf = (x: number | undefined): number => (x === undefined ? 0 : Math.max(-1, Math.min(1, (x - 270) / 270)) * PAN_WIDTH);
 
 export class AudioEvents {
   private readonly bundler = new Bundler();
   private killTimes: number[] = [];
+  private lastPan: Partial<Record<CueName, number>> = {};
+  private killStep = 0;
+  private lastKillVoice = -Infinity;
+  private killVoices = 0;
+  private streak = 0;
   private titanSince = -1;
+  private titanProgress = 0;
+  private titansDown = 0;
   private nextPulse = 0;
   private lastVolley = -Infinity;
   private paused = false;
-  private killVoices = 0;
+  private danger = 0;
+  private dangerAt = 0;
+  private wave = 1;
+  private inRun = false;
+  private menuAt = -1;
+  private runs = 0;
+  private runPending = false;
+  private trackShown = '';
 
   constructor(readonly audio: Audio, private readonly events: Phaser.Events.EventEmitter) {
     events.on('moment', (list: SimEvent[]) => this.onMoment(list));
-    events.on('hud', () => this.tick(performance.now()));
+    events.on('hud', (h: HudPayload) => this.onHud(h));
     events.on('paused', (on: boolean) => this.onPaused(on));
-    events.on('restart', () => this.reset());
+    events.on('restart', () => this.onRestart());
+    events.on('showstart', () => this.onShowStart());
     events.on('gameover', () => this.onGameOver());
-    events.on('startmatch', () => { this.audio.play('start'); });
+    events.on('startmatch', () => { this.audio.play('start'); this.beginRun(); });
     events.on('mutetoggle', () => this.toggleMute());
+    events.on('musictoggle', () => this.toggleMusic());
+    events.on('uitap', () => { this.audio.play('uitap'); });
+    // The UI scene's labels start from the truth, not from a default.
+    events.on('uiready', () => {
+      events.emit('muted', this.audio.muted);
+      events.emit('music', this.audio.musicOn);
+      events.emit('musictrack', this.audio.music.trackName);
+    });
   }
 
   /** One simulation event becomes at most one cue, or one tally in the bundler. */
-  cue(kind: CueName, now: number, extras: CueExtras = {}): boolean {
+  cue(kind: CueName, now: number, extras: CueExtras = {}, opts: VoiceOpts = {}): boolean {
     const cue = CUES[kind];
+    const pan = panOf(extras.x);
     if (cue.bundle) {
+      this.lastPan[kind] = pan;
       const flush = this.bundler.add(kind, cue.bundle, now, extras.share ?? 0);
       if (kind === 'kill') this.killTimes.push(now);
       this.audio.bundled = this.bundler.bundled;
-      return flush ? this.playFlush(flush) : false;
+      return flush ? this.playFlush(flush, now) : false;
     }
-    return this.audio.play(kind);
+    return this.audio.play(kind, { pan, ...opts });
   }
 
-  private playFlush(flush: Flush): boolean {
+  private playFlush(flush: Flush, now: number): boolean {
     const name = flush.name as CueName;
     const cue = CUES[name];
     const opts: VoiceOpts = cue.encode ? encodeBundle(flush.count) : {};
-    if (cue.encode) opts.pitch = (opts.pitch ?? 1) * (1 + KILL_JITTER * hash01(this.killVoices++));
+    opts.pan = this.lastPan[name] ?? 0;
+    if (name === 'kill') {
+      if (now - this.lastKillVoice > KILL_CHAIN_MS) this.killStep = 0;
+      this.lastKillVoice = now;
+      opts.climb = KILL_CLIMB[this.killStep++ % KILL_CLIMB.length];
+      opts.pitch = 1 + KILL_DETUNE * (hash01(this.killVoices++) * 2 - 1);
+    }
     if (cue.share) opts.gainDb = Math.min(cue.share.max - cue.db, cue.share.range * Math.min(1, flush.share / cue.share.scale));
     return this.audio.play(name, opts);
   }
@@ -95,28 +121,42 @@ export class AudioEvents {
     for (const e of list) this.onEvent(e, now);
   }
 
+  private hurt(share: number, now: number): void {
+    this.decayDanger(now);
+    this.danger = Math.min(1, this.danger + share * 4 + 0.05);
+  }
+
   private onEvent(e: SimEvent, now: number): void {
     switch (e.kind) {
-      case 'kill': if (!e.titan) this.cue('kill', now); break;
-      case 'contact': if (!e.titan) this.cue('contact', now, { share: e.share }); break;
-      case 'breach': if (!e.titan) this.cue('breach', now, { share: e.share }); break;
-      case 'fire': if (e.hits > 0) this.cue('fireHit', now); break;
-      case 'block': this.cue('block', now); break;
-      case 'pick': this.cue(GRADE_CUE[e.grade], now); break;
-      case 'miss': this.cue('miss', now); break;
-      case 'rescue': this.cue('rescue', now); break;
-      case 'wave': this.cue('wave', now); break;
+      case 'kill': if (!e.titan) this.cue('kill', now, { x: e.x }); break;
+      case 'contact': if (!e.titan) { this.cue('contact', now, { share: e.share, x: e.x }); this.hurt(e.share, now); } break;
+      case 'breach': if (!e.titan) { this.cue('breach', now, { share: e.share, x: e.x }); this.hurt(e.share, now); } break;
+      case 'fire': if (e.hits > 0) { this.cue('fireHit', now); this.hurt(e.share, now); } break;
+      case 'block': this.cue('block', now, { x: e.x }); break;
+      case 'pick': this.onPick(e.grade, e.x, now); break;
+      case 'miss': this.streak = 0; this.cue('miss', now, { x: e.x }); break;
+      case 'rescue': this.cue('rescue', now, { x: e.x }); break;
+      case 'wave': this.wave = e.index; this.cue('wave', now); break;
       case 'sense': this.cue('sense', now); break;
       case 'titan': this.onTitan(e.phase, now); break;
-      case 'over': this.stopTitan(); this.audio.play(OVER_CUE[e.cause]); break;
+      case 'over': this.stopTitan(); this.streak = 0; this.audio.play(OVER_CUE[e.cause]); break;
     }
   }
 
+  /** A PERFECT streak climbs the arpeggio a chord tone a pick, up to four; anything else resets it. */
+  private onPick(grade: keyof typeof GRADE_CUE, x: number, now: number): void {
+    if (grade === 'perfect') this.streak++; else this.streak = 0;
+    const climb = grade === 'perfect' ? Math.min(this.streak - 1, 4) : 0;
+    this.cue(GRADE_CUE[grade], now, { x }, { climb });
+  }
+
   private onTitan(phase: 'arrive' | 'volley' | 'down', now: number): void {
+    const music = this.audio.music;
     if (phase === 'arrive') {
       this.titanSince = now;
       this.nextPulse = now + 800;
       this.audio.play('titanArrive');
+      this.audio.guard(() => music.setMode('boss', { crash: true }));
     } else if (phase === 'volley') {
       if (now - this.lastVolley < VOLLEY_GAP_MS) return;
       this.lastVolley = now;
@@ -124,27 +164,68 @@ export class AudioEvents {
     } else {
       this.stopTitan();
       this.audio.play('titanKill');
+      this.titansDown++;
+      this.audio.guard(() => {
+        if (this.titansDown % 2 === 0) music.nextTrack();
+        music.setMode('play', { crash: true, force: this.level() >= 2 ? 'drop' : undefined });
+      });
     }
   }
 
   private stopTitan(): void { this.titanSince = -1; }
 
-  /** Once per frame: closes bundle windows, eases the kill bus, beats the Titan's heart. */
+  private decayDanger(now: number): void {
+    this.danger *= Math.pow(0.5, (now - this.dangerAt) / DANGER_HALF_LIFE);
+    this.dangerAt = now;
+  }
+
+  /** Intensity 1-4 in a run: the wave sets the floor, damage taken lifts it. */
+  private level(): number {
+    const x = 0.25 + 0.06 * (this.wave - 1) + 0.2 * this.danger;
+    return Math.max(1, Math.min(4, Math.floor(x * 5)));
+  }
+
+  private onHud(h: HudPayload): void {
+    this.wave = h.wave;
+    this.titanProgress = h.titan?.progress ?? 0;
+    this.tick(performance.now());
+  }
+
+  /** Once per frame: closes bundle windows, eases the kill bus, conducts, beats the Titan's heart. */
   tick(now: number): void {
-    for (const flush of this.bundler.update(now)) this.playFlush(flush);
+    for (const flush of this.bundler.update(now)) this.playFlush(flush, now);
     while (this.killTimes.length && now - this.killTimes[0] > 1000) this.killTimes.shift();
     this.audio.setKillRate(this.killTimes.length);
-    if (this.titanSince >= 0 && !this.paused && now >= this.nextPulse) {
-      const progress = Math.min(1, (now - this.titanSince) / TITAN_RAMP_MS);
-      this.audio.play('titanPulse', { pitch: (55 + 27 * progress) / 55 });
+    const music = this.audio.music;
+    this.decayDanger(now);
+    if (this.inRun) this.audio.guard(() => music.setLevel(this.level()));
+    if (this.menuAt >= 0 && now >= this.menuAt) { this.menuAt = -1; this.audio.guard(() => music.setMode('menu')); }
+    if (music.trackName !== this.trackShown) { this.trackShown = music.trackName; this.events.emit('musictrack', music.trackName); }
+    // The heartbeat is for a silent room: with music on, the boss section carries the dread in tempo.
+    if (this.titanSince >= 0 && !this.paused && now >= this.nextPulse && !(music.on && this.audio.state === 'running')) {
+      const progress = Math.max(this.titanProgress, Math.min(1, (now - this.titanSince) / 20000));
+      this.audio.play('titanPulse', { pitch: 1 + 0.5 * progress });
       this.nextPulse = now + 2000 - 1200 * progress;
     }
+  }
+
+  private beginRun(): void {
+    this.runPending = false;
+    this.inRun = true;
+    this.menuAt = -1;
+    this.titansDown = 0;
+    this.streak = 0;
+    this.danger = 0;
+    this.wave = 1;
+    this.runs++;
+    this.audio.guard(() => this.audio.music.newRun(this.runs));
   }
 
   private onPaused(on: boolean): void {
     this.paused = on;
     if (on) this.audio.stopAll();
     this.audio.play(on ? 'pause' : 'resume');
+    this.audio.guard(() => this.audio.music.setPaused(on));
     if (!on) this.nextPulse = performance.now() + 400;
   }
 
@@ -152,70 +233,49 @@ export class AudioEvents {
     this.stopTitan();
     this.bundler.reset();
     this.killTimes.length = 0;
+    this.inRun = false;
+    this.menuAt = performance.now() + MENU_AFTER_MS;
     // The death cue arrives in the same frame's `moment`, after this; keep it if it is already sounding.
     this.audio.stopAll('playerDeath');
+    this.audio.guard(() => this.audio.music.end());
   }
 
-  private reset(): void {
+  /**
+   * A restart is a new run - unless the start screen follows in the same
+   * tick (a new match waits on START MATCH), so the decision is deferred
+   * one task and `showstart` cancels it.
+   */
+  private onRestart(): void {
     this.stopTitan();
     this.paused = false;
     this.bundler.reset();
     this.killTimes.length = 0;
     this.audio.stopAll();
+    this.runPending = true;
+    setTimeout(() => { if (this.runPending) this.beginRun(); }, 0);
+  }
+
+  private onShowStart(): void {
+    this.runPending = false;
+    this.inRun = false;
+    this.menuAt = -1;
+    this.audio.guard(() => this.audio.music.setMode('menu'));
   }
 
   private toggleMute(): void {
     this.audio.setMuted(!this.audio.muted);
     this.events.emit('muted', this.audio.muted);
   }
-}
 
-function pcm16(samples: Float32Array): string {
-  const bytes = new Uint8Array(samples.length * 2);
-  const view = new DataView(bytes.buffer);
-  for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  private toggleMusic(): void {
+    this.audio.setMusic(!this.audio.musicOn);
+    this.events.emit('music', this.audio.musicOn);
   }
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(out);
-}
 
-/**
- * Wires audio to the game. `?mute=1` starts muted; `?audio=1` forces it on;
- * a `?seed=` page without `audio=1` is an instrument run and never creates a
- * context at all. The first pointer, touch or key anywhere is the unlock.
- */
-export function installAudio(events: Phaser.Events.EventEmitter, search: string): AudioSeam {
-  const params = new URLSearchParams(search);
-  const disabled = params.has('seed') && params.get('audio') !== '1';
-  const muted = params.get('mute') === '1' || (readStoredMute() ?? false);
-  const audio = new Audio(disabled, muted);
-  const wired = new AudioEvents(audio, events);
+  /** After the unlock gesture: the context exists, so the music can begin in whatever mode was asked for. */
+  unlocked(): void {
+    this.audio.guard(() => this.audio.music.setEnabled(this.audio.music.on));
+  }
 
-  const unlock = (): void => {
-    audio.unlock();
-    for (const type of ['pointerdown', 'touchend', 'keydown']) window.removeEventListener(type, unlock, true);
-  };
-  for (const type of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(type, unlock, { capture: true });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) audio.suspend(); else audio.resume(); });
-
-  const seam: AudioSeam = {
-    play: (name, extras = {}) => wired.cue(name, extras.t ?? performance.now(), extras),
-    voice: (name, opts) => audio.play(name, opts),
-    tick: (t) => wired.tick(t ?? performance.now()),
-    render: async (name, seconds, opts) => ({ sampleRate: 48000, pcm16: pcm16(await audio.render(name, seconds, opts)) }),
-    cues: () => CUE_NAMES.map((name) => ({
-      name, durationMs: cueDuration(CUES[name]), db: CUES[name].db, category: CUES[name].category,
-      priority: CUES[name].priority, enabled: CUES[name].enabled !== false,
-    })),
-    setMuted: (on) => { audio.setMuted(on); events.emit('muted', on); },
-    stopAll: () => audio.stopAll(),
-    get muted() { return audio.muted; },
-    get stats() { return audio.stats; },
-    voicesOf: (name) => audio.voicesOf(name),
-  };
-  (window as unknown as { __audio: AudioSeam }).__audio = seam;
-  return seam;
+  get stats(): Stats { return this.audio.stats; }
 }

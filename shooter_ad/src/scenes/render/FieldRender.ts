@@ -137,11 +137,12 @@ export class FieldRender {
     for (let i = used; i < this.rewards.length; i++) this.rewards[i].setVisible(false);
   }
 
+  /** A cage's reward sits with its cage, under the note stack (11.6): a card passing over the cage hides both. */
   private makeReward(): Phaser.GameObjects.Text {
     const t = this.scene.add.text(0, 0, '', {
       fontFamily: FONT, fontSize: '14px', fontStyle: '800', color: hex(COLORS.cage),
       stroke: '#07070d', strokeThickness: 4,
-    }).setOrigin(0.5, 1).setDepth(15);
+    }).setOrigin(0.5, 1).setDepth(11.5);
     this.rewards.push(t);
     return t;
   }

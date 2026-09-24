@@ -25,8 +25,9 @@ type Page = 'guide' | 'bonuses' | 'details';
 export type PauseMode = 'pause' | 'guide';
 
 const DEPTH = { pause: 55, guide: 65 } as const;
-/** The controls' row: RESUME, then SOUND and RESTART a row beneath it. */
-const ROW = { primary: 748, secondary: 812, hint: 860, half: 196, gap: 12 } as const;
+/** The controls' row: RESUME, then SOUND, MUSIC and RESTART a row beneath it; what is playing; the keys. */
+const ROW = { primary: 748, secondary: 812, playing: 856, hint: 882, third: 150, gap: 10 } as const;
+const PITCH = ROW.third + ROW.gap;
 
 /**
  * Pause, and the only place the game explains itself. Three pages:
@@ -43,9 +44,11 @@ const ROW = { primary: 748, secondary: 812, hint: 860, half: 196, gap: 12 } as c
  * a run (the author's ask, 2026-09-20).
  *
  * One filled button, RESUME. RESTART is a red button a row beneath it,
- * beside SOUND, so a thumb reaching for RESUME cannot throw the run away.
- * The SOUND button is the mute control; it asks, and the audio layer
- * answers with `setMuted`, so the label never claims a state audio is not in.
+ * beside SOUND and MUSIC, so a thumb reaching for RESUME cannot throw the
+ * run away. SOUND switches the effects and MUSIC the music, separately
+ * (2026-09-24, the author's ask); each asks, and the audio layer answers
+ * with `setMuted` / `setMusic`, so a label never claims a state audio is
+ * not in. Under them, what is playing.
  *
  * It enters with the lane wipe (`ScreenWipe`); a tab change swaps the page
  * with a short fade. Nothing runs per frame while it is up or hidden.
@@ -60,16 +63,20 @@ export class PauseScreen {
   private readonly tabs: ReturnType<typeof segmented<Page>>;
   private readonly primary: CardButton;
   private readonly sound: CardButton;
+  private readonly music: CardButton;
   private readonly restart: CardButton;
+  private readonly playing: Phaser.GameObjects.Text;
   private readonly keysHint: Phaser.GameObjects.Text;
   private page: Page = 'bonuses';
+  private musicOn = true;
+  private track = '';
   private mode: PauseMode = 'pause';
 
   constructor(
     private readonly scene: Phaser.Scene,
     /** RESUME on pause; BACK from the start screen's guide. */
     onPrimary: (mode: PauseMode) => void,
-    onRestart: () => void, onMuteToggle: () => void,
+    onRestart: () => void, onMuteToggle: () => void, onMusicToggle: () => void,
   ) {
     const cx = VIEW.width / 2;
     const parts: Phaser.GameObjects.GameObject[] = [];
@@ -100,19 +107,24 @@ export class PauseScreen {
     this.details = new PauseDetails(scene);
     parts.push(this.details.root);
 
-    // The one filled button, then SOUND and RESTART as a row of two.
+    // The one filled button, then SOUND, MUSIC and RESTART as a row of three.
     this.primary = cardButton(scene, cx, ROW.primary, 300, 56, GRADE_COLOR.perfect, 'RESUME', 22)
       .bind(() => onPrimary(this.mode));
     addAll(this.primary.parts);
-    const off = (ROW.half + ROW.gap) / 2;
-    this.sound = cardButton(scene, cx - off, ROW.secondary, ROW.half, 44, LINK, 'SOUND ON', 15, 'secondary')
+    this.sound = cardButton(scene, cx - PITCH, ROW.secondary, ROW.third, 44, LINK, 'SOUND ON', 15, 'secondary')
       .bind(onMuteToggle);
     addAll(this.sound.parts);
-    this.restart = cardButton(scene, cx + off, ROW.secondary, ROW.half, 44, 0xff4757, 'RESTART', 15, 'danger')
+    this.music = cardButton(scene, cx, ROW.secondary, ROW.third, 44, LINK, 'MUSIC ON', 15, 'secondary')
+      .bind(onMusicToggle);
+    addAll(this.music.parts);
+    this.restart = cardButton(scene, cx + PITCH, ROW.secondary, ROW.third, 44, 0xff4757, 'RESTART', 15, 'danger')
       .bind(onRestart);
     addAll(this.restart.parts);
 
-    this.keysHint = add(scene.add.text(cx, ROW.hint, 'P or ESC also pauses and resumes  ·  M mutes', {
+    this.playing = add(scene.add.text(cx, ROW.playing, '', {
+      fontFamily: FONT, fontSize: '14px', color: INK.caption, fontStyle: '600',
+    }).setOrigin(0.5).setLetterSpacing(1.5));
+    this.keysHint = add(scene.add.text(cx, ROW.hint, 'P or ESC pauses  ·  M sound  ·  N music', {
       fontFamily: FONT, fontSize: '14px', color: INK.caption, fontStyle: '500',
     }).setOrigin(0.5));
 
@@ -143,6 +155,24 @@ export class PauseScreen {
     this.sound.setLabel(muted ? 'SOUND OFF' : 'SOUND ON');
   }
 
+  /** Same contract for the music: `music` from the audio strand. */
+  setMusic(on: boolean): void {
+    this.musicOn = on;
+    this.music.setLabel(on ? 'MUSIC ON' : 'MUSIC OFF');
+    this.drawPlaying();
+  }
+
+  /** The track the music is on, from `musictrack`. */
+  setTrack(name: string): void {
+    this.track = name;
+    this.drawPlaying();
+  }
+
+  private drawPlaying(): void {
+    const t = this.musicOn && this.track ? `NOW PLAYING  ·  ${this.track}` : '';
+    if (this.playing.text !== t) this.playing.setText(t);
+  }
+
   update(h: HudPayload): void {
     this.bonuses.update(h);
     this.details.update(h);
@@ -159,10 +189,11 @@ export class PauseScreen {
     const guide = mode === 'guide';
     this.heading.setText(guide ? 'HOW TO PLAY' : 'PAUSED');
     this.primary.setLabel(guide ? 'BACK' : 'RESUME');
-    // RESTART has no run to restart from the start screen; SOUND then
-    // stands centred on its own.
+    // RESTART has no run to restart from the start screen; SOUND and
+    // MUSIC then stand centred as a pair.
     this.restart.setVisible(!guide);
-    this.sound.setX(guide ? cx : cx - (ROW.half + ROW.gap) / 2);
+    this.sound.setX(guide ? cx - PITCH / 2 : cx - PITCH);
+    this.music.setX(guide ? cx + PITCH / 2 : cx);
     this.keysHint.setVisible(!guide);
     this.showPage(guide ? 'guide' : 'bonuses', false);
     // Over the start screen (depth 60) when opened from it; under it when
