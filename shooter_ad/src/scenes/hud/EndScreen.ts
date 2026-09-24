@@ -7,7 +7,7 @@ import { cardButton, type CardButton } from './CardTile';
 import { slice } from './ScreenButton';
 import { ScreenBackdrop } from './ScreenWipe';
 import { standingColor } from './TopRail';
-import { compact, FONT, GRADE_COLOR, GRADE_WORD, hex, LINK, MONO, WARNING } from './types';
+import { compact, FONT, GRADE_COLOR, GRADE_WORD, hex, LINK, WARNING } from './types';
 
 export interface EndPayload {
   /** What ended the run. A Titan landing is not the same failure as attrition. */
@@ -164,8 +164,8 @@ export class EndScreen {
     // the difficulty, because a hard run is not the same match as a normal one
     // on the same seed and a reader should not have to decode base32 to see it.
     this.code = add(scene.add.text(cx, 624, '', {
-      fontFamily: MONO, fontSize: '40px', color: '#9fe8ff', fontStyle: 'bold',
-    }).setOrigin(0.5));
+      fontFamily: FONT, fontSize: '42px', color: '#9fe8ff', fontStyle: '800',
+    }).setOrigin(0.5).setLetterSpacing(3));
     this.codeCaption = text(cx, 658, 14, INK.caption);
 
     // Copy, as a button. The label changes with the result; the button

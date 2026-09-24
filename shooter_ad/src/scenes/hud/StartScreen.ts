@@ -8,7 +8,7 @@ import { INK, LIGHT, SURFACE, TYPE } from '../theme';
 import { CardTile, cardButton, segmented } from './CardTile';
 import { slice } from './ScreenButton';
 import { ScreenBackdrop } from './ScreenWipe';
-import { FONT, GRADE_COLOR, LINK, MONO, WARNING, hex } from './types';
+import { FONT, GRADE_COLOR, LINK, WARNING, hex } from './types';
 
 export interface StartPayload {
   readonly code: string;
@@ -194,8 +194,8 @@ export class StartScreen {
     // redraws from the `showstart` that comes back.
     px(cx, 560, COL.full, 1, SURFACE.hairline, 1);
     this.code = add(scene.add.text(cx, 594, '', {
-      fontFamily: MONO, fontSize: '40px', color: '#9fe8ff', fontStyle: 'bold',
-    }).setOrigin(0.5));
+      fontFamily: FONT, fontSize: '42px', color: '#9fe8ff', fontStyle: '800',
+    }).setOrigin(0.5).setLetterSpacing(3));
     this.caption = add(scene.add.text(cx, 628, 'match code', {
       fontFamily: FONT, fontSize: '14px', color: INK.caption, fontStyle: '500',
     }).setOrigin(0.5));

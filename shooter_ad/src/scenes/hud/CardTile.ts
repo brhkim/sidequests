@@ -25,7 +25,8 @@ const SHADOW_DROP = 4;
  * who has taken one offer reads a tile without learning anything new.
  *
  * `held` is the pause page's question: a tile for a bonus held at nothing
- * dims. `select` draws the field's TARGET mark - white L-brackets at the
+ * dims. `select` draws the old field's target mark (the field now uses receptors on the
+ * judgment line) - white L-brackets at the
  * bottom corners - never a white outline, which is the SENSE mark and
  * means "the best card".
  *

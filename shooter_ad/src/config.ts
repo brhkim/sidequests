@@ -799,7 +799,10 @@ export const RENDER = {
   echoAlpha: 0.38,
   // --- sprites
   /**
-   * Seconds a body is drawn pure white after a hit. The simulation stamps its
+   * Seconds a body is drawn lit after a hit - its own colour lifted halfway
+   * to white since the 2026-09-24 redesign, at most once per 0.5s of its own
+   * clock (`FLASH_REPEAT` in render/SpriteRender.ts), never pure white, so a
+   * body under a stream keeps its type colour. The simulation stamps its
    * own clock on the body (`hitFlash` in systems/Enemies.ts); the renderer
    * compares, so nothing here is ever read back by a system.
    */

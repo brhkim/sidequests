@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, VIEW } from './config';
+import { VIEW } from './config';
 import { ENEMIES } from './data/enemies';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
@@ -18,7 +18,8 @@ const game = new Phaser.Game({
   parent: 'game',
   width: VIEW.width,
   height: VIEW.height,
-  backgroundColor: COLORS.bg,
+  // The highway's void (`SURFACE.void` in scenes/theme.ts), the canvas clear.
+  backgroundColor: 0x07070d,
   // Sound is raw WebAudio in `src/audio/`, so Phaser's sound manager is not
   // created at all: one context, made inside the first gesture, not two.
   audio: { noAudio: true },

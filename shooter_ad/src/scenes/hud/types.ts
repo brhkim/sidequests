@@ -61,9 +61,9 @@ export type Grade = keyof typeof GRADE_COLOR;
 export const FONT = "'Saira Semi Condensed', system-ui, sans-serif";
 export const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 /** Secondary text, ~7:1 on the dark panels. */
-export const CAPTION = '#8f9ab5';
+export const CAPTION = '#8d91b4';
 /** The quietest text allowed: ~4.6:1. Nothing dimmer is drawn as text. */
-export const SMALL = '#6f7b99';
+export const SMALL = '#737799';
 /** Link teal: every secondary button and text link. */
 export const LINK = 0x6be8d4;
 export const LINK_HEX = '#6be8d4';

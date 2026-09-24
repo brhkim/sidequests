@@ -26,7 +26,7 @@ const FIRE_BATCH_MS = 250;
  *
  * Two readouts, both load-bearing rather than decorative: the top rail carries
  * your DPS against par so falling behind is visible while it happens, and the
- * strip beneath the red line carries the bonus pools without which the
+ * chip strip beneath the rail carries the bonus pools without which the
  * raw-versus-multiplicative choice cannot be worked out at all.
  *
  * Feedback arrives as the typed `moment` stream (`systems/SimEvents.ts`), one
