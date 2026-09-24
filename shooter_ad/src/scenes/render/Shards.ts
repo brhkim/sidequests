@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { RENDER } from '../../config';
-import { SpritePool } from '../../systems/SpritePool';
+import { SpriteLayer } from './SpriteLayer';
 
 interface Shard {
   x: number; y: number;
@@ -27,10 +27,10 @@ interface Shard {
 export class Shards {
   private readonly ring: Shard[] = [];
   private cursor = 0;
-  private readonly pool: SpritePool;
+  private readonly pool: SpriteLayer;
 
   constructor(scene: Phaser.Scene, depth: number) {
-    this.pool = new SpritePool(scene, 'shard', depth);
+    this.pool = new SpriteLayer(scene, 'shard', depth);
     for (let i = 0; i < RENDER.shardRing; i++) {
       this.ring.push({
         x: 0, y: 0, vx: 0, vy: 0, born: 0, life: 1, color: 0xffffff, angle: 0, active: false,
@@ -61,7 +61,7 @@ export class Shards {
       this.pool.claim()
         .setPosition(s.x + s.vx * age, s.y + s.vy * age)
         .setRotation(s.angle)
-        .setScale(1 - 0.75 * t)
+        .setScale(0.85 * (1 - 0.75 * t))
         .setAlpha(1 - t)
         .setTint(s.color);
     }
