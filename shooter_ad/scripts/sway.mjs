@@ -58,7 +58,7 @@ for (const wave of WAVES) {
   // Wait for an offer to be fully on the field (its cards revealed).
   await page.waitForFunction(() => {
     const g = window.game?.scene?.getScene('Game');
-    return g && g.gates.items.some((x) => x.active && x.y > 300 && x.y < 700);
+    return g?.gates?.items && g.gates.items.some((x) => x.active && x.y > 300 && x.y < 700);
   }, null, { timeout: 30000 });
   const read = () => page.evaluate(() => {
     const g = window.game.scene.getScene('Game');

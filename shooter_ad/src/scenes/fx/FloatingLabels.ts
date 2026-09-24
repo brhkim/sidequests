@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { FONT, hex } from '../hud/types';
+import { MOTION } from '../theme';
 
 export interface FloatOptions {
   size?: number;
@@ -13,16 +14,26 @@ export interface FloatOptions {
   /** Stroke width; the stroke is always the field's near-black. */
   stroke?: number;
   color?: string;
+  /** Slanted, like a grade word: for the words that are judgments (MISS). */
+  italic?: boolean;
 }
 
+/** The scale a label snaps in from, before its overshoot settles it at 1. */
+const SNAP_FROM = 0.55;
+
 /**
- * A small pool of Texts that rise and fade: `+5 ARMY` over an opened cage,
- * `-3` where a body touched the ring, `MISS` at the lane line. Pooled rather
- * than created per event because a busy step can spawn several, and a Text
- * is the most expensive object here to make. The oldest is reused when the
- * pool is full - a label nobody has read for 700ms was not going to be read.
+ * A small pool of Texts that snap in and rise away: `+5 ARMY` over an opened
+ * cage, `-3` where a body touched the ring, `MISS` at the lane line, `BLOCK`
+ * over an absorbed bullet. Pooled rather than created per event because a
+ * busy step can spawn several, and a Text is the most expensive object here
+ * to make. The oldest is reused when the pool is full - a label nobody has
+ * read for 700ms was not going to be read.
  *
- * Rendering only: the tweens read the wall clock and nothing reads them back.
+ * Motion grammar: the entrance snaps (`MOTION.snap`, Back.out overshoot), the
+ * label holds, then lifts and fades with no overshoot. Saira 800, upright for
+ * figures, slanted for a judgment.
+ *
+ * Rendering only: the tweens read the scene clock and nothing reads them back.
  */
 export class FloatingLabels {
   private readonly items: Phaser.GameObjects.Text[] = [];
@@ -31,7 +42,8 @@ export class FloatingLabels {
   constructor(private readonly scene: Phaser.Scene, size: number, depth: number) {
     for (let i = 0; i < size; i++) {
       this.items.push(scene.add.text(0, 0, '', {
-        fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#ffffff',
+        fontFamily: FONT, fontSize: '18px', fontStyle: '800', color: '#ffffff',
+        shadow: { offsetX: 0, offsetY: 2, color: 'rgba(0,0,0,0.55)', blur: 3, stroke: true, fill: true },
       }).setOrigin(0.5).setDepth(depth).setVisible(false));
     }
   }
@@ -41,16 +53,19 @@ export class FloatingLabels {
     this.next = (this.next + 1) % this.items.length;
     this.scene.tweens.killTweensOf(t);
     const size = o.size ?? 16;
-    t.setStyle({ fontSize: `${size}px`, color: o.color ?? hex(color) });
-    t.setStroke('#05070f', o.stroke ?? 3);
+    t.setStyle({
+      fontSize: `${size}px`, fontStyle: o.italic ? 'italic 800' : '800', color: o.color ?? hex(color),
+    });
+    t.setStroke('#07070d', o.stroke ?? 4);
     t.setLetterSpacing(o.tracking ?? 0);
-    t.setText(text).setPosition(x, y).setAlpha(1).setScale(1).setVisible(true);
+    t.setText(text).setPosition(x, y).setAlpha(1).setScale(SNAP_FROM).setVisible(true);
     const duration = o.duration ?? 700;
     const hold = o.hold ?? 0;
+    this.scene.tweens.add({ targets: t, scale: 1, duration: MOTION.snap, ease: MOTION.snapEase });
     this.scene.tweens.add({
       targets: t,
       y: y - (o.rise ?? 30), alpha: 0,
-      delay: hold, duration: Math.max(1, duration - hold),
+      delay: MOTION.snap + hold, duration: Math.max(1, duration - hold - MOTION.snap),
       ease: 'Quad.easeOut',
       onComplete: () => t.setVisible(false),
     });
