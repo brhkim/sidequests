@@ -18,7 +18,11 @@
  *     context's draw and texImage/texSubImage calls. Uploads are mostly
  *     Text objects re-rendering after setText - the cost a static text
  *     count cannot see.
- *   - live display objects (visible, in both scenes) at the end.
+ *   - live display objects (visible, in both scenes) at the end, and a FILL
+ *     estimate: the on-screen area of every visible textured object, in
+ *     screens' worth of pixels (`2.40+3g` = 2.4 screens plus 3 Graphics,
+ *     which have no cheap bounds). Mobile GPUs are fill-bound; this is the
+ *     number that SwiftShader's CPU raster hides behind its own cost.
  *
  * What it is NOT. Headless Chromium renders WebGL on SwiftShader, a CPU
  * rasteriser, so GPU fill cost lands on the CPU and is inflated relative to
@@ -172,12 +176,29 @@ for (const sc of SCENARIOS) {
     game.events.off('postrender', onPost);
     const stats = game.registry.get('stats');
     const visible = (scene) => scene.children.list.filter((o) => o.visible !== false).length;
+    // Fill estimate: the on-screen area of every visible, non-transparent
+    // textured object (clipped to the canvas), as screens' worth of pixels.
+    // Graphics have no cheap bounds and are counted, not measured.
+    let area = 0, graphics = 0;
+    for (const scene of [game.scene.getScene('Game'), game.scene.getScene('UI')]) {
+      if (!scene.sys.isVisible()) continue;
+      for (const o of scene.children.list) {
+        if (o.visible === false || o.alpha === 0) continue;
+        if (o.type === 'Graphics') { graphics++; continue; }
+        if (typeof o.displayWidth !== 'number') continue;
+        const w = Math.abs(o.displayWidth), h = Math.abs(o.displayHeight);
+        const x0 = Math.max(0, o.x - w * (o.originX ?? 0.5)), y0 = Math.max(0, o.y - h * (o.originY ?? 0.5));
+        const x1 = Math.min(540, o.x + w * (1 - (o.originX ?? 0.5))), y1 = Math.min(960, o.y + h * (1 - (o.originY ?? 0.5)));
+        if (x1 > x0 && y1 > y0) area += (x1 - x0) * (y1 - y0);
+      }
+    }
     return {
       cpu, intervals,
       draws: counts.draws - d0, uploads: counts.uploads - u0,
       frames: intervals.length,
       simSeconds: (stats?.elapsed ?? 0) - sim0,
       objects: visible(game.scene.getScene('Game')) + visible(game.scene.getScene('UI')),
+      fill: area / (540 * 960), graphics,
       wave: stats?.wave, over: stats?.over, power: stats?.power,
       enemies: game.scene.getScene('Game').enemies.items.filter((e) => e.active).length,
       bullets: game.scene.getScene('Game').bullets.items.filter((b) => b.active).length,
@@ -203,7 +224,7 @@ for (const sc of SCENARIOS) {
     simRate: result.simSeconds / SECONDS,
     drawsPerFrame: result.draws / Math.max(1, result.frames),
     uploadsPerFrame: result.uploads / Math.max(1, result.frames),
-    objects: result.objects, enemies: result.enemies, bullets: result.bullets,
+    objects: result.objects, fill: result.fill, graphics: result.graphics, enemies: result.enemies, bullets: result.bullets,
     wave: result.wave, over: result.over,
   });
 }
@@ -213,13 +234,14 @@ server.close();
 const f1 = (x) => (Number.isFinite(x) ? x.toFixed(1) : '-');
 console.log(`\nframe cost at ${THROTTLE}x CPU throttle, ${SECONDS}s after ${WARMUP}s warm-up, seed 11, ${DIST}`);
 console.log('SwiftShader rasterises on the CPU: absolute numbers are a pessimistic proxy; compare pairs.\n');
-console.log('scenario  cpu ms med/p95/p99   frame ms med/p95/p99   dropped   fps   sim/s   draws/f  uploads/f  objects  enemies  bullets  wave');
+console.log('scenario  cpu ms med/p95/p99   frame ms med/p95/p99   dropped   fps   sim/s   draws/f  uploads/f  objects  fill(scr)  enemies  bullets  wave');
 for (const r of rows) {
   console.log(
     `${r.name.padEnd(8)}  ${`${f1(r.cpuMed)} / ${f1(r.cpuP95)} / ${f1(r.cpuP99)}`.padEnd(19)}  `
     + `${`${f1(r.ivMed)} / ${f1(r.ivP95)} / ${f1(r.ivP99)}`.padEnd(21)}  `
     + `${(100 * r.dropped).toFixed(1).padStart(6)}%  ${f1(r.fps).padStart(4)}  ${r.simRate.toFixed(2).padStart(5)}  `
     + `${f1(r.drawsPerFrame).padStart(7)}  ${f1(r.uploadsPerFrame).padStart(9)}  ${String(r.objects).padStart(7)}  `
+    + `${`${r.fill.toFixed(2)}+${r.graphics}g`.padStart(9)}  `
     + `${String(r.enemies).padStart(7)}  ${String(r.bullets).padStart(7)}  ${r.wave}${r.over ? ' (over)' : ''}`,
   );
 }
