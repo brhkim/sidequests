@@ -6,6 +6,12 @@ import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
 import { installAudio } from './audio/AudioEvents';
 import { installAnalytics } from './analytics/Analytics';
+import { loadFonts } from './fonts';
+
+// The face must be in `document.fonts` before any Text is made: canvas text
+// measures with whatever is ready at creation. `loadFonts` never throws and
+// gives up after a timeout, so a blocked load costs the look, not the game.
+await loadFonts();
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,

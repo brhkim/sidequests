@@ -28,7 +28,8 @@
     "roster": "node scripts/roster.mjs",
     "audio": "node scripts/audio.mjs",
     "rail": "node scripts/rail.mjs",
-    "sway": "node scripts/sway.mjs"
+    "sway": "node scripts/sway.mjs",
+    "perf": "node scripts/perf.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0",

@@ -57,7 +57,8 @@ export const GRADE_WORD = { perfect: 'PERFECT', good: 'GOOD', bad: 'BAD', risk: 
 export type Grade = keyof typeof GRADE_COLOR;
 
 /** The HUD's type roles. System stack only: nothing is fetched at runtime. */
-export const FONT = 'system-ui, sans-serif';
+/** The bundled face (`src/fonts.ts`), then the system stack if it failed to load. */
+export const FONT = "'Saira Semi Condensed', system-ui, sans-serif";
 export const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 /** Secondary text, ~7:1 on the dark panels. */
 export const CAPTION = '#8f9ab5';

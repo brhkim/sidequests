@@ -948,3 +948,43 @@ waves.
 Status: `landed`, in 1.7. `GATES.sway.fromWave` 30. Peak lateral speed at
 the last tier is 177px/s on the faster descent (164 in 1.6), still under
 the 195px/s squad; `npm run model` fails if it ever outruns it.
+
+# Author's asks — session of 2026-09-24 (seventh session, the visual redesign)
+
+## 1. Opening brief (verbatim)
+
+> Alright, I think we're in generally good shape on game mechanics and
+> whatnot. Right now, I'd like you to work independently (feeling free to
+> launch Opus 5.5 subagents as valuable, specifically -- use no other
+> subagent type in this session) to do an intensive pass on the UX of the
+> game. This is inclusive of graphical aesthetics, animations, visual design
+> layout, clarity, and so on. Remembering that for gameplay, visual clarity
+> of the gates and enemies are of paramount importance, but I think right
+> now the game is frankly ugly and needs a lot of visual redesign.
+> Performance is also extremely important, wanting to ensure it runs at
+> extremely high FPS even on a phone at the later very visually chaotic
+> levels.
+>
+> Let me know what questions you have. You're operating in a branch and
+> have carte blache to be ambitious and make what changes you'd like as
+> long as you log them and relay them to me for final approval after all
+> is tested and implemented (for easy rollback/revision together
+> afterwards). Load the impeccable skill as it should be helpful in visual
+> design elements
+
+Status: `building`.
+
+## 2. Answers to the opening questions (verbatim selections)
+
+- Visual world: **"Rhythm-game highway"** (over a war-table diorama and the
+  glossy mobile-ad canon): the three lanes as a note highway, lit lane
+  dividers, pulses streaming down at the current gate speed, a glowing
+  judgment line at the squad, grade bursts that punch in.
+- Which old design-system rules may break: **"All bets are off, do what
+  you think makes most sense given the spirit of the game and the goals and
+  vision here and we can adjudicate later"**, with all four ticked: bundle
+  a real font, more motion, gradients / glow / rounding, restructure the
+  HUD.
+- Performance target: **"60fps mid-range phone (Recommended)"** - 60fps
+  with no dropped frames on a 3-4 year old mid-range Android under CPU
+  throttling, at wave 41 with a full ring, ECHO and a dense stream.
