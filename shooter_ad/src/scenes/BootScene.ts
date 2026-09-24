@@ -4,6 +4,7 @@ import { makeCards } from './art/cards';
 import { makeCreatures } from './art/creatures';
 import { makeFx } from './art/fx';
 import { makeProjectiles } from './art/projectiles';
+import { makeScreens } from './art/screens';
 import { makeSquad } from './art/squad';
 import { makeUi } from './art/ui';
 
@@ -29,6 +30,7 @@ export class BootScene extends Phaser.Scene {
     makeCards(this);
     makeFx(this);
     makeUi(this);
+    makeScreens(this);
     this.scene.start('Game');
     this.scene.launch('UI');
   }

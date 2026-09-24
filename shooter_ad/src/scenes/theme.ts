@@ -62,3 +62,31 @@ export const MOTION = {
   /** Exits never overshoot. */
   exitEase: 'Cubic.easeIn',
 } as const;
+
+/**
+ * One type scale, Saira Semi Condensed throughout (`FONT` in `hud/types`).
+ * Sizes in px at the 540x960 logical canvas; under `Scale.FIT` a 390px phone
+ * draws them at ~0.72, so nothing below 13 (the Phone Floor survives).
+ * `weight` is a CSS weight; Phaser Text takes it through `fontStyle`
+ * (e.g. 'bold' = 700, or the numeric string '800').
+ */
+export const TYPE = {
+  /** The title and the end screen's headline figure. */
+  display: { size: 56, weight: '800' },
+  headline: { size: 112, weight: '800' },
+  /** Screen headings (PAUSED, OVERRUN) and the grade words (slanted). */
+  heading: { size: 30, weight: '800' },
+  grade: { size: 30, weight: '800', style: 'italic' },
+  /** A card's magnitude and the HUD's lead figures. */
+  number: { size: 26, weight: '800' },
+  value: { size: 22, weight: '700' },
+  /** Button words. */
+  button: { size: 20, weight: '700', tracking: 1.5 },
+  body: { size: 17, weight: '500' },
+  /** Axis words, column names: tracked caps. */
+  label: { size: 14, weight: '600', tracking: 1.6 },
+  caption: { size: 13, weight: '600', tracking: 0.6 },
+} as const;
+
+/** Corner radii: notes and tiles, buttons, chips. */
+export const RADIUS = { card: 9, button: 12, chip: 6 } as const;
