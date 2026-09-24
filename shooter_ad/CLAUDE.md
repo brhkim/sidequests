@@ -1900,77 +1900,209 @@ not values. Every call is in try/catch; a blocked script costs nothing.
 Sound follows the art's rule: no files, everything synthesised. It is raw
 WebAudio in `src/audio/`, and Phaser's sound manager is switched off
 (`audio: { noAudio: true }` in `main.ts`, accepted by the 4.2.1 types and
-honoured at runtime) so there is exactly one context.
+honoured at runtime) so there is exactly one context. **Rebuilt
+2026-09-24** (the author: "the sound design sorely lags ... some kind of
+music track ... with a separate music disable option"); the intent is in
+`notes.md`, "Sound", and every call there is pending the author's ears.
 
 ```
 src/audio/
-  cues.ts         the palette: CueName -> recipe (parts, level, priority, cap, bundle rule)
-  synth.ts        recipe -> nodes on ANY BaseAudioContext; ADSR; fixed-seed noise; master chain
+  cues.ts         the effects palette: CueName -> recipe (parts, level, send, priority, cap, bundle rule)
+  synth.ts        recipe -> nodes on ANY BaseAudioContext: FM, unison, vibrato, drive, pan, ADSR; master chain
+  harmony.ts      scales, chords, chord tones; HARMONY, the chord the music is playing, which effects resolve against
+  space.ts        the room: one convolver reverb (generated impulse) and a tempo echo, both on sends
   collapse.ts     the Bundler: N events in a window become ONE voice encoding N
-  Audio.ts        context lifecycle, unlock, buses -> duck -> master -> compressor, voice budget, mute
-  AudioEvents.ts  the game.events subscription, event -> cue mapping, Titan heartbeat, window.__audio
+  Audio.ts        context lifecycle, unlock, buses -> duck -> master, voice budget, effects / music switches
+  AudioEvents.ts  the game.events subscription: event -> cue, pan, kill climb, PERFECT streak; conducts the music
+  install.ts      installAudio, window.__audio
+  offline.ts      offline renders of music (+ effects laid over it) for the instruments
+  music/
+    types.ts        the track shape and the line / drum token grammar
+    composer.ts     pure: phrase plans and bar events from a track, a mode, a level, a seed
+    rig.ts          the music's buses (layers, pump, duck, pause lowpass) and scheduleBar
+    Music.ts        the engine: lookahead scheduling on the audio clock, modes, rotation, harmony timeline
+    instruments.ts  kit and instrument recipes (the same Cue shape)
+    tracks/         NEON LANES, OVERDRIVE, BREAKLINE, CHIPRUSH, and what they share (common.ts)
 ```
 
 **It reads `game.events` and nothing else.** `installAudio(game.events,
-location.search)` is called once from `main.ts`; no scene file knows audio
-exists. It subscribes to `moment` (the `SimEvent[]` GameScene drains each
-frame), `hud` (its per-frame tick), `paused`, `restart`, `gameover`,
-`startmatch` and `mutetoggle`, and emits `muted, boolean` in answer to the
-last. Nothing in `systems/` imports `audio/`; `npm run audio` greps for that,
-for `Math.random` and for `Rng` in `src/audio/`. Variation (the kill's +-3%
-pitch jitter) comes from a hashed counter, so a replay sounds the same.
-The bundler's clock is `performance.now()`, which audio may read because
-nothing it does can reach the simulation - `npm run repeat` and `npm run
-neutral` are what keep that true.
+location.search)` (`install.ts`) is called once from `main.ts`; no scene
+file knows audio exists. It subscribes to `moment` (the `SimEvent[]`
+GameScene drains each frame), `hud` (its per-frame tick, which also carries
+the wave and the Titan's descent), `paused`, `restart`, `showstart`,
+`startmatch`, `gameover`, `mutetoggle`, `musictoggle`, `uitap` and
+`uiready`, and emits `muted`, `music` and `musictrack` for the pause
+screen's labels (on `uiready` too, so they start from the truth). Scenes
+emit only requests: `ScreenButton` emits `uitap` on every press, M
+`mutetoggle`, N `musictoggle`. Nothing in `systems/` imports `audio/`;
+`npm run audio` greps for that, for `Math.random` and for `Rng` in
+`src/audio/`. Variation (the kill's +-8 cents, the music's arrangement)
+comes from hashed counters, never a random source. Audio may read
+`performance.now()` because nothing it does can reach the simulation -
+`npm run repeat` and `npm run neutral` are what keep that true.
+
+**The audit, and what changed.** The palette was single oscillators, mono,
+dry, with no relation to anything musical. Rebuilt on three practices
+(sources in the session log): **transient / body / tail** layering - a
+click or noise attack on every impact (it is also all a phone speaker
+plays of a 50 Hz thud: the missing-fundamental trick), a body naming the
+event, and a tail from a shared room rather than the recipe; **rewards in
+the music's key** (Tetris Effect): positive cues name a `tone` - a chord
+tone, a step above the chord's root, a scale step or a step of the key -
+resolved when they play against `HARMONY`, which the music publishes per
+bar by audio time (`Music.syncHarmony`, called by `Audio.play`); and
+**mix for a phone**: nothing below 150 Hz alone, gentle panning (at most
+0.45 - one speaker, or two a hand covers), a glue compressor and a limiter
+at the end of the chain. Failure is deliberately NOT in key: BAD is a
+flat second bending flat, a breach carries a flat second on the tonic.
 
 **Mapping.** `kill` -> `kill` (bundled; a Titan kill is `titan down` ->
-`titanKill`); `contact` / `breach` -> the same-named cues, level rising with
-`share`; `fire` with hits -> `fireHit`; `block` -> `block` (a bright clink,
-bundled like `fireHit`, priority 32); `pick` -> `pickPerfect` / `pickGood`
-/ `pickBad` / `pickRisk` by grade; `miss`, `rescue`, `wave`, `sense` -> the
-same names; `titan arrive` -> `titanArrive` and a heartbeat (`titanPulse`)
-that quickens over 20 s, since audio cannot see the descent; `titan volley`
--> `titanVolley`, at most every 250 ms; `over` -> `playerDeath` or
-`titanLand` by cause; `startmatch` -> `start`; `paused` -> `pause` /
-`resume`. `mutetoggle` itself plays nothing.
+`titanKill`), and successive kill voices within 600 ms CLIMB the chord
+and fall back (`KILL_CLIMB`, the `climb` voice option adds to every chord
+tone); `contact` / `breach` -> the same-named cues, level rising with
+`share`; `fire` with hits -> `fireHit`; `block` -> `block`; `pick` ->
+`pickPerfect` / `pickGood` / `pickBad` / `pickRisk` by grade, and a
+PERFECT climbs the arpeggio a chord tone per PERFECT in a row (up to four;
+counted here from `pick`, reset by any other grade, a miss, the end);
+`miss`, `rescue`, `wave`, `sense` -> the same names; `titan arrive` ->
+`titanArrive` (and the music's boss section); `titan volley` ->
+`titanVolley`, at most every 250 ms; `titan down` -> `titanKill` (and the
+music back, with a crash); `over` -> `playerDeath` or `titanLand` by
+cause; `startmatch` -> `start`; `paused` -> `pause` / `resume`; `uitap` ->
+`uitap`. The Titan's heartbeat (`titanPulse`, quickening with the
+`hud`'s descent) plays only when the music is off: with it on, the boss
+section carries the dread in tempo rather than against it. Every event
+with an x is panned by it.
 
-**The collapse.** Kills, contacts, breaches and fire hits go through the
-`Bundler`: a lone event plays at once; inside a 100 ms window (80 / 120 / 60
-for the others) further events are tallied and play as ONE voice when it
-closes, so the kill voice rate is at most 10/s. A bundle of `n` is one
-semitone lower per doubling, 1.5 dB quieter per doubling, and from four
-carries a partial an octave down - heavier, never louder. Under 600 kills
-2 ms apart the instrument measures 13 voices and 599 bundled.
+**The collapse.** Kills, contacts, breaches, fire hits and blocks go
+through the `Bundler`: a lone event plays at once; inside a 100 ms window
+(80 / 120 / 60 / 60 for the others) further events are tallied and play as
+ONE voice when it closes, so the kill voice rate is at most 10/s. A bundle
+of `n` is 1.5 dB quieter per doubling and from four carries a partial an
+octave down - heavier, never louder. It no longer drops a semitone per
+doubling: the kill is a chord tone now, and a semitone off it is a wrong
+note.
 
-**Budget.** Twelve voices, per-cue caps (kill/contact/breach/fireHit 2, the
-rest 1), priorities `titanLand 100 > playerDeath 95 > titanKill 90 >
-titanArrive 85 > breach 70 > pick 65 > rescue 60 > wave 55 >
-contact 45 > sense 40 > titanVolley 35 > titanPulse 30 > miss 25 > fireHit
-20 > kill 10 > ui 5`. A full mix evicts the lowest priority below the
-newcomer or refuses it (`stats.refused`). Breach and the Titan cues duck the
-kill and hit buses 6 dB for 300 ms; the kill bus eases to -6 dB past 30
-kills/s. Voices are released by wall clock, not `onended`, so a context that
-never runs cannot leak them.
+**Budget.** Twelve effect voices, per-cue caps (kill / contact / breach /
+fireHit / block / uitap 2, the rest 1), priorities `titanLand 100 >
+playerDeath 95 > titanKill 90 > titanArrive 85 > breach 70 > pick 65 >
+rescue 60 > wave 55 > contact 45 > sense 40 > titanVolley 35 > block 32 >
+titanPulse 30 > miss 25 > fireHit 20 > kill 10 > ui 5 > uitap 4`. A full
+mix evicts the lowest priority below the newcomer or refuses it
+(`stats.refused`). Breach and the Titan cues duck the kill and hit buses
+6 dB for 300 ms; the kill bus eases to -6 dB past 30 kills/s. Effects also
+duck the MUSIC: an event cue 3 dB for 260 ms, a Titan cue 6 dB for 500 ms,
+a ducking cue 5 dB for 300 ms. Voices are released by wall clock, not
+`onended`, so a context that never runs cannot leak them - and every voice
+DISCONNECTS from the graph when its last source ends (see "Cost" below).
 
-**Unlock and safety.** The context is created inside the first pointerdown,
-touchend or keydown (capture listeners on `window`; the START MATCH tap is
-the usual one) and never before. `?seed=` pages - every instrument - create
-NO context unless they add `audio=1`; `?mute=1` starts muted; the mute
-choice persists in `localStorage['shooter_ad.audio.muted']`. Every WebAudio
-and storage call is in try/catch and counts into `stats.failures`; nothing
-in `src/audio/` logs. `npm run verify` prints
-`audio: state=running cues=N ... failures=0` and fails on any failure; the
-headless context does reach `running` after the real click.
+**The music.** Four tracks, data in `music/tracks/`: **NEON LANES**
+(synthwave, 100 BPM, A minor), **OVERDRIVE** (electro house, 124, E
+Dorian), **BREAKLINE** (drum and bass, 172, D minor, half-time at low
+intensity) and **CHIPRUSH** (chiptune, 150, C major). A track is authored
+cells - progressions with lead lines written in chord tones, one-bar bass /
+arp / stab / drum patterns, fills - and the composer only chooses which
+cells meet: nothing is generated note by note. `types.ts` documents the
+token grammar (`0-6` chord tones, `a` / `b` below the root, `+` / `-` a
+scale step, `_` hold, `.` rest; drums `X x g .`). Chord roots FOLD into
+-5..+6 semitones of the tonic (`harmony.rootOffset`), so a line written in
+chord tones moves by steps across a progression instead of leaping.
 
-**`npm run audio`** is the instrument: it plays every cue live and asserts
-nodes were created, stresses the bundler, drains on `gameover`, then renders
-every cue offline through a clone of the master chain to
-`.verify/audio/<cue>.wav`, `palette.wav` and `kill-bundle-N.wav`, printing
-duration, peak, RMS, dominant frequency and the share of energy above 200 Hz
-(a power share: a 55 Hz cue reads ~0% even with its partials present). Every
-cue must peak between -40 and -1 dBFS. `window.__audio` on every page has
-`play` (the event path, with a synthetic clock `t`), `voice` (direct),
-`tick`, `render`, `cues`, `stats`, `setMuted`, `stopAll`, `voicesOf`.
+- **Layering** (vertical): `AudioEvents.level()` sets intensity 1-4 from
+  `0.25 + 0.06 x (wave - 1)` plus up to 0.2 from recent damage (a decaying
+  share-weighted sum, 6 s half-life). The level picks which list of
+  sections phrases cycle through (`tracks/common.ts`, `ARRANGEMENT`).
+- **Re-sequencing** (horizontal): a phrase is eight bars of one section
+  (menu / intro / groove / build / drop / break / boss / boss2); a level's
+  list is cycled so a drop is followed by something else; the lead plays
+  only in drops and breaks (60-65% of phrases at the top levels);
+  progressions rotate every two phrases and lead lines per phrase (hashes
+  of the music seed); fills end half the phrases, crashes mark drops and
+  mode changes; builds carry a riser.
+- **Modes**: `menu` on `showstart` and 3.5 s after the run ends (under the
+  end screen), `play` on `startmatch` / a replay, `boss` on `titan
+  arrive` - its own darker progressions (mostly Phrygian: the flat second)
+  under `TITAN_MOTIF`, a four-note leitmotif shared by every track - and
+  back to `play` on `titan down`, forced into a drop from intensity 2. A
+  mode change lands on the next BARLINE, never mid-bar. A new run starts
+  the next track and a new variation seed; so does every second Titan
+  felled. A `restart` that the start screen follows in the same tick (a new
+  match) waits for START MATCH instead (`AudioEvents.onRestart`).
+- **Pause** muffles it (a 650 Hz lowpass, -5 dB) rather than stopping it;
+  the run ending closes the filter and fades it over 1.8 s.
+- **Scheduling** is the "tale of two clocks": a 25 ms `setInterval`
+  decides when to schedule, the AudioContext clock when each note sounds.
+  A bar is PLANNED on its downbeat and its notes CREATED a sixteenth at a
+  time within a 150 ms lookahead (`Music.advance`) - not a bar ahead, for
+  the cost reason below. A clock that jumped (a background tab) skips
+  forward and counts `late`.
+- **The rig** (`rig.ts`): layer buses (the track's mix plus a measured
+  `BALANCE` trim) -> drums, or tonal -> a sidechain PUMP the kick
+  automates (house breath: 0.65 in OVERDRIVE) -> the effects duck -> the
+  pause lowpass -> `out` (the mode's level, -10 dB in play) -> the master.
+  Per-layer reverb and echo sends; the echo's time is the track's tempo.
+
+**Switches.** SOUND (effects) and MUSIC are separate: the pause screen's
+row is SOUND | MUSIC | RESTART (SOUND | MUSIC centred on HOW TO PLAY), with
+NOW PLAYING and the track's name under it; M and N on a keyboard.
+`localStorage['shooter_ad.audio.muted']` and `['shooter_ad.audio.music']`
+persist them; with no music choice stored, music follows an old SOUND OFF
+(off) and is otherwise on. `?mute=1` and `?music=0` / `?music=1` override.
+
+**Unlock and safety.** The context is created inside the first
+pointerdown, touchend or keydown (capture listeners on `window`; the START
+MATCH tap is the usual one) and never before; the music begins then, in
+whatever mode was asked for. `?seed=` pages - every instrument - create NO
+context unless they add `audio=1`. Every WebAudio and storage call is in
+try/catch (`Audio.guard`) and counts into `stats.failures`; nothing in
+`src/audio/` logs. `npm run verify` prints the audio line and a music line
+(`on running track section level bars late`) and fails on any failure, or
+on music on with a running context and no bar scheduled.
+
+**Cost, measured.** Offline in headless Chromium (`OfflineAudioContext`
+render time over audio time, 40 voices each): a static biquad 0.038x real
+time, the same filter with its cutoff automated 0.105x (Chromium
+recomputes coefficients per sample), FM 0.063x, a vibrato LFO 0.072x, a
+panner 0.024x, buffer sources 0.006x, the one convolver 0.015x. The
+finding: **nodes waiting in the graph cost more than sounding ones** -
+2,000 idle gains 0.37x, 2,000 oscillators scheduled for later 0.61x. So
+the music creates notes a sixteenth at a time, every voice disconnects
+when its last source ends, and a part's level is its envelope's peak (one
+gain node a part, not two). The first version scheduled whole bars ahead
+and rendered 185 s of NEON LANES in 487 s; after, in 16 s (0.09x, the
+instrument's own suspend round trips included), identical output. Across
+the four tracks the busiest sections create 160-255 nodes a bar. Real-time load on a phone's
+audio thread is **unmeasured** (Chromium has no render-capacity API here);
+the offline ratio is a proxy.
+
+**`npm run audio`** plays every cue live and asserts nodes were created,
+stresses the bundler, checks the music starts on the gesture, schedules
+bars without falling behind and stops when switched off, drains on
+`gameover`, then renders every cue offline through a clone of the master
+chain and the room to `.verify/audio/<cue>.wav` (stereo), `palette.wav`,
+`kill-bundle-N.wav`, `kill-climb.wav` and `perfect-streak.wav`, printing
+duration, peak, RMS, dominant frequency and the share of energy above
+200 Hz. Every cue must peak between -40 and -1 dBFS.
+
+**`npm run music`** is the music's instrument, described in its header:
+a STATIC half (Node, the game's own TypeScript) that checks every pattern
+is a whole bar, every lead covers its progression, every name resolves,
+and - arranging 40 phrases per mode and level - that every note is in the
+scale of its chord and in its layer's register, printing the variety; a
+RENDER half writing each track through menu, intensities 1-4, the Titan
+and a drop to `.verify/music/<track>.wav` with a spectrogram
+(`<track>.png`), printing per section BS.1770 loudness, peak, the energy
+under 150 Hz / 150 Hz-2 kHz / above, and width; and a MIX half laying a
+synthetic stream of effects over NEON LANES and asserting every PERFECT
+stands 3 LU over the music under it. `MUSIC_ONLY=<track>` renders one;
+the probe puts the game loop to sleep first (left running, the game drew
+on the software rasteriser beside the render and starved it). It cannot
+say whether any of it is good: listen to the files.
+
+`window.__audio` on every page has `play` (the event path, with a
+synthetic clock `t`), `voice` (direct), `tick`, `render`, `renderMusic`,
+`tracks`, `cues`, `stats` (with `music`), `setMuted`, `setMusic`,
+`stopAll`, `voicesOf`.
 
 ### The spawn line is the HUD's bottom edge, and the descent is scaled to it
 

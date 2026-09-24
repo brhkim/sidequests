@@ -152,6 +152,8 @@ console.log(`canvas:     ${canvas ? `${canvas.width}x${canvas.height}` : 'MISSIN
 console.log(`screenshot: ${OUT} (${size} bytes)${blankish ? '  <-- suspiciously small' : ''}`);
 console.log(`stats:      ${stats ? JSON.stringify(stats) : 'UNAVAILABLE'}`);
 console.log(`audio:      ${audio ? `state=${audio.state} cues=${audio.cues} voices<=${audio.peakVoices} bundled=${audio.bundled} refused=${audio.refused} failures=${audio.failures}` : 'UNAVAILABLE'}`);
+const music = audio?.music;
+console.log(`music:      ${music ? `on=${music.on} running=${music.running} track=${music.track} section=${music.section} level=${music.level} bars=${music.bars} late=${music.late}` : 'UNAVAILABLE'}`);
 console.log(`errors:     ${errors.length}`);
 for (const e of errors) console.log(`  ${e}`);
 
@@ -164,4 +166,6 @@ if (stats.wave < 2) { console.error('FAIL: wave never advanced'); process.exit(1
 if (stats.units > 19) { console.error('FAIL: ring cap exceeded'); process.exit(1); }
 if (!audio) { console.error('FAIL: no window.__audio seam'); process.exit(1); }
 if (audio.failures > 0) { console.error('FAIL: WebAudio calls failed'); process.exit(1); }
+// Music is on by default; a running context that scheduled no bars means the engine never started.
+if (audio.state === 'running' && music?.on && !(music.bars > 0)) { console.error('FAIL: music on but no bars scheduled'); process.exit(1); }
 console.log('PASS');

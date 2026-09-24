@@ -1025,5 +1025,15 @@ contact shadows, the duel rail, the results-table end screen.
 > sufficient variety so it doesn't drone and get annoying too quickly,
 > perhaps multiple types of tracks
 
-Status: `building`. The review page's `verdicts` collection was read at the
-start of the session and holds no marks yet.
+Status: `landed`, pending the author's ears. (1) The note stack now draws
+above every body, cage, health bar and death shard on the road, face and
+label alike (`roster-notes.png`; perf level to better). (2) The effects
+palette was rebuilt (transient / body / tail, rewards in the music's key,
+kills climbing the chord, a PERFECT streak climbing its arpeggio, a room
+reverb, panning, a limiter) and four procedural tracks added - NEON LANES,
+OVERDRIVE, BREAKLINE, CHIPRUSH - with intensity layering, section
+re-sequencing, a Titan boss mode and leitmotif, pause muffling, and
+separate SOUND / MUSIC buttons (M / N). `npm run music` is new; whole mix
+-17 LUFS, every PERFECT 5.7-10.9 LU over the music; `neutral` 5/5
+identical. The review page's `verdicts` collection was read at the start
+of the session and held no marks.

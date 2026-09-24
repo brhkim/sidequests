@@ -73,15 +73,15 @@ export class Bundler {
 }
 
 /**
- * How a bundle of `count` sounds: one semitone down per doubling, 1.5 dB
- * quieter per doubling, and from four a partial an octave below. Never louder
- * than a single event - a stack of kills is heavier, not shoutier.
+ * How a bundle of `count` sounds: 1.5 dB quieter per doubling, and from four
+ * a partial an octave below - heavier, never louder. It no longer drops a
+ * semitone per doubling (it did until 2026-09-24): the kill is a chord tone
+ * now, and a semitone off it is a wrong note against the music.
  */
-export function encodeBundle(count: number): { pitch: number; gainDb: number; subDb?: number } {
+export function encodeBundle(count: number): { gainDb: number; subDb?: number } {
   const doublings = Math.log2(Math.max(1, count));
   return {
-    pitch: Math.pow(2, -doublings / 12),
     gainDb: -1.5 * doublings,
-    subDb: count >= 4 ? -24 : undefined,
+    subDb: count >= 4 ? -18 : undefined,
   };
 }
