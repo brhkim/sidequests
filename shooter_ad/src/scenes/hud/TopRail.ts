@@ -1,150 +1,199 @@
 import Phaser from 'phaser';
-import { DIFFICULTY, HUD_ROWS, VIEW } from '../../config';
+import { DIFFICULTY, HUD_ROWS } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
 import { MAX_SENSE } from '../../systems/Progression';
-import { compact, FONT, hex, SMALL, type HudPayload } from './types';
+import { TYPE } from '../theme';
+import { BAR, DUEL, PIP, SENSE_X, SHIELD_X, WAVE_X } from './HudLayout';
+import { HudText } from './HudText';
+import { compact, type HudPayload } from './types';
 
-/** Height of the whole rail, including the standing bar along its lower edge. */
+/** Height of the whole rail; the strip starts beneath it. */
 export const RAIL_HEIGHT = HUD_ROWS.rail;
-/** The rail's right edge is the pause button's; the five columns share the rest. */
+/** The rail's right-hand area is the pause button's (`PAUSE_BUTTON`). */
 export const RAIL_PAUSE_WIDTH = 80;
 
-const LABEL = SMALL;
-const VALUE = '#e8ecf8';
+/** Ink as tints: every rail text is rendered white and coloured by tint. */
+const PRIMARY = 0xf2f3ff;
+const SECONDARY = 0xb7bad8;
+const CAPTION = 0x8d91b4;
+/** An axis you hold none of: its figure drawn at the text floor. */
+const EMPTY = 0x5d6180;
+/** Kills tick many times a second late on; the rail re-renders them at 4Hz. */
+const KILLS_EVERY_MS = 250;
+
+const LABEL = { size: 13, weight: TYPE.label.weight, tracking: TYPE.label.tracking };
+const SUB = { size: TYPE.caption.size, weight: TYPE.caption.weight, tracking: TYPE.caption.tracking };
 
 /**
- * Five columns, ordered by how load-bearing they are rather than by tradition.
+ * The run: WAVE, then the duel - YOUR DPS against PAR - then the two bonuses
+ * about the player rather than the squad (SENSE, SHIELD), then PAUSE.
  *
- * ARMY used to sit here and now lives in the strip beneath the red line with
- * the other DPS inputs: it is a conversion input exactly as the damage pool
- * is, and it was the one term of the DPS product that lived at the top of the
- * screen while the rest lived at the bottom. SENSE takes its place because it
- * is the one bonus that is NOT a DPS input - it is about the player, not the
- * squad - so the rail is now "the run" (wave, you against par, your read on
- * the offers) and the strip is "the squad".
- */
-// The words a first-time player reads, with the game's own in them: YOUR
-// DPS is damage per second, PAR DPS the shadow player's, and the PAR
-// column's sub-line says whose it is (the author, 2026-09-20: nothing on
-// screen may assume the reader knows what PAR is). SHIELD joined SENSE in
-// 1.1: the other bonus about the player rather than the squad's damage,
-// and the one whose state (charges ready) changes under fire, so it has
-// to be on screen. Five lanes of unequal width - WAVE needs the least, the
-// two DPS columns and SENSE the most (`867K% PAR`, `BEST PLAY` and `75%
-// MARKED` are the widest sub-lines) - and the labels and sub-lines came
-// down a point (14 to 13px, the sub-lines untracked) so no two neighbours
-// touch. `npm run rail` forces the widest state of every column and fails
-// under 8px between neighbours; that is the check, not a still. WAVE took
-// 6px from SHIELD (`READY` is the narrowest sub-line) in 1.5 when `1.23K
-// KILLS` grew a figure; taking it from PAR or SENSE pulled `BEST PLAY`
-// and `75% MARKED` to 7px.
-const COLUMNS = ['WAVE', 'YOUR DPS', 'PAR DPS', 'SENSE', 'SHIELD'] as const;
-const LANES: Record<(typeof COLUMNS)[number], number> = {
-  WAVE: 88, 'YOUR DPS': 100, 'PAR DPS': 96, SENSE: 100, SHIELD: 76,
-};
-const AXIS_OF: Partial<Record<(typeof COLUMNS)[number], number>> = {
-  SENSE: AXIS_COLOR.sense, SHIELD: AXIS_COLOR.shield,
-};
-
-/**
- * Par DPS is on screen permanently rather than saved for the death readout.
- * Watching yourself fall behind the curve while three gates descend is the
- * feedback that makes the next pick mean something; after the run it is only a
- * post-mortem.
+ * The duel is the one question the rail exists to answer, "am I keeping up?",
+ * so it is not one column among five any more: your figure is the biggest
+ * number on the HUD and wears the standing colour; par's sits smaller and
+ * neutral at the other end of the same well; and the tug bar between them
+ * splits at `ratio / (1 + ratio)` - dead centre is level with par, your
+ * colour past the centre is ahead, par's grey past it is behind. The target
+ * tick sits where `DIFFICULTY.targetFraction` of par falls on that bar, and
+ * the bar swells once when the run crosses it (no continuous pulse: a bar
+ * that is always moving says nothing). PAR DPS keeps its BEST PLAY line and
+ * YOUR DPS its `% PAR`, because nothing on screen may assume the reader
+ * knows what par is (the author, 2026-09-20).
  *
- * One instrument rides on it: the standing bar, which flashes once when the
- * run crosses the curve's target line in either direction - no continuous
- * pulse, because a bar that is always moving says nothing.
+ * Nothing here re-renders a texture unless the string it shows changed:
+ * colours are tints, and `npm run perf` reads uploads per frame.
  */
 export class TopRail {
-  private readonly values: Phaser.GameObjects.Text[] = [];
-  private readonly subs: Phaser.GameObjects.Text[] = [];
-  private readonly barTrack: Phaser.GameObjects.Rectangle;
-  private readonly barFill: Phaser.GameObjects.Rectangle;
+  private readonly wave: HudText;
+  private readonly kills: HudText;
+  private readonly you: HudText;
+  private readonly youSub: HudText;
+  private readonly par: HudText;
+  private readonly senseLabel: HudText;
+  private readonly senseSub: HudText;
+  private readonly pips: Phaser.GameObjects.Image[] = [];
+  private readonly shield: HudText;
+  private readonly shieldSub: HudText;
+  private readonly track: Phaser.GameObjects.Image;
+  private readonly fill: Phaser.GameObjects.Image;
+  private readonly knot: Phaser.GameObjects.Image;
   private above: boolean | null = null;
+  private splitPx = -1;
+  private senseShown = -1;
+  private killsAt = -Infinity;
+  private killsShown = -1;
+  /** The payload fields last drawn (see `update`). */
+  private readonly seen = new Float64Array(8).fill(NaN);
 
   constructor(private readonly scene: Phaser.Scene) {
-    let left = 0;
-    COLUMNS.forEach((name) => {
-      const cx = left + LANES[name] / 2;
-      left += LANES[name];
-      scene.add.text(cx, 9, name, {
-        fontFamily: FONT, fontSize: '13px',
-        color: AXIS_OF[name] !== undefined ? hex(AXIS_OF[name] as number) : LABEL, fontStyle: 'bold',
-      }).setOrigin(0.5, 0).setLetterSpacing(1);
+    // One baked panel behind the rail AND the strip (`art/ui`), with its lit
+    // lower edge and soft shadow onto the field.
+    scene.add.image(0, 0, 'hud-panel').setOrigin(0, 0);
 
-      this.values.push(scene.add.text(cx, 22, '-', {
-        fontFamily: FONT, fontSize: '23px', color: VALUE, fontStyle: 'bold',
-      }).setOrigin(0.5, 0));
+    // WAVE, with the kill count under it.
+    new HudText(scene, WAVE_X, 3, LABEL, 0, 0, 0, 'WAVE', CAPTION);
+    this.wave = new HudText(scene, WAVE_X, 17, { size: 24, weight: '800' }, 0, 0, 70, '-', PRIMARY);
+    this.kills = new HudText(scene, WAVE_X, 51, SUB, 0, 0, 72, '', CAPTION);
 
-      // Sub-lines sit on one baseline under non-adjacent columns, so no two of
-      // them can ever grow into each other.
-      this.subs.push(scene.add.text(cx, 49, '', {
-        fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: LABEL,
-      }).setOrigin(0.5, 0));
-    });
-    if (left !== VIEW.width - RAIL_PAUSE_WIDTH) throw new Error('rail lanes must fill the rail');
+    // The duel's well, its two labels, the two figures, the bar, the subs.
+    scene.add.image(DUEL.x, DUEL.y, 'hud-duel').setOrigin(0, 0);
+    const left = DUEL.x + DUEL.pad;
+    const right = DUEL.x + DUEL.w - DUEL.pad;
+    const inner = DUEL.w - 2 * DUEL.pad;
+    new HudText(scene, left, 3, LABEL, 0, 0, 0, 'YOUR DPS', SECONDARY);
+    new HudText(scene, right, 3, LABEL, 1, 0, 0, 'PAR DPS', CAPTION);
+    this.you = new HudText(scene, left, 11, { size: 31, weight: '800' }, 0, 0, inner * 0.56, '-', PRIMARY);
+    this.par = new HudText(scene, right, 20, { size: 21, weight: '700' }, 1, 0, inner * 0.38, '-', SECONDARY);
 
-    const barY = RAIL_HEIGHT - 6;
-    this.barTrack = scene.add.rectangle(0, barY, VIEW.width, 6, 0x232b40).setOrigin(0, 0);
-    this.barFill = scene.add.rectangle(0, barY, 0, 6, 0x6ee7a0).setOrigin(0, 0);
-    // The curve expects targetFraction of par. Marking it turns the bar from a
-    // vague gauge into a pass/fail line you can read without thinking.
-    scene.add.rectangle(
-      Math.round(VIEW.width * DIFFICULTY.targetFraction), barY - 3, 3, 12, 0xffffff, 0.95,
-    ).setOrigin(0.5, 0);
+    const barMid = BAR.y + BAR.h / 2;
+    this.track = scene.add.image(BAR.x, barMid, 'hud-bar-track').setOrigin(0, 0.5);
+    this.fill = scene.add.image(BAR.x, barMid, 'hud-bar-fill').setOrigin(0, 0.5);
+    // Level with par: a quiet notch at the centre, over both sides.
+    scene.add.image(BAR.x + BAR.w / 2, barMid, 'hud-px').setDisplaySize(1, BAR.h + 4)
+      .setTint(0xc9ccff).setAlpha(0.55);
+    // The curve's target: a notch under the bar and a hairline through it.
+    const target = DIFFICULTY.targetFraction / (1 + DIFFICULTY.targetFraction);
+    const tx = Math.round(BAR.x + BAR.w * target);
+    scene.add.image(tx, barMid, 'hud-px').setDisplaySize(1, BAR.h).setAlpha(0.9);
+    scene.add.image(tx, BAR.y + BAR.h + 1, 'hud-tick').setOrigin(0.5, 0).setFlipY(true);
+    // Where your side meets par's: a white-hot knot riding the split.
+    this.knot = scene.add.image(BAR.x, barMid, 'hud-px').setDisplaySize(3, BAR.h + 4);
+
+    this.youSub = new HudText(scene, left, 51, SUB, 0, 0, tx - left - 8, '', PRIMARY);
+    new HudText(scene, right, 51, SUB, 1, 0, 0, 'BEST PLAY', CAPTION);
+
+    // SENSE: three drawn pips that fill (the author's picture of it), the
+    // chance an offer is marked beneath.
+    this.senseLabel = new HudText(scene, SENSE_X, 3, LABEL, 0, 0, 0, 'SENSE', AXIS_COLOR.sense);
+    for (let i = 0; i < MAX_SENSE; i++) {
+      this.pips.push(scene.add.image(SENSE_X + PIP.size / 2 + i * (PIP.size + PIP.gap), 31, 'hud-pip-off'));
+    }
+    this.senseSub = new HudText(scene, SENSE_X, 51, SUB, 0, 0, 80, '', AXIS_COLOR.sense);
+
+    // SHIELD: charges ready over the pool's size, READY beneath.
+    new HudText(scene, SHIELD_X, 3, LABEL, 0, 0, 0, 'SHIELD', AXIS_COLOR.shield);
+    this.shield = new HudText(scene, SHIELD_X, 17, { size: 24, weight: '800' }, 0, 0, 56, '0', EMPTY);
+    this.shieldSub = new HudText(scene, SHIELD_X, 51, SUB, 0, 0, 56, '', AXIS_COLOR.shield);
   }
 
   update(h: HudPayload): void {
+    // Kills tick many times a second late on: re-rendered at most at 4Hz.
+    const now = this.scene.time.now;
+    if (h.kills !== this.killsShown && now - this.killsAt >= KILLS_EVERY_MS) {
+      this.killsShown = h.kills;
+      this.killsAt = now;
+      this.kills.set(`${compact(h.kills)} KILLS`);
+    }
+    // Everything else changes on events, not per frame: an unchanged frame
+    // builds no strings and touches nothing (no short-circuit, so `seen`
+    // stays current).
+    const changed = +this.swap(0, h.wave) + +this.swap(1, h.dps) + +this.swap(2, h.parDps)
+      + +this.swap(3, h.sense) + +this.swap(4, h.senseChance) + +this.swap(5, h.shield)
+      + +this.swap(6, h.shieldReady) + +this.swap(7, h.shieldCapacity);
+    if (changed === 0) return;
+
     const ratio = h.parDps > 0 ? h.dps / h.parDps : 1;
-    const color = standingColor(ratio);
+    const color = standingTint(ratio);
+    this.wave.set(String(h.wave));
+    this.you.set(compact(h.dps)).tint(color);
+    this.youSub.set(`${compact(ratio * 100)}% PAR`).tint(color);
+    this.par.set(compact(h.parDps));
 
-    this.values[0].setText(String(h.wave));
-    this.values[1].setText(compact(h.dps)).setColor(color);
-    this.values[2].setText(compact(h.parDps));
-    // Three pips that fill: the author's picture of it, and it reads at a
-    // glance where "2/3" has to be parsed. The chance is the sub-line, so the
-    // number the pause screen explains is on screen the whole time.
-    this.values[3].setText(sensePips(h.sense))
-      .setColor(h.sense > 0 ? hex(AXIS_COLOR.sense) : '#4d5670');
+    // The tug: the split moves only when it moves a whole pixel.
+    const split = Math.round(BAR.w * (ratio / (1 + ratio)));
+    if (split !== this.splitPx) {
+      this.splitPx = split;
+      this.fill.setCrop(0, 0, Math.max(0, split), BAR.h);
+      this.knot.setX(BAR.x + Math.min(BAR.w - 1, Math.max(1, split)));
+    }
+    this.fill.setTint(color);
 
-    this.subs[0].setText(`${compact(h.kills)} KILLS`);
-    this.subs[2].setText('BEST PLAY');
-    // Three figures at any size (`1.02K% PAR`); `npm run rail` holds the
-    // 100px column against the widest of them.
-    this.subs[1].setText(`${compact(ratio * 100)}% PAR`).setColor(color);
-    this.subs[3].setText(h.sense > 0 ? `${Math.round(h.senseChance * 100)}% MARKED` : '')
-      .setColor(hex(AXIS_COLOR.sense));
-    // Charges ready over the pool's size - `4/6` - rather than pips: six
-    // pips at the value size are 123px, wider than the lane. The state of
-    // the gamble, live, where the offer it came from was read.
-    this.values[4].setText(h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0')
-      .setColor(h.shield > 0 ? hex(AXIS_COLOR.shield) : '#4d5670');
-    this.subs[4].setText(h.shield > 0 ? 'READY' : '')
-      .setColor(hex(AXIS_COLOR.shield));
+    if (h.sense !== this.senseShown) {
+      this.senseShown = h.sense;
+      this.pips.forEach((p, i) => {
+        const lit = i < h.sense;
+        p.setTexture(lit ? 'hud-pip-on' : 'hud-pip-off').setTint(lit ? AXIS_COLOR.sense : EMPTY);
+      });
+      this.senseLabel.text.setAlpha(h.sense > 0 ? 1 : 0.6);
+    }
+    this.senseSub.set(h.sense > 0 ? `${Math.round(h.senseChance * 100)}% MARKED` : '');
 
-    this.barFill.width = Math.max(1, Math.min(1, ratio) * VIEW.width);
-    this.barFill.fillColor = Phaser.Display.Color.HexStringToColor(color).color;
+    // Charges ready over the pool's size - `4/6` - the state of the gamble,
+    // live, where the offer it came from was read.
+    this.shield.set(h.shield > 0 ? `${h.shieldReady}/${h.shieldCapacity}` : '0')
+      .tint(h.shield > 0 ? AXIS_COLOR.shield : EMPTY);
+    this.shieldSub.set(h.shield > 0 ? 'READY' : '');
+
     const above = ratio >= DIFFICULTY.targetFraction;
-    if (this.above !== null && above !== this.above) this.flashBar();
+    if (this.above !== null && above !== this.above) this.swell();
     this.above = above;
   }
 
-  /** One-shot on crossing the target line: the bar swells 6 to 10 and back. */
-  private flashBar(): void {
-    this.scene.tweens.killTweensOf([this.barTrack, this.barFill]);
+  private swap(i: number, v: number): boolean {
+    if (this.seen[i] === v) return false;
+    this.seen[i] = v;
+    return true;
+  }
+
+  /** One-shot on crossing the target: the bar swells and settles. */
+  private swell(): void {
+    this.scene.tweens.killTweensOf([this.track, this.fill]);
+    this.track.scaleY = 1;
+    this.fill.scaleY = 1;
     this.scene.tweens.add({
-      targets: [this.barTrack, this.barFill], height: 10, y: RAIL_HEIGHT - 8,
-      duration: 300, yoyo: true, ease: 'Quad.easeOut',
+      targets: [this.track, this.fill], scaleY: 1.9,
+      duration: 150, yoyo: true, ease: 'Quad.easeOut',
     });
   }
 
   reset(): void {
     this.above = null;
-    this.scene.tweens.killTweensOf([this.barTrack, this.barFill]);
-    this.barTrack.setSize(VIEW.width, 6).setY(RAIL_HEIGHT - 6);
-    this.barFill.height = 6;
-    this.barFill.y = RAIL_HEIGHT - 6;
+    this.killsAt = -Infinity;
+    this.killsShown = -1;
+    this.seen.fill(NaN);
+    this.scene.tweens.killTweensOf([this.track, this.fill]);
+    this.track.scaleY = 1;
+    this.fill.scaleY = 1;
   }
 }
 
@@ -160,4 +209,9 @@ export function standingColor(ratio: number): string {
   if (ratio >= DIFFICULTY.targetFraction) return '#ffd166';
   if (ratio >= DIFFICULTY.targetFraction * 0.65) return '#ff9f4a';
   return '#ff5566';
+}
+
+/** `standingColor` as a tint. */
+export function standingTint(ratio: number): number {
+  return parseInt(standingColor(ratio).slice(1), 16);
 }
