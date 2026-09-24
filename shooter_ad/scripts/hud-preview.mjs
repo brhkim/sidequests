@@ -51,6 +51,13 @@ const STATES = [
   // Deep into the second cycle: Gold again, at a power the old ladder could not
   // represent at all.
   { name: 'hud-loop-gold', power: 19 * 2 ** 20, u: { damageBonus: 40, damageMult: 30, rateBonus: 12, rateMult: 8, guns: 5, pierce: 4 } },
+  // The duel from the other side. Every state above is far AHEAD of par,
+  // because par starts from nothing; these two put par in front - just
+  // behind (yellow, over the target tick) and well behind (red, under it) -
+  // so the one question the rail exists to answer is seen both ways. Par is
+  // the mid build at whatever army puts the standing at `standing`.
+  { name: 'hud-close', power: 640, standing: 0.85, u: { damageBonus: 2.1, damageMult: 1.32, rateBonus: 0.85, rateMult: 1.1, guns: 2, pierce: 1 } },
+  { name: 'hud-behind', power: 640, standing: 0.35, u: { damageBonus: 2.1, damageMult: 1.32, rateBonus: 0.85, rateMult: 1.1, guns: 2, pierce: 1 } },
 ];
 
 const server = createServer(async (req, res) => {
@@ -78,11 +85,22 @@ await page.waitForTimeout(6000);
 
 await mkdir(OUT_DIR, { recursive: true });
 for (const state of STATES) {
-  await page.evaluate(({ power, u }) => {
+  await page.evaluate(({ power, u, standing }) => {
     const scene = window.game.scene.getScene('Game');
     Object.assign(scene.squad.progress.upgrades, u);
     scene.squad.progress.power = power;
     scene.squad.rebuild();
+    if (standing) {
+      // Bisect par's army until dps / parDps is the standing asked for.
+      const d = scene.difficulty;
+      const want = scene.squad.dps / standing;
+      let lo = 1, hi = power * 1e4;
+      d.ideal = { power, upgrades: { ...scene.squad.progress.upgrades } };
+      for (let i = 0; i < 60; i++) {
+        d.ideal.power = Math.round((lo + hi) / 2);
+        if (d.parDps < want) lo = d.ideal.power; else hi = d.ideal.power;
+      }
+    }
   }, state);
   await page.waitForTimeout(600);
   await page.screenshot({ path: join(OUT_DIR, `${state.name}.png`) });

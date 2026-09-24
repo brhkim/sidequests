@@ -1,657 +1,758 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-20T21:30:00Z",
+  "generatedAt": "2026-09-24T00:00:00Z",
   "title": "Design System: shooter_ad (DPS Golf)",
   "extensions": {
     "colorMeta": {
-      "ground": {
+      "void": {
         "role": "neutral",
-        "displayName": "Night Navy",
-        "canonical": "#0a0c14",
+        "displayName": "Void",
+        "canonical": "#07070d",
         "tonalRamp": [
-          "#05070f",
-          "#0a0c14",
-          "#151a2b",
-          "#232b40",
-          "#2a3350",
-          "#4d5670",
-          "#6f7b99",
-          "#8f9ab5"
+          "#0a0a11",
+          "#24242c",
+          "#414149",
+          "#606069",
+          "#81818b",
+          "#a4a4ae",
+          "#c8c8d2",
+          "#ededf8"
+        ]
+      },
+      "lane-bed": {
+        "role": "neutral",
+        "displayName": "Lane Bed",
+        "canonical": "#0d0e18",
+        "tonalRamp": [
+          "#090a14",
+          "#23242f",
+          "#3f414d",
+          "#5e606d",
+          "#7f818f",
+          "#a2a4b2",
+          "#c6c8d7",
+          "#ebedfd"
+        ]
+      },
+      "lane-bed-centre": {
+        "role": "neutral",
+        "displayName": "Lane Bed Centre",
+        "canonical": "#10111d",
+        "tonalRamp": [
+          "#090a15",
+          "#222431",
+          "#3f414f",
+          "#5e606f",
+          "#7f8191",
+          "#a2a4b5",
+          "#c5c8d9",
+          "#ebedff"
         ]
       },
       "panel": {
         "role": "neutral",
-        "displayName": "Panel Navy",
-        "canonical": "#0b0f1c",
+        "displayName": "Panel",
+        "canonical": "#0b0b15",
         "tonalRamp": [
-          "#05070f",
-          "#0b0f1c",
-          "#171d2e",
-          "#1b2236",
-          "#232b40",
-          "#2a3350",
-          "#4d5670",
-          "#6f7b99"
+          "#0a0a14",
+          "#24242f",
+          "#40414d",
+          "#5f606d",
+          "#80818f",
+          "#a3a4b2",
+          "#c7c8d7",
+          "#ecedfd"
         ]
       },
-      "text": {
+      "raised": {
         "role": "neutral",
-        "displayName": "Cool White",
-        "canonical": "#e8ecf8",
+        "displayName": "Raised",
+        "canonical": "#151625",
         "tonalRamp": [
-          "#4d5670",
-          "#6f7b99",
-          "#8b99bb",
-          "#8f9ab5",
-          "#c9d2ea",
-          "#e8ecf8",
-          "#f2f6ff",
-          "#ffffff"
+          "#090917",
+          "#222333",
+          "#3f4052",
+          "#5e6072",
+          "#7f8194",
+          "#a1a3b8",
+          "#c5c7dd",
+          "#eaedff"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#262840",
+        "tonalRamp": [
+          "#08081d",
+          "#21223a",
+          "#3d4059",
+          "#5c5f7a",
+          "#7c809d",
+          "#9fa3c1",
+          "#c3c7e6",
+          "#eaedff"
+        ]
+      },
+      "rail-light": {
+        "role": "primary",
+        "displayName": "Rail Light",
+        "canonical": "#c9ccff",
+        "tonalRamp": [
+          "#090427",
+          "#211f46",
+          "#3c3d66",
+          "#5b5c89",
+          "#7b7dac",
+          "#9ea0d1",
+          "#c1c4f7",
+          "#eaecff"
+        ]
+      },
+      "judgment-white": {
+        "role": "primary",
+        "displayName": "Judgment White",
+        "canonical": "#eef0ff",
+        "tonalRamp": [
+          "#090a14",
+          "#23242f",
+          "#40414d",
+          "#5f606d",
+          "#80818f",
+          "#a2a4b2",
+          "#c6c8d6",
+          "#ebedfc"
+        ]
+      },
+      "fail-red": {
+        "role": "secondary",
+        "displayName": "Fail Red",
+        "canonical": "#ff3b5c",
+        "tonalRamp": [
+          "#210002",
+          "#4d0010",
+          "#7f0222",
+          "#b90033",
+          "#eb214d",
+          "#ff6b79",
+          "#ffafb2",
+          "#ffe5e5"
+        ]
+      },
+      "ink-primary": {
+        "role": "neutral",
+        "displayName": "Ink Primary",
+        "canonical": "#f2f3ff",
+        "tonalRamp": [
+          "#0a0a12",
+          "#24242d",
+          "#40414b",
+          "#5f606a",
+          "#80818c",
+          "#a3a4af",
+          "#c7c8d4",
+          "#ecedf9"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#b7bad8",
+        "tonalRamp": [
+          "#08081c",
+          "#212239",
+          "#3e4058",
+          "#5c5f79",
+          "#7d809c",
+          "#a0a3c0",
+          "#c4c7e5",
+          "#eaecff"
+        ]
+      },
+      "ink-caption": {
+        "role": "neutral",
+        "displayName": "Ink Caption",
+        "canonical": "#8d91b4",
+        "tonalRamp": [
+          "#080720",
+          "#20223e",
+          "#3c3f5d",
+          "#5b5e7f",
+          "#7c7fa2",
+          "#9ea2c6",
+          "#c2c6eb",
+          "#e9edff"
+        ]
+      },
+      "ink-small": {
+        "role": "neutral",
+        "displayName": "Ink Small",
+        "canonical": "#737799",
+        "tonalRamp": [
+          "#080720",
+          "#20223e",
+          "#3c3f5e",
+          "#5b5e7f",
+          "#7b7fa2",
+          "#9ea2c6",
+          "#c1c6ec",
+          "#e9edff"
+        ]
+      },
+      "link-teal": {
+        "role": "secondary",
+        "displayName": "Link Teal",
+        "canonical": "#6be8d4",
+        "tonalRamp": [
+          "#00100c",
+          "#002d27",
+          "#004f45",
+          "#007265",
+          "#009887",
+          "#37bcaa",
+          "#64e2ce",
+          "#8dfff3"
+        ]
+      },
+      "warning-ember": {
+        "role": "secondary",
+        "displayName": "Warning Ember",
+        "canonical": "#ff7b54",
+        "tonalRamp": [
+          "#220000",
+          "#4e0000",
+          "#7f0a00",
+          "#ac2d00",
+          "#d4542c",
+          "#fc7851",
+          "#ffb29a",
+          "#ffe6dc"
+        ]
+      },
+      "button-ink": {
+        "role": "neutral",
+        "displayName": "Button Ink",
+        "canonical": "#06140c",
+        "tonalRamp": [
+          "#030e07",
+          "#1a2920",
+          "#36463d",
+          "#55665c",
+          "#76877c",
+          "#98aa9f",
+          "#bccfc3",
+          "#e1f4e8"
+        ]
+      },
+      "grade-perfect": {
+        "role": "tertiary",
+        "displayName": "Perfect Green",
+        "canonical": "#3ecf7a",
+        "tonalRamp": [
+          "#001201",
+          "#003010",
+          "#005222",
+          "#007738",
+          "#009e4d",
+          "#2cc36f",
+          "#5de992",
+          "#b2ffcb"
+        ]
+      },
+      "grade-good": {
+        "role": "tertiary",
+        "displayName": "Good Amber",
+        "canonical": "#ffc93c",
+        "tonalRamp": [
+          "#130900",
+          "#322200",
+          "#563e00",
+          "#7b5c00",
+          "#a47b00",
+          "#cc9d16",
+          "#f6c130",
+          "#ffe660"
+        ]
+      },
+      "grade-bad": {
+        "role": "tertiary",
+        "displayName": "Bad Red",
+        "canonical": "#ff4757",
+        "tonalRamp": [
+          "#210001",
+          "#4f0009",
+          "#820018",
+          "#b7032b",
+          "#e82d45",
+          "#ff6f74",
+          "#ffaeac",
+          "#ffe5e4"
+        ]
+      },
+      "grade-invest": {
+        "role": "tertiary",
+        "displayName": "Invest Lavender",
+        "canonical": "#c9a7ff",
+        "tonalRamp": [
+          "#13002a",
+          "#310857",
+          "#4f2c79",
+          "#6e4d9d",
+          "#906ec2",
+          "#b391e7",
+          "#d5baff",
+          "#f3e9ff"
         ]
       },
       "axis-army": {
-        "role": "primary",
-        "displayName": "Army Green",
+        "role": "tertiary",
+        "displayName": "Axis Army",
         "canonical": "#3ecf7a",
         "tonalRamp": [
-          "#0d2a19",
-          "#1a5432",
-          "#2c8a4e",
-          "#3ecf7a",
-          "#6ee7a0",
-          "#9af0bd",
-          "#c4f7d9",
-          "#e6fcef"
+          "#001201",
+          "#003010",
+          "#005222",
+          "#007738",
+          "#009e4d",
+          "#2cc36f",
+          "#5de992",
+          "#b2ffcb"
         ]
       },
       "axis-rate": {
-        "role": "primary",
-        "displayName": "Rate Amber",
+        "role": "tertiary",
+        "displayName": "Axis Rate",
         "canonical": "#ffc93c",
         "tonalRamp": [
-          "#33280b",
-          "#66501a",
-          "#bf8f10",
-          "#ffc93c",
-          "#ffd166",
-          "#ffde8c",
-          "#ffebb8",
-          "#fff6e0"
+          "#130900",
+          "#322200",
+          "#563e00",
+          "#7b5c00",
+          "#a47b00",
+          "#cc9d16",
+          "#f6c130",
+          "#ffe660"
         ]
       },
       "axis-damage": {
-        "role": "primary",
-        "displayName": "Damage Coral",
+        "role": "tertiary",
+        "displayName": "Axis Damage",
         "canonical": "#ff6b4a",
         "tonalRamp": [
-          "#33150e",
-          "#662b1e",
-          "#b34a33",
-          "#ff6b4a",
-          "#ff8a5c",
-          "#ffa88a",
-          "#ffc9b8",
-          "#ffe8e0"
+          "#220000",
+          "#4e0000",
+          "#850000",
+          "#b31e00",
+          "#db4a29",
+          "#ff704f",
+          "#ffb29e",
+          "#ffe6de"
         ]
       },
       "axis-guns": {
-        "role": "primary",
-        "displayName": "Guns Violet",
+        "role": "tertiary",
+        "displayName": "Axis Guns",
         "canonical": "#b56bff",
         "tonalRamp": [
-          "#241533",
-          "#482b66",
-          "#7a47b3",
-          "#b56bff",
-          "#c58aff",
-          "#d5a9ff",
-          "#e5c9ff",
+          "#150029",
+          "#35005a",
+          "#5a0592",
+          "#7e2dc0",
+          "#a055e7",
+          "#c080ff",
+          "#d9b7ff",
           "#f4e8ff"
         ]
       },
       "axis-pierce": {
-        "role": "primary",
-        "displayName": "Pierce Mint",
+        "role": "tertiary",
+        "displayName": "Axis Pierce",
         "canonical": "#6be8d4",
         "tonalRamp": [
-          "#152e2a",
-          "#2a5c55",
-          "#4aa495",
-          "#6be8d4",
-          "#8aeddc",
-          "#a9f2e5",
-          "#c9f7ee",
-          "#e8fcf8"
+          "#00100c",
+          "#002d27",
+          "#004f45",
+          "#007265",
+          "#009887",
+          "#37bcaa",
+          "#64e2ce",
+          "#8dfff3"
         ]
       },
       "axis-move": {
-        "role": "primary",
-        "displayName": "Move Sky",
+        "role": "tertiary",
+        "displayName": "Axis Move",
         "canonical": "#4ea8ff",
         "tonalRamp": [
-          "#102133",
-          "#1f4366",
-          "#3676b3",
-          "#4ea8ff",
-          "#71baff",
-          "#95ccff",
-          "#b8ddff",
-          "#dceeff"
+          "#000533",
+          "#002358",
+          "#004187",
+          "#0062b4",
+          "#2786da",
+          "#50aaff",
+          "#9cceff",
+          "#dcf1ff"
         ]
       },
       "axis-time": {
-        "role": "primary",
-        "displayName": "Time Pink",
+        "role": "tertiary",
+        "displayName": "Axis Time",
         "canonical": "#ff9fe0",
         "tonalRamp": [
-          "#33202d",
-          "#66405a",
-          "#b3709d",
-          "#ff9fe0",
-          "#ffb2e6",
-          "#ffc5ec",
-          "#ffd8f3",
-          "#ffecf9"
+          "#1d0015",
+          "#470037",
+          "#6e1859",
+          "#923c7a",
+          "#b75e9c",
+          "#de80c0",
+          "#ffa4e6",
+          "#ffe1fa"
         ]
       },
       "axis-sense": {
-        "role": "primary",
-        "displayName": "Sense White",
+        "role": "tertiary",
+        "displayName": "Axis Sense",
         "canonical": "#eaf2ff",
         "tonalRamp": [
-          "#2f3033",
-          "#5e6166",
-          "#a4a9b3",
-          "#eaf2ff",
-          "#eef4ff",
-          "#f2f7ff",
-          "#f6f9ff",
-          "#fbfcff"
+          "#070b13",
+          "#20252f",
+          "#3c424d",
+          "#5b626d",
+          "#7c838e",
+          "#9ea6b2",
+          "#c2cad6",
+          "#e7effc"
         ]
       },
-      "grade-bad": {
-        "role": "secondary",
-        "displayName": "Bad Red",
-        "canonical": "#ff4757",
+      "axis-shield": {
+        "role": "tertiary",
+        "displayName": "Axis Shield",
+        "canonical": "#d9a066",
         "tonalRamp": [
-          "#330e11",
-          "#661c23",
-          "#b2323d",
-          "#ff4757",
-          "#ff6c79",
-          "#ff919b",
-          "#ffb5bc",
-          "#ffdade"
+          "#180600",
+          "#3c1b00",
+          "#623600",
+          "#875414",
+          "#ab753b",
+          "#d0985e",
+          "#f7bc81",
+          "#ffe6c0"
         ]
       },
-      "breach": {
-        "role": "secondary",
-        "displayName": "Breach Red",
-        "canonical": "#ff4d5e",
+      "axis-echo": {
+        "role": "tertiary",
+        "displayName": "Axis Echo",
+        "canonical": "#9fb4c8",
         "tonalRamp": [
-          "#330f13",
-          "#661f26",
-          "#b23642",
-          "#ff4d5e",
-          "#ff717e",
-          "#ff949e",
-          "#ffb8bf",
-          "#ffdbdf"
+          "#010c1a",
+          "#162736",
+          "#324455",
+          "#506476",
+          "#718598",
+          "#93a8bc",
+          "#b7cce1",
+          "#dbf2ff"
         ]
       },
-      "loss": {
-        "role": "secondary",
-        "displayName": "Loss Red",
-        "canonical": "#ff5566",
+      "titan-signal": {
+        "role": "tertiary",
+        "displayName": "Titan Signal",
+        "canonical": "#a35bd6",
         "tonalRamp": [
-          "#331114",
-          "#662229",
-          "#b23b47",
-          "#ff5566",
-          "#ff7785",
-          "#ff99a3",
-          "#ffbbc2",
-          "#ffdde0"
+          "#160027",
+          "#380055",
+          "#5f068b",
+          "#8036b0",
+          "#a35bd6",
+          "#c77ffd",
+          "#e0b3ff",
+          "#f8e6ff"
         ]
       },
-      "fire": {
-        "role": "secondary",
-        "displayName": "Fire Orange",
-        "canonical": "#ff8a5c",
-        "tonalRamp": [
-          "#331c12",
-          "#663725",
-          "#b36040",
-          "#ff8a5c",
-          "#ffa17d",
-          "#ffb99d",
-          "#ffd0be",
-          "#ffe8de"
-        ]
-      },
-      "cage": {
-        "role": "secondary",
-        "displayName": "Cage Tan",
-        "canonical": "#b9a06a",
-        "tonalRamp": [
-          "#252015",
-          "#4a402a",
-          "#8a774f",
-          "#b9a06a",
-          "#c7b388",
-          "#d5c6a6",
-          "#e3d9c3",
-          "#f1ece1"
-        ]
-      },
-      "titan": {
-        "role": "secondary",
-        "displayName": "Titan Purple",
-        "canonical": "#6b2b8c",
-        "tonalRamp": [
-          "#150919",
-          "#2b1138",
-          "#4b1e62",
-          "#6b2b8c",
-          "#8f55ab",
-          "#bf8fdc",
-          "#d9b8f0",
-          "#e9d5ff"
-        ]
-      },
-      "enemy-bullet": {
-        "role": "secondary",
-        "displayName": "Dart Magenta",
+      "enemy-dart": {
+        "role": "tertiary",
+        "displayName": "Enemy Dart",
         "canonical": "#ff2fa6",
         "tonalRamp": [
-          "#330921",
-          "#661342",
-          "#b22174",
-          "#ff2fa6",
-          "#ff59b8",
-          "#ff82ca",
-          "#ffacdb",
-          "#ffd5ed"
+          "#1f000e",
+          "#48002a",
+          "#7c004b",
+          "#ae006d",
+          "#e70092",
+          "#ff56b4",
+          "#ffa8d1",
+          "#ffe2f2"
         ]
       },
-      "bullet": {
-        "role": "secondary",
-        "displayName": "Cream Pill",
-        "canonical": "#fff3b0",
-        "tonalRamp": [
-          "#333023",
-          "#666146",
-          "#b3aa7b",
-          "#fff3b0",
-          "#fff5c0",
-          "#fff8d0",
-          "#fffae0",
-          "#fffdf0"
-        ]
-      },
-      "code": {
+      "enemy-shell": {
         "role": "tertiary",
-        "displayName": "Code Cyan",
-        "canonical": "#9fe8ff",
+        "displayName": "Enemy Shell",
+        "canonical": "#ff3b3b",
         "tonalRamp": [
-          "#202e33",
-          "#405d66",
-          "#6fa2b3",
-          "#9fe8ff",
-          "#b2edff",
-          "#c5f1ff",
-          "#d9f6ff",
-          "#ecfaff"
-        ]
-      },
-      "link": {
-        "role": "tertiary",
-        "displayName": "Link Teal",
-        "canonical": "#6be8d4",
-        "tonalRamp": [
-          "#152e2a",
-          "#2a5c55",
-          "#4aa495",
-          "#6be8d4",
-          "#8aeddc",
-          "#a9f2e5",
-          "#c9f7ee",
-          "#e8fcf8"
-        ]
-      },
-      "titan-tag": {
-        "role": "secondary",
-        "displayName": "Titan Tag",
-        "canonical": "#d9b8f0",
-        "tonalRamp": [
-          "#150919",
-          "#2b1138",
-          "#4b1e62",
-          "#6b2b8c",
-          "#8f55ab",
-          "#bf8fdc",
-          "#d9b8f0",
-          "#e9d5ff"
+          "#220000",
+          "#520000",
+          "#850001",
+          "#bb0010",
+          "#ed232b",
+          "#ff6d63",
+          "#ffb0a7",
+          "#ffe5e1"
         ]
       }
     },
     "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "End-screen waves-survived figure."
+      },
       "display": {
         "displayName": "Display",
-        "purpose": "The DPS GOLF title on the start screen only."
-      },
-      "headline-number": {
-        "displayName": "Headline Number",
-        "purpose": "Waves survived on the end screen."
+        "purpose": "The title."
       },
       "heading": {
         "displayName": "Heading",
-        "purpose": "PAUSED, OVERRUN, THE TITAN LANDED; untracked."
+        "purpose": "Screen headings; OVERRUN slanted."
       },
-      "magnitude": {
-        "displayName": "Magnitude",
-        "purpose": "Gate card top line and strip cell main; shrinks to the card when wider."
+      "grade": {
+        "displayName": "Grade",
+        "purpose": "Grade words, slanted by the browser (no italic file)."
+      },
+      "number": {
+        "displayName": "Number",
+        "purpose": "Note magnitudes and HUD lead figures, upright."
       },
       "value": {
-        "displayName": "Rail Value",
-        "purpose": "The four rail figures."
+        "displayName": "Value",
+        "purpose": "Secondary figures and results rows."
       },
       "button": {
         "displayName": "Button",
-        "purpose": "The one filled button per screen."
-      },
-      "button-secondary": {
-        "displayName": "Secondary Button",
-        "purpose": "The word on every secondary, danger and segment card at 15px bold tracking 1.2; 14px on the pause tabs, the guide's topics and PAUSE."
+        "purpose": "Primary button words."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Start-screen copy; regular weight, line spacing 5."
-      },
-      "note": {
-        "displayName": "Note",
-        "purpose": "The 16px step: the end screen's detail line and the DETAILS working; bold for ruler heads and the DPS · PAR line. The pause axis note and guide text are 17px text-working, wrapped to 488px."
-      },
-      "link": {
-        "displayName": "Link",
-        "purpose": "No text links remain (2026-09-20); kept as the token the secondary button word is sized from."
-      },
-      "caption": {
-        "displayName": "Caption",
-        "purpose": "Sits under the value it names; 15px after the Phone Floor. Hints and versions 14px small; the 13px floor for WAVES SURVIVED, the tally caption, the end version, the DPS line's caption and the TITAN tag."
+        "purpose": "Pitch and guide explanations."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Uppercase tracked data labels on rail (14px, tracking 1.4; subs tracking 1), strip (1.2), pause heads (1.5) and the card tile's axis word (tracking 2; never scaled)."
+        "purpose": "Axis words, chip names, column names; tracked caps."
       },
-      "code": {
-        "displayName": "Match Code",
-        "purpose": "Monospace so characters can be counted off a screenshot."
-      },
-      "working": {
-        "displayName": "Working",
-        "purpose": "The DETAILS tab's DPS arithmetic at 16px; one bold white answer line."
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Sub-lines and captions; the 13px floor."
       }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "note-drop",
+        "value": "0 5px 11px rgba(0,0,0,0.7)",
+        "purpose": "Baked under every note; 0.6 on siblings."
+      },
+      {
+        "name": "button-drop",
+        "value": "0 5px 9px rgba(0,0,0,0.85)",
+        "purpose": "Baked under card buttons and screen tiles."
+      },
+      {
+        "name": "contact-shadow",
+        "value": "black ellipse 2.5r x 1.25r, MULTIPLY, offset 0.42r",
+        "purpose": "Titan (alpha 0.9), squad and cages only; ordinary enemies cast none."
+      },
+      {
+        "name": "label-stroke",
+        "value": "0 2px 3px rgba(0,0,0,0.6)",
+        "purpose": "Note figures over their own gradient."
+      },
+      {
+        "name": "judgment-glow",
+        "value": "0 0 18px rgba(238,240,255,0.13)",
+        "purpose": "The judgment line, baked as vertex-coloured bands."
+      }
+    ],
     "motion": [
       {
-        "name": "pick-hold",
-        "value": "240ms",
-        "purpose": "The pick wash holds in the card's footprint so the grade can be read."
+        "name": "snap",
+        "value": "140ms Back.easeOut",
+        "purpose": "Entrances, grade words, row landings, button release."
       },
       {
-        "name": "pick-fade",
-        "value": "480ms Quad.easeOut, y -24px, alpha 0",
-        "purpose": "The wash lifts and fades; the field's authored motion."
+        "name": "punch",
+        "value": "scale 1.18 -> 1, 180ms Quad.easeOut",
+        "purpose": "A changed value."
       },
       {
-        "name": "demo-descent",
-        "value": "2600ms Linear loop, y 214 to 330, alpha in over 12% / out over 15%",
-        "purpose": "The start screen's authored motion: three demo card tiles descend toward the squad at ~45px/s."
+        "name": "wipe",
+        "value": "260ms per lane, 40ms stagger, Cubic.easeOut",
+        "purpose": "Screens and the stage banner, lane by lane."
       },
       {
-        "name": "end-count-up",
-        "value": "min(900, 240 + 60N) ms Quad.easeOut, delay 120ms",
-        "purpose": "The end screen's authored motion: the waves headline counts 0 to N."
+        "name": "exit",
+        "value": "Cubic.easeIn",
+        "purpose": "Exits never overshoot."
       },
       {
-        "name": "screen-enter",
-        "value": "200ms Quad.easeOut, alpha 0 to 1",
-        "purpose": "The end screen enters after the death beat rather than cutting."
+        "name": "hit-lift",
+        "value": "0.07s lift to 50% white, at most once per 0.5s body clock",
+        "purpose": "Creature hit feedback; never pure white."
       },
       {
-        "name": "death-beat",
-        "value": "480ms",
-        "purpose": "Field dims to 0.7 and the end screen is held back for the beat."
+        "name": "banner-hold",
+        "value": "400ms",
+        "purpose": "WAVE N hold between wipe in and out."
       },
       {
-        "name": "edge-fade",
-        "value": "360ms Quad.easeOut",
-        "purpose": "Breach edge flash; fire uses 280ms."
-      },
-      {
-        "name": "float",
-        "value": "700ms Quad.easeOut, rise 26-40px",
-        "purpose": "-N, +N ARMY floats; MISS is 800ms with a 200ms hold."
-      },
-      {
-        "name": "cell-flash",
-        "value": "500ms from scale 1.15",
-        "purpose": "A strip cell's main when its value changes."
-      },
-      {
-        "name": "banner",
-        "value": "180ms in, 600ms hold (1200 Titan), 240ms out",
-        "purpose": "WAVE N and TITAN DOWN bands."
-      },
-      {
-        "name": "hit-flash",
-        "value": "0.07s simulated",
-        "purpose": "A struck body is drawn pure white."
-      },
-      {
-        "name": "shard-life",
-        "value": "0.28s (0.18s contact)",
-        "purpose": "Death pops; fixed 96-shard ring."
-      },
-      {
-        "name": "sense-pulse",
-        "value": "alpha 0.8-1.0 on the simulated clock",
-        "purpose": "The SENSE bar over the marked card."
-      },
-      {
-        "name": "bar-swell",
-        "value": "300ms Quad.easeOut yoyo, 6px to 10px",
-        "purpose": "The standing bar's one-shot flash on crossing the target line; a state flash, not an authored motion."
+        "name": "results-rows",
+        "value": "260ms delay, 70ms stagger, 280ms count",
+        "purpose": "End-screen table choreography."
       }
     ],
     "breakpoints": [
       {
-        "name": "canvas",
-        "value": "540x960 under Scale.FIT; no responsive layout"
+        "name": "stage",
+        "value": "540x960 logical, Scale.FIT (a 390px phone draws at ~0.72)"
       }
-    ],
-    "depthMap": {
-      "field": {
-        "ground": 0,
-        "ground-band": 1,
-        "gate-card": 4,
-        "overlay": 6,
-        "titan": "8/9",
-        "enemy": "10/11",
-        "cage-inmates+bullets": 12,
-        "cage": 13,
-        "shards": 14,
-        "gate-label": 15,
-        "health-bars": 18,
-        "squad": "20/21",
-        "enemy-bullets": "22/23",
-        "brackets": 25,
-        "field-fx": 27,
-        "horizon": 28,
-        "death-dim": 29,
-        "rail-backing": 30
-      },
-      "hud": {
-        "pause-button": 40,
-        "boss-bar": 42,
-        "wave-band": 44,
-        "edge-flash": 45,
-        "end-screen": 50,
-        "pause-screen": 55,
-        "start-screen": 60
-      }
-    }
+    ]
   },
   "components": [
+    {
+      "name": "Note (offer card)",
+      "kind": "card",
+      "refersTo": "note-card",
+      "description": "An offer on the highway: axis-tinted gradient body, lit cap, drawn operator, magnitude over axis word; targeted state gains a white rim and glow.",
+      "html": "<div class=\"ds-note\"><div class=\"ds-note-mag\"><span class=\"ds-op\">&times;</span>1.25</div><div class=\"ds-note-axis\">DMG</div></div><div class=\"ds-note ds-note-sibling\"><div class=\"ds-note-mag\"><span class=\"ds-op\">+</span>25%</div><div class=\"ds-note-axis\">DMG</div></div>",
+      "css": ".ds-note{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:150px;height:88px;margin:8px;border-radius:9px;border-top:10px solid #ffb6a4;background:linear-gradient(#94402f,#4d2118);box-shadow:0 5px 11px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.35);color:#f2f3ff;font-family:'Saira Semi Condensed', system-ui, sans-serif;transition:filter 140ms,box-shadow 140ms;cursor:pointer}.ds-note:hover,.ds-note:focus-visible{box-shadow:0 5px 11px rgba(0,0,0,.7),inset 0 0 0 2px #fff,0 0 14px rgba(255,107,74,.8);outline:none}.ds-note-sibling{filter:brightness(.8);opacity:.85}.ds-note-mag{font-size:26px;font-weight:800;line-height:1;text-shadow:0 2px 3px rgba(0,0,0,.6)}.ds-op{font-weight:800;margin-right:2px}.ds-note-axis{font-size:14px;font-weight:600;letter-spacing:1.6px;margin-top:6px}"
+    },
+    {
+      "name": "Receptor",
+      "kind": "custom",
+      "refersTo": "receptor",
+      "description": "The target note footprint lit on the judgment line in its axis colour, with keylined, white-cored end caps.",
+      "html": "<div class=\"ds-road\"><div class=\"ds-line\"></div><div class=\"ds-rec\"></div></div>",
+      "css": ".ds-road{position:relative;width:540px;height:60px;background:#10111d}.ds-line{position:absolute;left:0;right:0;top:29px;height:2px;background:#eef0ff;box-shadow:0 0 18px rgba(238,240,255,.35)}.ds-rec{position:absolute;left:195px;width:150px;top:16px;height:28px;border-radius:9px;background:linear-gradient(transparent,rgba(255,107,74,.55),transparent);border-left:4px solid #fff;border-right:4px solid #fff;box-shadow:-3px 0 0 #ff6b4a,3px 0 0 #ff6b4a,-5px 0 0 rgba(7,7,13,.9),5px 0 0 rgba(7,7,13,.9);transition:opacity 140ms}.ds-road:hover .ds-rec{opacity:.6}"
+    },
     {
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one filled button per screen, in the card's shape: START MATCH (380x64), RESUME / BACK, REPLAY THIS MATCH (300x56). The word stays in the button's own green.",
+      "description": "One per screen: filled green card button with a baked halo; squashes to 0.96 on press.",
       "html": "<button class=\"ds-btn-primary\">START MATCH</button>",
-      "css": ".ds-btn-primary { position: relative; width: 300px; height: 56px; background: rgba(62,207,122,0.2); color: #3ecf7a; border: 2px solid rgba(62,207,122,0.9); border-top: 4px solid #3ecf7a; border-radius: 0; font: 700 22px system-ui, sans-serif; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; } .ds-btn-primary:hover, .ds-btn-primary:focus-visible { background: rgba(62,207,122,0.3); outline: none; } .ds-btn-primary:active { background: rgba(62,207,122,0.4); }"
+      "css": ".ds-btn-primary{width:300px;height:56px;border-radius:12px;border:1px solid #7ff0ae;background:linear-gradient(#45dd85,#2fa860);color:#06140c;font-family:'Saira Semi Condensed', system-ui, sans-serif;font-size:22px;font-weight:700;letter-spacing:1.5px;box-shadow:0 5px 9px rgba(0,0,0,.85),0 0 14px rgba(62,207,122,.45);cursor:pointer;transition:transform 140ms ease-out,filter 140ms}.ds-btn-primary:hover{filter:brightness(1.08)}.ds-btn-primary:focus-visible{outline:2px solid #eef0ff;outline-offset:3px}.ds-btn-primary:active{transform:scale(.96);filter:brightness(.72)}"
     },
     {
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Every other action (ENTER A CODE, NEW MATCH, HOW TO PLAY, COPY LINK, SOUND ON): the card's shape at the dim weight in link teal - fill 0.07, 1.5px stroke at 0.5, roof at 0.6, 15px bold tracking 1.2.",
-      "html": "<button class=\"ds-btn-secondary\">ENTER A CODE</button>",
-      "css": ".ds-btn-secondary { --c: 107,232,212; position: relative; width: 184px; height: 44px; box-sizing: border-box; background: rgba(var(--c),0.07); color: rgb(var(--c)); border: 1.5px solid rgba(var(--c),0.5); border-top: 4px solid rgba(var(--c),0.6); border-radius: 0; font: 700 15px system-ui, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; cursor: pointer; } .ds-btn-secondary:hover, .ds-btn-secondary:focus-visible { background: rgba(var(--c),0.15); outline: none; } .ds-btn-secondary:active { background: rgba(var(--c),0.29); border-color: rgb(var(--c)); }"
+      "description": "Raised face with a link-teal rim and word; every secondary action.",
+      "html": "<button class=\"ds-btn-secondary\">NEW MATCH</button>",
+      "css": ".ds-btn-secondary{width:240px;height:44px;border-radius:12px;border:1.5px solid rgba(107,232,212,.55);background:linear-gradient(#20223a,#171829 55%,#111220);color:#6be8d4;font-family:'Saira Semi Condensed', system-ui, sans-serif;font-size:15px;font-weight:700;letter-spacing:1.2px;box-shadow:0 5px 9px rgba(0,0,0,.85);cursor:pointer;transition:transform 140ms ease-out,border-color 140ms}.ds-btn-secondary:hover{border-color:rgba(107,232,212,.95)}.ds-btn-secondary:focus-visible{outline:2px solid #6be8d4;outline-offset:3px}.ds-btn-secondary:active{transform:scale(.96);filter:brightness(.72)}"
     },
     {
       "name": "Danger Button",
       "kind": "button",
       "refersTo": "button-danger",
-      "description": "RESTART: the secondary weight in bad red, a row beneath RESUME beside SOUND so a thumb reaching for RESUME cannot throw the run away.",
+      "description": "RESTART: raised face with a grade-bad rim and word.",
       "html": "<button class=\"ds-btn-danger\">RESTART</button>",
-      "css": ".ds-btn-danger { --c: 255,71,87; position: relative; width: 184px; height: 44px; box-sizing: border-box; background: rgba(var(--c),0.07); color: rgb(var(--c)); border: 1.5px solid rgba(var(--c),0.5); border-top: 4px solid rgba(var(--c),0.6); border-radius: 0; font: 700 15px system-ui, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; cursor: pointer; } .ds-btn-danger:hover, .ds-btn-danger:focus-visible { background: rgba(var(--c),0.15); outline: none; } .ds-btn-danger:active { background: rgba(var(--c),0.29); border-color: rgb(var(--c)); }"
+      "css": ".ds-btn-danger{width:170px;height:44px;border-radius:12px;border:1.5px solid rgba(255,71,87,.55);background:linear-gradient(#20223a,#171829 55%,#111220);color:#ff4757;font-family:'Saira Semi Condensed', system-ui, sans-serif;font-size:15px;font-weight:700;letter-spacing:1.2px;box-shadow:0 5px 9px rgba(0,0,0,.85);cursor:pointer;transition:transform 140ms ease-out,border-color 140ms}.ds-btn-danger:hover{border-color:#ff4757}.ds-btn-danger:focus-visible{outline:2px solid #ff4757;outline-offset:3px}.ds-btn-danger:active{transform:scale(.96);filter:brightness(.72)}"
     },
     {
-      "name": "Segmented Row",
-      "kind": "nav",
-      "refersTo": "button-segment-lit",
-      "description": "A row of secondary cards with one lit at the primary weight, its word in text white: NORMAL / HARD (184x44, 8px gap; HARD in the warning orange) and the pause tabs BASICS / BONUSES / DETAILS (164x44, 4px gap) in code cyan. The guide's twelve topics work the same way in their own colours.",
-      "html": "<div class=\"ds-seg\"><button class=\"ds-seg-item ds-seg-lit\">NORMAL</button><button class=\"ds-seg-item\" style=\"--c: 255,123,84\">HARD</button></div>",
-      "css": ".ds-seg { display: flex; gap: 8px; } .ds-seg-item { --c: 159,232,255; width: 184px; height: 44px; box-sizing: border-box; background: rgba(var(--c),0.07); color: rgb(var(--c)); border: 1.5px solid rgba(var(--c),0.5); border-top: 4px solid rgba(var(--c),0.6); border-radius: 0; font: 700 15px system-ui, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; cursor: pointer; } .ds-seg-item:hover, .ds-seg-item:focus-visible { background: rgba(var(--c),0.15); outline: none; } .ds-seg-lit { background: rgba(var(--c),0.2); color: #e8ecf8; border: 2px solid rgba(var(--c),0.9); border-top: 4px solid rgb(var(--c)); } .ds-seg-lit:hover { background: rgba(var(--c),0.28); }"
-    },
-    {
-      "name": "Card Tile",
-      "kind": "card",
-      "refersTo": "card-tile",
-      "description": "A gate card off the field: 4px roof, body tinted 0.18 held / 0.06 unheld, 2px stroke at 0.8 / 0.45, magnitude over a 14px tracked axis word; selection is two white L-brackets at the bottom corners.",
-      "html": "<div class=\"ds-tiles\"><div class=\"ds-tile ds-tile-selected\"><div class=\"ds-tile-mag\">48</div><div class=\"ds-tile-axis\">ARMY</div></div><div class=\"ds-tile ds-tile-unheld\" style=\"--tile: 181,107,255\"><div class=\"ds-tile-mag\">1</div><div class=\"ds-tile-axis\">GUNS</div></div></div>",
-      "css": ".ds-tiles { display: flex; gap: 8px; } .ds-tile { --tile: 62,207,122; position: relative; width: 120px; height: 88px; box-sizing: border-box; background: rgba(var(--tile),0.18); border: 2px solid rgba(var(--tile),0.8); border-top: 4px solid rgb(var(--tile)); border-radius: 0; color: #e8ecf8; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: system-ui, sans-serif; font-weight: 700; cursor: pointer; } .ds-tile-mag { font-size: 26px; line-height: 1; } .ds-tile-axis { font-size: 14px; letter-spacing: 2px; margin-top: 9px; } .ds-tile-unheld { background: rgba(var(--tile),0.06); border-color: rgba(var(--tile),0.45); border-top-color: rgba(var(--tile),0.55); } .ds-tile-unheld .ds-tile-mag { opacity: 0.6; } .ds-tile-unheld .ds-tile-axis { opacity: 0.8; } .ds-tile-selected::before, .ds-tile-selected::after { content: ''; position: absolute; bottom: -1px; width: 14px; height: 14px; border: 3px solid rgba(255,255,255,0.95); border-top: none; } .ds-tile-selected::before { left: -1px; border-right: none; } .ds-tile-selected::after { right: -1px; border-left: none; } .ds-tile:hover { background: rgba(var(--tile),0.3); }"
-    },
-    {
-      "name": "Pause Button",
-      "kind": "button",
-      "refersTo": "button-pause",
-      "description": "The in-field control in the rail's right-hand 80px: the secondary weight in caption grey, 68x44, on a panel backing at 0.96 so the stream reads through nothing. Hit-tested by GameScene.",
-      "html": "<button class=\"ds-btn-pause\">PAUSE</button>",
-      "css": ".ds-btn-pause { --c: 143,154,181; width: 68px; height: 44px; box-sizing: border-box; background: rgba(11,15,28,0.96); background-image: linear-gradient(rgba(var(--c),0.07), rgba(var(--c),0.07)); color: rgb(var(--c)); border: 1.5px solid rgba(var(--c),0.5); border-top: 4px solid rgba(var(--c),0.6); border-radius: 0; font: 700 14px system-ui, sans-serif; letter-spacing: 1.2px; cursor: pointer; } .ds-btn-pause:hover, .ds-btn-pause:focus-visible { background-image: linear-gradient(rgba(var(--c),0.15), rgba(var(--c),0.15)); outline: none; }"
-    },
-    {
-      "name": "Gate Card",
-      "kind": "card",
-      "refersTo": "gate-card",
-      "description": "A descending bonus option: axis fill, axis stroke, a 4px roof, magnitude over axis word. Targeted state raises fill and stroke and adds bottom brackets.",
-      "html": "<div class=\"ds-gate\"><div class=\"ds-gate-roof\"></div><div class=\"ds-gate-mag\">×1.3</div><div class=\"ds-gate-axis\">ARMY</div></div>",
-      "css": ".ds-gate { position: relative; width: 172px; height: 88px; background: rgba(62,207,122,0.16); border: 2px solid rgba(62,207,122,0.8); border-radius: 0; color: #e8ecf8; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: system-ui, sans-serif; font-weight: 700; } .ds-gate-roof { position: absolute; top: -2px; left: -2px; right: -2px; height: 4px; background: #3ecf7a; } .ds-gate-mag { font-size: 26px; line-height: 1; } .ds-gate-axis { font-size: 14px; letter-spacing: 2px; margin-top: 8px; } .ds-gate:hover { background: rgba(62,207,122,0.3); border-width: 3px; }"
-    },
-    {
-      "name": "SENSE Mark",
-      "kind": "custom",
-      "refersTo": "sense-tag",
-      "description": "The best option on a sensed offer: an 8px sense-white bar over the roof, a SENSE tag on a panel backing, and a white card stroke.",
-      "html": "<div class=\"ds-sense\"><div class=\"ds-sense-bar\"></div><div class=\"ds-sense-tag\">SENSE</div><div class=\"ds-sense-card\"><div class=\"ds-sense-mag\">+40%</div><div class=\"ds-sense-axis\">DMG</div></div></div>",
-      "css": ".ds-sense { position: relative; width: 172px; padding-top: 10px; font-family: system-ui, sans-serif; font-weight: 700; } .ds-sense-bar { height: 8px; background: rgba(234,242,255,0.9); } .ds-sense-tag { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 64px; height: 22px; line-height: 22px; text-align: center; background: rgba(11,15,28,0.96); color: #eaf2ff; font-size: 14px; letter-spacing: 2px; } .ds-sense-card { height: 88px; background: rgba(255,107,74,0.16); border: 2px solid #ffffff; border-top: 4px solid #ff6b4a; color: #e8ecf8; display: flex; flex-direction: column; align-items: center; justify-content: center; } .ds-sense-mag { font-size: 26px; } .ds-sense-axis { font-size: 14px; letter-spacing: 2px; margin-top: 8px; }"
-    },
-    {
-      "name": "Rail Cell",
-      "kind": "custom",
-      "refersTo": "rail-cell",
-      "description": "One of four 115px rail columns (WAVE / YOUR DPS / PAR DPS / SENSE): 14px tracked label over a 23px value over a 14px bold sub (N KILLS, N% PAR, BEST PLAY, N% MARKED).",
-      "html": "<div class=\"ds-rail\"><span class=\"ds-rail-label\">YOUR DPS</span><span class=\"ds-rail-value\">43</span><span class=\"ds-rail-sub\">87% PAR</span></div>",
-      "css": ".ds-rail { width: 115px; height: 72px; background: rgba(10,12,20,0.96); display: flex; flex-direction: column; align-items: center; padding-top: 9px; box-sizing: border-box; font-family: system-ui, sans-serif; font-weight: 700; } .ds-rail-label { font-size: 14px; letter-spacing: 1.4px; color: #6f7b99; } .ds-rail-value { font-size: 23px; color: #ffd166; line-height: 1.1; } .ds-rail-sub { font-size: 14px; letter-spacing: 1px; color: #ffd166; }"
-    },
-    {
-      "name": "Strip Cell",
+      "name": "HUD Chip",
       "kind": "chip",
-      "refersTo": "strip-cell",
-      "description": "A bonus-strip cell: axis-coloured 14px label, 26px main, 17px bold sub (blank at identity; the ARMY cell has none), 1px hairline divider.",
-      "html": "<div class=\"ds-strip\"><span class=\"ds-strip-label\">DMG</span><span class=\"ds-strip-main\">+15%</span><span class=\"ds-strip-sub\">×1.30</span></div>",
-      "css": ".ds-strip { width: 128px; height: 94px; background: rgba(11,15,28,0.96); border-left: 1px solid #2a3350; padding: 10px 0 0 18px; box-sizing: border-box; display: flex; flex-direction: column; font-family: system-ui, sans-serif; font-weight: 700; } .ds-strip-label { font-size: 14px; letter-spacing: 1.2px; color: #ff6b4a; } .ds-strip-main { font-size: 26px; color: #f2f6ff; line-height: 1.2; } .ds-strip-sub { font-size: 17px; color: #8b99bb; }"
+      "refersTo": "hud-chip",
+      "description": "A bonus-strip cell: raised face, axis-coloured lit top edge and name, value over multiplier.",
+      "html": "<div class=\"ds-chip\"><div class=\"ds-chip-name\">DMG</div><div class=\"ds-chip-val\">+210%</div><div class=\"ds-chip-sub\">&times;1.32</div></div>",
+      "css": ".ds-chip{width:118px;padding:8px 10px;border-radius:6px;border-top:2px solid #ff6b4a;background:#151625;box-shadow:inset 0 0 0 1px #262840;font-family:'Saira Semi Condensed', system-ui, sans-serif;color:#f2f3ff;transition:transform 180ms ease-out}.ds-chip:hover{transform:scale(1.04)}.ds-chip-name{font-size:13px;font-weight:600;letter-spacing:1.6px;color:#ff6b4a}.ds-chip-val{font-size:26px;font-weight:800;line-height:1.1}.ds-chip-sub{font-size:13px;font-weight:600;letter-spacing:.6px;color:#b7bad8}"
     },
     {
-      "name": "Match Code",
+      "name": "Grade Word",
       "kind": "custom",
-      "refersTo": "code",
-      "description": "The shareable code under a hairline with its caption beneath (15px on the start screen, 14px on the end screen; warning orange on a hard run).",
-      "html": "<div class=\"ds-code\"><div class=\"ds-code-rule\"></div><div class=\"ds-code-text\">2TNB-BGS-N</div><div class=\"ds-code-cap\">match code · sent to you</div></div>",
-      "css": ".ds-code { width: 380px; text-align: center; background: #05070f; padding: 0 0 8px; } .ds-code-rule { height: 1px; background: #2a3350; } .ds-code-text { margin: 28px 0 6px; color: #9fe8ff; font: 700 40px ui-monospace, SFMono-Regular, Menlo, monospace; } .ds-code-cap { color: #8f9ab5; font: 400 15px system-ui, sans-serif; }"
+      "refersTo": "grade",
+      "description": "The judgment: slanted 800 in the grade colour, punching in from 1.7x; optional N IN A ROW line (provisional).",
+      "html": "<div class=\"ds-grade\">PERFECT<span class=\"ds-streak\">3 IN A ROW</span></div>",
+      "css": "@keyframes ds-punch{0%{transform:scale(1.7);opacity:0}70%{transform:scale(.94);opacity:1}100%{transform:scale(1)}}.ds-grade{display:inline-flex;flex-direction:column;align-items:center;font-family:'Saira Semi Condensed', system-ui, sans-serif;font-size:30px;font-weight:800;font-style:italic;color:#3ecf7a;text-shadow:0 2px 3px rgba(0,0,0,.6);animation:ds-punch 140ms cubic-bezier(.34,1.56,.64,1)}.ds-grade:hover{animation:none}.ds-streak{font-size:14px;font-style:normal;color:#f2f3ff;letter-spacing:1.6px}"
+    },
+    {
+      "name": "Stage Banner",
+      "kind": "custom",
+      "refersTo": "wave-banner",
+      "description": "WAVE N / TITAN / TITAN DOWN on three translucent lane slabs docked under the HUD, 44px tall.",
+      "html": "<div class=\"ds-banner\"><span></span><span></span><span></span><b>WAVE 12</b></div>",
+      "css": ".ds-banner{position:relative;display:flex;width:540px;height:44px}.ds-banner span{flex:1;background:rgba(7,7,13,.32);border-top:1px solid rgba(201,204,255,.5);border-bottom:1px solid rgba(201,204,255,.5);transition:transform 260ms cubic-bezier(.33,1,.68,1)}.ds-banner:hover span{transform:scaleX(.96)}.ds-banner b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Saira Semi Condensed', system-ui, sans-serif;font-size:32px;font-weight:800;font-style:italic;color:#f2f3ff;-webkit-text-stroke:1px #07070d}"
+    },
+    {
+      "name": "Results Row",
+      "kind": "custom",
+      "refersTo": "results-row",
+      "description": "End-screen tally row: slanted grade word, share bar, upright count.",
+      "html": "<div class=\"ds-row\"><i>PERFECT</i><span class=\"ds-bar\"><span></span></span><b>4</b></div>",
+      "css": ".ds-row{display:flex;align-items:center;gap:16px;width:420px;height:32px;font-family:'Saira Semi Condensed', system-ui, sans-serif;color:#3ecf7a}.ds-row i{width:120px;font-size:21px;font-weight:800}.ds-bar{flex:1;height:6px;background:#262840;border-radius:3px;overflow:hidden}.ds-bar span{display:block;width:100%;height:100%;background:#3ecf7a;transition:width 280ms}.ds-row:hover .ds-bar span{width:60%}.ds-row b{width:40px;text-align:right;font-size:27px;font-weight:800}"
     }
   ],
   "narrative": {
-    "northStar": "The Instrument Panel",
-    "overview": "There was no direction contract for this world. It is code-led, with no comp: the system below is read off the shipped build (.verify/*.png, 2026-09-19) and the modules that draw it, not off a plan. Where this record and the code disagree, the code is stale or this record is; re-scan rather than defend.\n\nThe game is a dark navy field with a data rail and a data strip stacked above it, and every colour on it is a word: an axis, a rank, a grade, a threat. The three screens are built from the field's one recognisable object, the gate card: a stat tile on pause, a scorecard footprint on the end screen, and the shape of every primary button (2026-09-20; hud/CardTile). The squad is human (skin head, rank-coloured shirt); everything it fights is a creature drawn white-with-black-detail and tinted at runtime, because the build ships no asset files at all. Type is the system sans everywhere and the system monospace for match codes and the DPS working, because nothing may be fetched. The one rule under all of it: rendering is a photograph of the simulation and never feeds it.",
+    "northStar": "The Note Highway",
+    "overview": "The playfield is a three-lane rhythm-game highway (osu!mania, DDR, Guitar Hero grammar). Offers are notes riding their lanes down to a white-hot judgment line at the squad (y 888); the fail line (y 950) is the one warm light on the road. The player reads three numbers, sees which receptor has lit under their squad, moves, and is judged PERFECT / GOOD / BAD / INVEST / MISS with a burst they feel. Beat lines stream down the lanes at the live gate speed, so rising tempo is seen, not just felt.\n\nThe road is near-neutral and dark on purpose: it is the stage for four vocabularies (axis, rank, creature, grade), each of which owns its hue. The highway's own light is a cool, desaturated blue-white that never competes with a colour that means something. Material is soft and baked: rounded gradient cards with a lit cap, soft offset drop shadows, baked glows. Nothing is computed per frame that could be baked once at boot. The world replaces the old flat navy \"Instrument Panel\" of square tinted rectangles, and it deliberately avoids neon-on-black: glow belongs to vocabulary colours and to the two lines, never to the road.\n\nMotion lands on the beat. Entrances snap with a small overshoot (140ms, Back.out), changed values punch (1.18 to 1 over 180ms), screens and the stage banner wipe in lane by lane (260ms per lane, 40ms stagger), and exits never overshoot (Cubic.in). All motion is render-only, phased off the simulated clock or the scene clock, never the seeded RNG.",
     "keyCharacteristics": [
-      "Flat, opaque, unrounded. Depth is a Phaser depth number, never a shadow.",
-      "One colour per bonus axis; both forms of an axis share it.",
-      "Text on the field is bold and never dimmer than {colors.small}.",
-      "Three authored motions, one per place (the pick wash on the field, the demo offer's descent on the start screen, the end screen's count-up); everything else is a state flash of a fixed duration from RENDER.moments.",
-      "Procedural everything: textures, audio, labels."
+      "540x960 portrait canvas; HUD band 0-184, highway 184-950, dark thumb ground below 950.",
+      "Three lanes of 180px; centre lane bed one step lighter so lanes read without lines.",
+      "One bundled face, Saira Semi Condensed, four weights (500 / 600 / 700 / 800).",
+      "Notes: 9px-rounded, baked-gradient cards tinted in their axis colour, with a lit cap and a soft drop shadow.",
+      "Judgment grammar: receptors on the line, a burst on the pick, a slanted grade word that punches in.",
+      "Everything baked: one field atlas, no runtime filters, pooled sprites and ring buffers."
     ],
     "rules": [
       {
         "name": "The One Word Rule",
-        "body": "A vocabulary colour (axis, rank, creature) names one thing and is never reused for feedback; feedback colours (grade, breach, loss, fire, Titan) are never used to label a bonus.",
+        "body": "Every saturated hue is vocabulary: axis, rank, creature or grade. The road, the HUD furniture and the highway's light stay cool and desaturated so no vocabulary colour has to fight them.",
         "section": "colors"
       },
       {
-        "name": "The Floor Rule",
-        "body": "Nothing is drawn as text dimmer than {colors.small}; unheld strip cells dim by alpha (0.55), not by a darker colour.",
+        "name": "The Shared Axis Rule",
+        "body": "Colour names the axis and nothing else. The raw and multiplicative forms of an axis wear the same colour, so the choice between them can only be read from the operator and the figure, never from the tint.",
         "section": "colors"
       },
       {
-        "name": "The Neutral Rule",
-        "body": "No colour choice may change a simulation outcome; npm run neutral must read identical on every seed after any change here.",
+        "name": "The One Warm Light Rule",
+        "body": "Fail Red is the only warm light the road itself emits. Warmth anywhere else on the field belongs to a note, a creature, a shirt or a grade.",
         "section": "colors"
       },
       {
-        "name": "The Two-Line Card Rule",
-        "body": "A gate label is always magnitude over axis word, split at the last space; +SENSE is + over SENSE. type.label is not changed for display.",
+        "name": "The Phone Floor Rule",
+        "body": "Nothing is set below 13px on the 540px canvas; under Scale.FIT a 390px phone draws at ~0.72, and 13 is the smallest that survives it.",
         "section": "typography"
       },
       {
-        "name": "The Stroke Rule",
-        "body": "Text that floats over the field wears a 3px {colors.screen} stroke (4px for rescues); text on a panel wears none.",
+        "name": "The Upright Number Rule",
+        "body": "Numbers are upright 800; slant belongs to judgments (grade words, the banner word, OVERRUN). A slanted figure is never a quantity.",
         "section": "typography"
       },
       {
-        "name": "The Panel Alpha Rule",
-        "body": "Backings the stream can cross (rail, strip, pause button, SENSE tag) sit at 0.96; the wave band at 0.75; the Titan warning at 0.35; nothing else is translucent at rest.",
+        "name": "The Baked Light Rule",
+        "body": "Every glow, gradient and shadow is baked once at boot. No runtime filters, no post-processing, no per-frame texture generation.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Shadow Earns Its Fill Rule",
+        "body": "A shadow ships only where it is visible on the road it falls on. A shadow nobody can see is fill cost, and it goes.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do keep rendering read-only: sprites, HUD, FX and audio consume SimEvents and HudPayload; nothing they do reaches systems/.",
-      "Do phase every visual pulse off the simulated clock or a Bresenham stride; never the seeded RNG and never Math.random().",
-      "Do prove any visual change with npm run neutral identical on five seeds, and look at the stills from hud, moments, roster, endscreen.",
-      "Do add a creature as one white-with-black texture at 2x plus a row in CREATURE_ART; fit the drawing to radius, never the reverse.",
-      "Do give every tappable line a fixed 44px hit bar and every screen exactly one filled button, in the card's shape (roof, 0.2 fill, 2px stroke).",
-      "Do build a screen's stat or score out of card tiles (hud/CardTile) rather than text rows, held and unheld by alpha as the strip does.",
-      "Do keep the three type roles: system sans for everything, monospace for codes and working, and {colors.small} as the dimmest text."
+      "Do draw every field sprite from the one atlas packed at boot (`art/draw.ts` `packAtlas`), and keep dark layers at MULTIPLY so the atlas stays on texture unit 0. Phaser 4.2.1 can draw one triangle untextured or untinted when rotated sprites from their own textures share a multi-texture batch, or under non-MULTIPLY tint modes.",
+      "Do bake every texture, glow and gradient once; pool sprites; keep fixed ring buffers for shards and sparks; call `setText` only when the string changed.",
+      "Do hold the frame budget measured by `npm run perf` (4x CPU throttle, wave 41): cpu ms/frame ~6.7 / 12.6 / 14.0 (median / p95 / p99, from 10.9 / 21.5 / 23.7), ~12 draws per frame (from 18), 0.1 texture uploads per frame (from 11.1), ~0.8 screens of textured fill. SwiftShader is a CPU-raster proxy; 60fps on a real phone GPU is unverified.",
+      "Do give hit feedback as a lift of the body's own colour, at most once per 0.5s of its clock, and a wound bleach of ~19% at zero HP.",
+      "Do keep sibling notes at shade 0.8 / alpha 0.85 with full-strength labels, so all three numbers read.",
+      "Do draw the operator as a glyph at the magnitude's size, in white with a dark keyline, through `render/Operator.ts`.",
+      "Do build any mark that stands over the squad as coloured edge, dark keyline and white core.",
+      "Do phase every animation off the simulated clock or the scene clock, and derive variety from a hash, never the seeded RNG."
     ],
     "donts": [
-      "Don't reuse an axis, rank or creature colour for feedback, or a feedback colour to label a bonus.",
-      "Don't add shadows, gradients, rounded corners or a loaded font or image; the build ships no assets and draws flat rectangles.",
-      "Don't fade a wounded body by alpha; flash white and bleach.",
-      "Don't add a fourth authored motion. Three exist by the author's decision (2026-09-20): the pick wash on the field, the demo offer's descent on the start screen, the end screen's count-up. New feedback is a fixed-duration state flash keyed from RENDER.moments.",
-      "Don't draw landing dashes or anything else that tells the player where to stand (RENDER.landingDashes stays off).",
-      "Don't put coloured side stripes on cells or rows; the label already carries the axis colour and dividers are 1px hairlines."
+      "Don't paint a live body pure white on a hit; it erases the type under a stream. The kill glow stays the brightest thing a body does.",
+      "Don't colour-code the operator; colour names the axis and both forms share it.",
+      "Don't give ordinary enemies contact shadows on this road; they are invisible and cost fill.",
+      "Don't ring an ordinary kill; only the Titan's death rings.",
+      "Don't use runtime filters, post-processing or per-frame texture generation.",
+      "Don't set text below 13px or dimmer than Ink Small.",
+      "Don't let the road's own light take a saturated hue; the only warm light on it is the fail line."
     ]
   }
 }

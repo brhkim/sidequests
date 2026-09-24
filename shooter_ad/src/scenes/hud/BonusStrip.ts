@@ -1,112 +1,132 @@
 import Phaser from 'phaser';
-import { HUD_ROWS, VIEW } from '../../config';
-import { RAIL_HEIGHT } from './TopRail';
+import { HUD_ROWS } from '../../config';
 import { AXIS_COLOR } from '../../data/gates';
-import { compact, FONT, formatMult, hex, type HudPayload } from './types';
+import { MOTION, TYPE } from '../theme';
+import { CHIP, CHIP_BLEED, chipX } from './HudLayout';
+import { HudText } from './HudText';
+import { compact, FONT, formatMult, type HudPayload } from './types';
 
 /** The strip's height; the field begins beneath the rail and the strip. */
 export const STRIP_HEIGHT = HUD_ROWS.strip;
 
+const PRIMARY = 0xf2f3ff;
+const SECONDARY = 0xb7bad8;
+/** A chip you hold nothing on: dimmed, not hidden, so it still reads. */
+const UNHELD = 0.5;
+/** An unheld chip's cap: neutral and dim, never its axis colour. */
+const CAP_UNHELD = { tint: 0x8d91b4, alpha: 0.3 } as const;
+const FLASH_MS = 500;
+
 /**
- * The active-bonus readout, directly beneath the top rail: every input to
- * the DPS product, and nothing else.
+ * The squad's DPS inputs, directly beneath the rail, as five chips.
  *
  * It sat beneath the breach line until the author played on a phone: the
- * thumb steering the squad covered it, and every conversion meant a glance
- * from the bottom of the screen to the top and back. Under the rail the two
- * readouts are one glance - the run above, the squad below it - and the
- * thumb covers nothing but ground. The cost is 94px of the descent hidden
- * behind the panel at the top, where an offer is furthest from mattering.
+ * thumb steering the squad covered it. Under the rail the two readouts are
+ * one glance - the run above, the squad below it.
  *
  * Why it has to exist: a raw bonus draws `a = (root - 1) * (1 + pool)`, so
- * `+31% DMG` against `×1.25 DMG` is only decidable if you know your damage pool
- * is 210%. Without the pool on screen the central judgement of the game is a
- * coin flip.
+ * `+31% DMG` against `×1.25 DMG` is only decidable if you know your damage
+ * pool is 210%. Without the pool on screen the central judgement of the game
+ * is a coin flip.
  *
- * Why it is a strip and not a wider rail: the game is 540x960 portrait, and
- * widening the canvas shrinks the playfield badly under Scale.FIT on a phone.
+ * Five chips in the order the pause screen's DETAILS page multiplies them:
+ * bodies, damage, rate, guns, pierce. Legibility, in a 540x94 strip:
  *
- * ARMY moved down here from the top rail. It is a conversion input exactly as
- * the pools are - `+120 ARMY` means nothing until you know you hold 504 - and
- * it was the one term of `squadDps` that lived at the other end of the screen
- * from the rest. Five cells now, in the order the pause screen's DETAILS page
- * multiplies them: bodies, damage, rate, guns, pierce.
+ * - The POOL is the big number and the multiplier the small one beneath it,
+ *   because the pool is what the conversion needs.
+ * - Everything is LEFT-aligned on one x per chip, so a digit appearing does
+ *   not shuffle a chip sideways mid-wave, and the three rows (axis word,
+ *   pool, multiplier) line up across the strip like a table.
+ * - Chips are UNEQUAL: DMG and RATE are sized for `+1.84K%` at the number
+ *   size, GUNS and PIERCE for a digit over a multiplier; anything wider still
+ *   is scaled into its chip (`HudText`) rather than allowed to run on.
+ * - A chip you hold nothing on dims, face and figures, so what you actually
+ *   have pops without reading any of it.
+ * - A held chip wears the field note's head: a lit cap along its top edge
+ *   and a faint wash down its face, in the axis colour. An unheld one's cap
+ *   is neutral and dim, so colour on the strip means "you have this".
  *
- * Three things do the legibility work in a 540x94 strip:
- *
- * - The POOL is the big number and the multiplier is the small one, because
- *   the pool is what the conversion needs and the multiplier cancels out of it.
- * - Values are LEFT-aligned, so a digit appearing does not shuffle the whole
- *   cell sideways mid-wave. Cells are parted by 1px hairlines; the axis
- *   colour is on the label, and a coloured side stripe on top of it said
- *   the same thing twice.
- * - A cell you hold nothing on fades, so what you actually have pops without
- *   needing to read any of it - to 0.55, not further, so it still reads.
- *
- * A cell that changes flashes in the colour of WHY it changed: the grade of
- * the pick, green for army gained, red for army lost. `prime` sets that
- * colour from the event; the next change spends it.
+ * A chip that changes punches its figure and flashes its face in the colour
+ * of WHY it changed: the grade of the pick, green for army gained, red for
+ * army lost. `prime` sets that colour from the event; the next change spends
+ * it.
  */
-const TOP = RAIL_HEIGHT;
+/** The ARMY chip's third line, where its `-N` lands. */
+const FLOAT_Y = CHIP.top + 53;
 const CELLS = [
-  { axis: 'army' as const, label: 'ARMY', width: 100 },
-  { axis: 'damage' as const, label: 'DMG', width: 128 },
-  { axis: 'rate' as const, label: 'RATE', width: 128 },
-  { axis: 'guns' as const, label: 'GUNS', width: 92 },
-  { axis: 'pierce' as const, label: 'PIERCE', width: 92 },
+  { axis: 'army' as const, label: 'ARMY' },
+  { axis: 'damage' as const, label: 'DMG' },
+  { axis: 'rate' as const, label: 'RATE' },
+  { axis: 'guns' as const, label: 'GUNS' },
+  { axis: 'pierce' as const, label: 'PIERCE' },
 ];
-const MAIN = '#f2f6ff';
 
-interface Cell {
-  label: Phaser.GameObjects.Text;
-  main: Phaser.GameObjects.Text;
-  sub: Phaser.GameObjects.Text;
+interface Chip {
+  face: Phaser.GameObjects.Image;
+  /** The note head: a lit cap and a faint wash in the axis colour while held. */
+  cap: Phaser.GameObjects.Image;
+  color: number;
+  glow: Phaser.GameObjects.Image;
+  label: HudText;
+  main: HudText;
+  sub: HudText;
+  held: boolean | null;
   last: string;
+  /** Bumped per flash, so an older flash's colour restore cannot cut a newer one short. */
+  flashes: number;
 }
 
 export class BonusStrip {
-  private readonly cells: Cell[] = [];
+  private readonly chips: Chip[] = [];
   private readonly floater: Phaser.GameObjects.Text;
+  private readonly floatX: number;
   private pending: number | null = null;
+  /** The inputs last drawn: an unchanged frame builds no strings at all. */
+  private readonly seen = new Float64Array(8).fill(NaN);
 
   constructor(private readonly scene: Phaser.Scene) {
-    scene.add.rectangle(0, TOP, VIEW.width, STRIP_HEIGHT, 0x0b0f1c, 0.96)
-      .setOrigin(0, 0);
-    scene.add.rectangle(0, TOP + STRIP_HEIGHT, VIEW.width, 1, 0x2a3350, 1).setOrigin(0, 0);
-
-    let x = 0;
-    for (const spec of CELLS) {
-      const color = AXIS_COLOR[spec.axis];
-      const textX = x + 18;
-      if (x > 0) scene.add.rectangle(x, TOP + 12, 1, 70, 0x2a3350, 1).setOrigin(0, 0);
-      this.cells.push({
-        label: scene.add.text(textX, TOP + 10, spec.label, {
-          fontFamily: FONT, fontSize: '14px', color: hex(color), fontStyle: 'bold',
-        }).setOrigin(0, 0).setLetterSpacing(1.2),
-        main: scene.add.text(textX, TOP + 24, '', {
-          fontFamily: FONT, fontSize: '26px', color: MAIN, fontStyle: 'bold',
-        }).setOrigin(0, 0),
-        sub: scene.add.text(textX, TOP + 61, '', {
-          fontFamily: FONT, fontSize: '17px', color: '#8b99bb', fontStyle: 'bold',
-        }).setOrigin(0, 0),
+    CELLS.forEach((spec, i) => {
+      const w = CHIP.widths[i];
+      const x = chipX(i);
+      const inner = w - 2 * CHIP.pad;
+      const tx = x + CHIP.pad;
+      this.chips.push({
+        face: scene.add.image(x - CHIP_BLEED.x, CHIP.top - CHIP_BLEED.top, `hud-chip-${w}`).setOrigin(0, 0),
+        cap: scene.add.image(x - CHIP_BLEED.x, CHIP.top - CHIP_BLEED.top, `hud-chipcap-${w}`).setOrigin(0, 0)
+          .setTint(CAP_UNHELD.tint).setAlpha(CAP_UNHELD.alpha),
+        color: AXIS_COLOR[spec.axis],
+        glow: scene.add.image(x - CHIP_BLEED.x, CHIP.top - CHIP_BLEED.top, `hud-chipglow-${w}`)
+          .setOrigin(0, 0).setAlpha(0).setVisible(false),
+        label: new HudText(scene, tx, CHIP.top + 7,
+          { size: TYPE.caption.size, weight: TYPE.label.weight, tracking: TYPE.label.tracking },
+          0, 0, inner, spec.label, AXIS_COLOR[spec.axis]),
+        main: new HudText(scene, tx, CHIP.top + 21, { size: TYPE.number.size, weight: TYPE.number.weight },
+          0, 0, inner, '', PRIMARY),
+        sub: new HudText(scene, tx, CHIP.top + 53, { size: 16, weight: '700' }, 0, 0, inner, '', SECONDARY),
+        held: null,
         last: '',
+        flashes: 0,
       });
-      x += spec.width;
-    }
-    // `-N` / `+N` over the ARMY cell, rising out of the strip.
-    this.floater = scene.add.text(50, TOP + 4, '', {
-      fontFamily: FONT, fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5, 1).setStroke('#05070f', 3).setDepth(1).setVisible(false);
+    });
+    // `-N` in the ARMY chip's own third line, which ARMY never uses (an
+    // army has no multiplier): the loss lands beside the figure it came off,
+    // and cannot rise into the rail's kill count the way it once did.
+    this.floatX = chipX(0) + CHIP.pad;
+    this.floater = scene.add.text(this.floatX, FLOAT_Y, '', {
+      fontFamily: FONT, fontSize: '18px', color: '#ffffff', fontStyle: '800',
+    }).setOrigin(0, 0).setDepth(1).setVisible(false);
   }
 
   update(h: HudPayload): void {
-    // Army: power alone. The rank word sat beneath it in the rank's colour
-    // until 2026-09-20; the author dropped it ("it stopped being relevant a
-    // long time ago") - the shirts on the field already say it. Always
-    // "held" - there is no identity for an army.
+    // Every input compared (no short-circuit, so `seen` stays current).
+    const changed = +this.swap(0, h.power) + +this.swap(1, h.damageBonus) + +this.swap(2, h.damageMult)
+      + +this.swap(3, h.rateBonus) + +this.swap(4, h.rateMult) + +this.swap(5, h.guns)
+      + +this.swap(6, h.pierce) + +this.swap(7, h.pierceMult);
+    if (changed === 0) { this.pending = null; return; }
+    // Army: power alone, always held - there is no identity for an army.
     this.set(0, compact(h.power), '', true);
-    // Sub-lines are blank at identity. Four columns of `x1.00` is four pieces
-    // of furniture the eye has to step over to find the one that changed.
+    // Multiplier lines are blank at identity: five `×1.00` are furniture the
+    // eye has to step over to find the one that changed.
     this.set(1, `+${compact(h.damageBonus * 100)}%`, multOrBlank(h.damageMult),
       h.damageBonus > 0 || h.damageMult > 1);
     this.set(2, `+${compact(h.rateBonus * 100)}%`, multOrBlank(h.rateMult),
@@ -118,56 +138,74 @@ export class BonusStrip {
     this.pending = null;
   }
 
-  /** The colour the next changed cell flashes in; spent by the next `update`. */
-  prime(color: number): void { this.pending = color; }
-
-  /** Flash a cell now, whatever changed, e.g. ARMY on a batch of fire hits. */
-  flashCell(index: number, color: number, ms = 500): void {
-    this.flash(this.cells[index], color, ms);
+  private swap(i: number, v: number): boolean {
+    if (this.seen[i] === v) return false;
+    this.seen[i] = v;
+    return true;
   }
 
-  /** `-3` or `+5` rising out of the ARMY cell. */
+  /** The colour the next changed chip flashes in; spent by the next `update`. */
+  prime(color: number): void { this.pending = color; }
+
+  /** Flash a chip now, whatever changed, e.g. ARMY on a batch of fire hits. */
+  flashCell(index: number, color: number, ms = FLASH_MS): void {
+    this.flash(this.chips[index], color, ms);
+  }
+
+  /** `-3` punching into the ARMY chip's empty third line, then lifting away. */
   float(text: string, color: number): void {
     const f = this.floater;
     this.scene.tweens.killTweensOf(f);
-    f.setText(text).setColor(hex(color)).setPosition(50, TOP + 4).setAlpha(1).setVisible(true);
+    if (f.text !== text) f.setText(text);
+    f.setTint(color).setPosition(this.floatX, FLOAT_Y).setAlpha(1).setScale(MOTION.punchScale).setVisible(true);
+    this.scene.tweens.add({ targets: f, scale: 1, duration: MOTION.snap, ease: MOTION.snapEase });
     this.scene.tweens.add({
-      targets: f, y: TOP - 22, alpha: 0, duration: 700, ease: 'Quad.easeOut',
+      targets: f, y: FLOAT_Y - 4, alpha: 0, delay: 360, duration: 420, ease: MOTION.exitEase,
       onComplete: () => f.setVisible(false),
     });
   }
 
   reset(): void {
-    for (const cell of this.cells) cell.last = '';
+    for (const chip of this.chips) chip.last = '';
+    this.seen.fill(NaN);
     this.pending = null;
     this.scene.tweens.killTweensOf(this.floater);
     this.floater.setVisible(false);
   }
 
-  private set(index: number, main: string, sub: string, held: boolean, subColor = '#8b99bb'): void {
-    const cell = this.cells[index];
-    cell.main.setText(main);
-    cell.sub.setText(sub).setColor(subColor);
+  private set(index: number, main: string, sub: string, held: boolean): void {
+    const chip = this.chips[index];
+    chip.main.set(main);
+    chip.sub.set(sub);
 
-    const alpha = held ? 1 : 0.55;
-    cell.label.setAlpha(alpha);
-    cell.main.setAlpha(alpha);
-    cell.sub.setAlpha(0.95);
+    if (held !== chip.held) {
+      chip.held = held;
+      const a = held ? 1 : UNHELD;
+      chip.face.setAlpha(held ? 1 : 0.55);
+      chip.cap.setTint(held ? chip.color : CAP_UNHELD.tint).setAlpha(held ? 1 : CAP_UNHELD.alpha);
+      chip.label.text.setAlpha(a);
+      chip.main.text.setAlpha(a);
+      chip.sub.text.setAlpha(a);
+    }
 
-    // A gate you drove through has to register somewhere other than the field,
-    // where the wash is already gone by the time the next offer appears.
+    // A gate you drove through has to register somewhere other than the
+    // field, where the wash is already gone by the time the next offer comes.
     const signature = `${main}|${sub}`;
-    if (cell.last !== '' && cell.last !== signature) this.flash(cell, this.pending ?? 0xffffff, 500);
-    cell.last = signature;
+    if (chip.last !== '' && chip.last !== signature) this.flash(chip, this.pending ?? 0xffffff, FLASH_MS);
+    chip.last = signature;
   }
 
-  private flash(cell: Cell, color: number, ms: number): void {
-    this.scene.tweens.killTweensOf(cell.main);
-    cell.main.setScale(1.15).setColor(hex(color));
+  private flash(chip: Chip, color: number, ms: number): void {
+    const { glow, main } = chip;
+    this.scene.tweens.killTweensOf(glow);
+    glow.setTint(color).setAlpha(0.42).setVisible(true);
     this.scene.tweens.add({
-      targets: cell.main, scale: 1, duration: ms, ease: 'Quad.easeOut',
-      onComplete: () => cell.main.setColor(MAIN),
+      targets: glow, alpha: 0, duration: ms, ease: 'Quad.easeOut',
+      onComplete: () => glow.setVisible(false),
     });
+    main.tint(color).punch();
+    const id = ++chip.flashes;
+    this.scene.time.delayedCall(ms * 0.7, () => { if (chip.flashes === id) main.tint(PRIMARY); });
   }
 }
 

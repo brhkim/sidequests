@@ -12,7 +12,7 @@ export default defineConfig({
         // a fixed artifact path, and a changing filename would orphan the old
         // asset on every publish.
         entryFileNames: 'game.js',
-        assetFileNames: 'game.[ext]',
+        assetFileNames: 'game.[name].[ext]',
       },
     },
   },

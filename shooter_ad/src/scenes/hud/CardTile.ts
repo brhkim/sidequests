@@ -1,229 +1,198 @@
 import Phaser from 'phaser';
-import { GATES, RENDER } from '../../config';
-import { FONT, hex } from './types';
+import { GATES } from '../../config';
+import { HW } from '../art/cards';
+import { SCREEN_TEX } from '../art/screens';
+import { placeOperator, splitOperator } from '../render/Operator';
+import { INK } from '../theme';
+import { slice } from './ScreenButton';
+import { FONT } from './types';
 
-/** The one object the screens borrow from the field: a gate card's anatomy. */
-export const TILE = { width: 120, height: GATES.height, roof: RENDER.gate.roof } as const;
+export { cardButton, segmented, type ButtonVariant, type CardButton } from './ScreenButton';
+
+/** A tile's default footprint: the field note's width and height. */
+export const TILE = { width: 120, height: GATES.height } as const;
+
+/** Unheld: the note is there, dimmed, the way an unheld strip cell is. */
+const DIM = { body: 0.38, gloss: 0.35, magnitude: 0.6, axis: 0.8 } as const;
+const SHADOW_DROP = 4;
 
 /**
- * A gate card off the field, for the screens: the 4px roof in the axis
- * colour, the body tinted in the same colour, a 2px stroke, and the label as
- * magnitude over axis word - exactly what `render/GateCards` draws, so a
- * player who has taken one offer reads a pause tile or a start-screen demo
- * without learning anything new.
+ * A note off the highway, for the screens: the start screen's demo offer,
+ * the pause page's ten bonuses. The anatomy is the direction contract's
+ * note - rounded 9px, a baked gradient body in the axis colour, a lit cap,
+ * a lighter inner edge, a white gloss over the upper half and a soft
+ * offset shadow - with the label as magnitude over axis word, so a player
+ * who has taken one offer reads a tile without learning anything new.
  *
- * `held` is the pause page's question: a tile for a bonus the player holds
- * nothing of sits at the unheld fill and its magnitude dims, the way an
- * unheld strip cell does. `select` draws the field's TARGET mark - the two
- * white L-brackets at the bottom corners the leader's card wears - never
- * the white stroke, which is the SENSE mark and means "the best card".
+ * `held` is the pause page's question: a tile for a bonus held at nothing
+ * dims. `select` draws the old field's target mark (the field now uses receptors on the
+ * judgment line) - white L-brackets at the
+ * bottom corners - never a white outline, which is the SENSE mark and
+ * means "the best card".
  *
- * The magnitude shrinks to fit when a number is wider than the card, as it
- * does on the field; the axis word never does. The Phone Floor puts the
- * smallest text at 13px, so a tile's axis line is written to fit instead.
+ * Both lines shrink to fit the tile when a value is wider than it (a late
+ * `RATE ×1.02K`), rather than every tile being sized for the rare case; the
+ * Phone Floor keeps the axis word at 13px or more at rest.
+ *
+ * Every part is a flat object at the tile's own centre (no Container), so
+ * `setY` and `setScale` move them together and the probes read the words.
  */
 export class CardTile {
   readonly parts: Phaser.GameObjects.GameObject[];
-  private readonly rect: Phaser.GameObjects.Rectangle;
-  private readonly roof: Phaser.GameObjects.Rectangle;
+  private readonly shadow: Phaser.GameObjects.NineSlice;
+  private readonly body: Phaser.GameObjects.NineSlice;
+  private readonly gloss: Phaser.GameObjects.NineSlice;
+  /** The operator, drawn as the field's glyph (`Operator`), and the figure after it. */
+  private readonly op: Phaser.GameObjects.Image;
   private readonly magnitude: Phaser.GameObjects.Text;
   private readonly axis: Phaser.GameObjects.Text;
+  private readonly magY: number;
+  private readonly magSize: number;
+  private hasOp = false;
   private readonly brackets: Phaser.GameObjects.Graphics;
   private readonly pips: Phaser.GameObjects.Arc[] = [];
+  private readonly offsets = new Map<Phaser.GameObjects.Components.Transform, number>();
   private color: number;
   private held = true;
+  private alpha = 1;
+  private scale = 1;
+  private axisFit = 1;
+  private cy: number;
 
   constructor(
-    scene: Phaser.Scene, readonly x: number, readonly y: number, color: number,
-    width: number = TILE.width, height: number = TILE.height, withPips = false,
+    scene: Phaser.Scene, readonly x: number, y: number, color: number,
+    readonly width: number = TILE.width, readonly height: number = TILE.height, withPips = false,
+    magnitudeSize = 26,
   ) {
     this.color = color;
-    this.rect = scene.add.rectangle(x, y, width, height, color, 0.18).setStrokeStyle(2, color, 0.8);
-    this.roof = scene.add.rectangle(x, y - height / 2, width, TILE.roof, color, 1).setOrigin(0.5, 0);
-    this.magnitude = scene.add.text(x, y - 9, '', {
-      fontFamily: FONT, fontSize: `${GATES.magnitudeSize}px`, color: '#e8ecf8', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.axis = scene.add.text(x, y + 18, '', {
-      fontFamily: FONT, fontSize: '14px', color: '#e8ecf8', fontStyle: 'bold',
-    }).setOrigin(0.5).setLetterSpacing(2);
-    // The target brackets, drawn once at the tile's bottom corners and shown
-    // by `select`: the field's own "this one".
-    this.brackets = scene.add.graphics().setVisible(false);
+    this.cy = y;
+    // The label sits 3px low: the lit cap takes the top 7px of the note.
+    const magY = height >= 72 ? -9 : -7;
+    const axisY = height >= 72 ? 20 : 17;
+    this.magY = magY;
+    this.magSize = magnitudeSize;
+    this.shadow = slice(scene, SCREEN_TEX.shadow, x, y + SHADOW_DROP, width, height).setAlpha(0.75);
+    this.body = slice(scene, SCREEN_TEX.note, x, y, width, height).setTint(color);
+    this.gloss = slice(scene, SCREEN_TEX.gloss, x, y, width, height);
+    this.op = scene.add.image(x, y + magY, HW.opAdd).setVisible(false);
+    this.magnitude = scene.add.text(x, y + magY, '', {
+      fontFamily: FONT, fontSize: `${magnitudeSize}px`, color: INK.primary, fontStyle: '800',
+    }).setOrigin(0.5).setShadow(0, 1, 'rgba(0,0,0,0.5)', 3);
+    this.axis = scene.add.text(x, y + axisY, '', {
+      fontFamily: FONT, fontSize: '14px', color: INK.primary, fontStyle: '700',
+    }).setOrigin(0.5).setLetterSpacing(1.6).setShadow(0, 1, 'rgba(0,0,0,0.5)', 2);
+    // The target brackets, drawn once and shown by `select`.
+    this.brackets = scene.add.graphics({ x, y }).setVisible(false);
     this.brackets.lineStyle(3, 0xffffff, 0.95);
-    const bottom = y + height / 2 - 1;
+    const bottom = height / 2 + 3;
     for (const side of [-1, 1]) {
-      const cxs = x + side * (width / 2 - 1);
+      const cxs = side * (width / 2 + 3);
       this.brackets.beginPath();
-      this.brackets.moveTo(cxs, bottom - 14);
+      this.brackets.moveTo(cxs, bottom - 16);
       this.brackets.lineTo(cxs, bottom);
-      this.brackets.lineTo(cxs - side * 14, bottom);
+      this.brackets.lineTo(cxs - side * 16, bottom);
       this.brackets.strokePath();
     }
-    this.parts = [this.rect, this.roof, this.magnitude, this.axis, this.brackets];
+    this.parts = [this.shadow, this.body, this.gloss, this.op, this.magnitude, this.axis, this.brackets];
+    // The operator and the figure are laid out together by `placeFigure`.
+    this.offsets.set(this.shadow, SHADOW_DROP).set(this.body, 0).set(this.gloss, 0)
+      .set(this.axis, axisY).set(this.brackets, 0);
     if (withPips) {
       // Three drawn pips in place of a magnitude: the rail's own SENSE glyph.
-      for (const dx of [-24, 0, 24]) {
-        const pip = scene.add.circle(x + dx, y - 9, 8, 0xe8ecf8, 0).setStrokeStyle(1.5, 0xe8ecf8, 0.9);
+      for (const dx of [-22, 0, 22]) {
+        const pip = scene.add.circle(x + dx, y + magY, 7, 0xffffff, 0).setStrokeStyle(2, 0xffffff, 0.95);
         this.pips.push(pip);
         this.parts.push(pip);
+        this.offsets.set(pip, magY);
       }
     }
   }
 
-  /** Magnitude over axis word; a magnitude wider than the card shrinks to fit. */
+  /**
+   * Magnitude over axis word; either shrinks to fit the tile's inside. The
+   * magnitude's leading `×` / `+` is drawn as the field note's operator
+   * glyph, the same split and the same layout (`Operator`), so a tile and
+   * the note it stands for cannot disagree.
+   */
   set(magnitude: string, axis: string, axisColor?: string): this {
-    this.magnitude.setText(magnitude).setScale(1).setVisible(magnitude !== '');
-    const inner = this.rect.width - 8;
-    this.magnitude.setScale(Math.min(1, inner / Math.max(1, this.magnitude.width)));
-    this.axis.setText(axis);
+    const inner = this.width - 12;
+    const { op, figure } = splitOperator(magnitude);
+    this.hasOp = op !== null;
+    if (op !== null && this.op.texture.key !== op) this.op.setTexture(op);
+    if (this.magnitude.text !== figure) this.magnitude.setText(figure);
+    this.placeFigure();
+    if (this.axis.text !== axis) this.axis.setText(axis);
+    this.axisFit = Math.min(1, inner / Math.max(1, this.axis.width));
+    this.axis.setScale(this.axisFit * this.scale);
     if (axisColor) this.axis.setColor(axisColor);
     return this;
   }
 
-  /** Re-tints the card to another axis; the start screen's demo cycles offers. */
+  /** Re-tints the note to another axis; the start screen's demo cycles offers. */
   setColor(color: number): this {
     this.color = color;
-    this.roof.setFillStyle(color, 1);
-    return this.setHeld(this.held);
+    this.body.setTint(color);
+    return this;
   }
+
+  get tint(): number { return this.color; }
 
   /** Filled pips for the count held, on a tile made with pips. */
   setPips(count: number): this {
-    this.pips.forEach((pip, i) => pip.setFillStyle(0xe8ecf8, i < count ? 0.9 : 0));
+    this.pips.forEach((pip, i) => pip.setFillStyle(0xffffff, i < count ? 0.95 : 0));
     return this;
   }
 
   setHeld(held: boolean): this {
     this.held = held;
-    this.rect.setFillStyle(this.color, held ? 0.18 : 0.06);
-    this.rect.setStrokeStyle(2, this.color, held ? 0.8 : 0.45);
-    this.roof.setAlpha(held ? 1 : 0.55);
-    this.magnitude.setAlpha(held ? 1 : 0.6);
-    this.axis.setAlpha(held ? 1 : 0.8);
-    for (const pip of this.pips) pip.setAlpha(held ? 1 : 0.6);
-    return this;
+    return this.apply();
   }
 
   select(on: boolean): this {
     this.brackets.setVisible(on);
-    this.setHeld(this.held);
     return this;
   }
 
+  /** Fades the whole note (the demo's arrival, the screens' entrance). */
   setAlpha(a: number): this {
-    for (const p of this.parts) (p as Phaser.GameObjects.Rectangle).setAlpha(a);
-    return this;
+    this.alpha = a;
+    return this.apply();
   }
 
   setY(y: number): this {
-    const dy = y - this.rect.y;
-    this.rect.y += dy; this.roof.y += dy; this.magnitude.y += dy; this.axis.y += dy;
-    this.brackets.y += dy;
-    for (const pip of this.pips) pip.y += dy;
+    this.cy = y;
+    for (const [o, dy] of this.offsets) o.y = y + dy * this.scale;
+    this.placeFigure();
     return this;
   }
-}
 
-/**
- * The three weights a button comes in. Every one is the card's shape - roof,
- * tinted body, stroke, one word - so a control never has to be recognised
- * as a control: it is the same object the player has been walking under.
- *
- * - **primary**: the one filled action per screen (START MATCH, RESUME,
- *   REPLAY THIS MATCH), ARMY green.
- * - **secondary**: every other action (ENTER A CODE, NEW MATCH, HOW TO
- *   PLAY, COPY LINK, SOUND), link teal, a lighter fill and stroke.
- * - **danger**: RESTART, loss red, the secondary weight.
- *
- * `setActive` is for a segmented control (difficulty, the pause tabs): the
- * chosen segment wears the primary weight in its own colour and the others
- * the secondary weight - one lit card in a row of dim ones, which is the
- * field's own picture of "the one you are under".
- */
-export type ButtonVariant = 'primary' | 'secondary' | 'danger';
+  /** Scales the note about its centre - the demo's hit swells it as it lands. */
+  setScale(s: number): this {
+    this.scale = s;
+    for (const [o, dy] of this.offsets) {
+      o.setScale(o === this.axis ? s * this.axisFit : s);
+      o.y = this.cy + dy * s;
+    }
+    this.placeFigure();
+    return this;
+  }
 
-const WEIGHT = {
-  lit: { fill: 0.2, stroke: 0.9, strokeWidth: 2, roof: 1, text: '#e8ecf8' },
-  dim: { fill: 0.07, stroke: 0.5, strokeWidth: 1.5, roof: 0.6, text: '' },
-} as const;
+  /** The operator and the figure as one group, fitted to the tile's inside. */
+  private placeFigure(): void {
+    placeOperator(this.op, this.magnitude, this.hasOp, this.x, this.cy + this.magY * this.scale,
+      this.width - 12, this.magSize, this.scale);
+  }
 
-export interface CardButton {
-  readonly parts: Phaser.GameObjects.GameObject[];
-  /** The body: bind the tap here (or hit-test it from GameScene). */
-  readonly hit: Phaser.GameObjects.Rectangle;
-  readonly label: Phaser.GameObjects.Text;
-  setLabel(text: string): CardButton;
-  setActive(on: boolean): CardButton;
-  setColor(color: number): CardButton;
-  /** Wires the tap with pressed and hover feedback; the handler runs on pointerdown. */
-  bind(on: () => void): CardButton;
-}
-
-export function cardButton(
-  scene: Phaser.Scene, x: number, y: number, width: number, height: number,
-  color: number, label: string, fontSize = 22, variant: ButtonVariant = 'primary',
-): CardButton {
-  const body = scene.add.rectangle(x, y, width, height, color, 0.2).setStrokeStyle(2, color, 0.9);
-  const roof = scene.add.rectangle(x, y - height / 2, width, TILE.roof, color, 1).setOrigin(0.5, 0);
-  const text = scene.add.text(x, y + 1, label, {
-    fontFamily: FONT, fontSize: `${fontSize}px`, color: hex(color), fontStyle: 'bold',
-  }).setOrigin(0.5).setLetterSpacing(fontSize >= 20 ? 1 : 1.2);
-  let tint = color;
-  let active = variant === 'primary';
-  let pressed = false;
-  let hovered = false;
-  const paint = () => {
-    const w = active ? WEIGHT.lit : WEIGHT.dim;
-    const fill = pressed ? w.fill + 0.22 : hovered ? w.fill + 0.08 : w.fill;
-    body.setFillStyle(tint, fill).setStrokeStyle(w.strokeWidth, tint, pressed ? 1 : w.stroke);
-    roof.setAlpha(w.roof);
-    // A lit segment reads in text white; a resting button in its own colour.
-    text.setColor(active && variant !== 'primary' ? w.text : hex(tint));
-  };
-  const button: CardButton = {
-    parts: [body, roof, text], hit: body, label: text,
-    setLabel(t) { text.setText(t); return button; },
-    setActive(on) { active = on; paint(); return button; },
-    setColor(c) { tint = c; paint(); return button; },
-    bind(on) {
-      body.setInteractive({ useHandCursor: true });
-      body.on('pointerover', () => { hovered = true; paint(); });
-      body.on('pointerout', () => { hovered = false; pressed = false; paint(); });
-      body.on('pointerup', () => { pressed = false; paint(); });
-      body.on('pointerdown', (p: Phaser.Input.Pointer) => {
-        p.event.stopPropagation();
-        pressed = true; paint();
-        // The screen this button is on usually hides on the tap; the
-        // pressed look must not be what it shows when it comes back.
-        scene.time.delayedCall(140, () => { pressed = false; paint(); });
-        on();
-      });
-      return button;
-    },
-  };
-  paint();
-  return button;
-}
-
-/**
- * A row of segments, one lit: the difficulty choice and the pause tabs.
- * Each segment is a card button; `set` lights the chosen key. Colours are
- * per segment so a choice can carry its meaning (HARD in the warning
- * orange, the tabs in code cyan).
- */
-export function segmented<K extends string>(
-  scene: Phaser.Scene, cx: number, y: number, width: number, height: number, gap: number,
-  items: readonly { key: K; label: string; color: number }[], fontSize: number,
-  onPick: (key: K) => void,
-): { parts: Phaser.GameObjects.GameObject[]; set(key: K): void } {
-  const total = items.length * width + (items.length - 1) * gap;
-  const buttons = items.map((item, i) => {
-    const x = cx - total / 2 + width / 2 + i * (width + gap);
-    return cardButton(scene, x, y, width, height, item.color, item.label, fontSize, 'secondary')
-      .bind(() => onPick(item.key));
-  });
-  return {
-    parts: buttons.flatMap((b) => b.parts),
-    set(key) { buttons.forEach((b, i) => b.setActive(items[i].key === key)); },
-  };
+  private apply(): this {
+    const h = this.held, a = this.alpha;
+    this.shadow.setAlpha(0.75 * a * (h ? 1 : 0.5));
+    this.body.setAlpha(a * (h ? 1 : DIM.body));
+    this.gloss.setAlpha(a * (h ? 1 : DIM.gloss));
+    this.magnitude.setAlpha(a * (h ? 1 : DIM.magnitude));
+    this.op.setAlpha(a * (h ? 1 : DIM.magnitude));
+    this.axis.setAlpha(a * (h ? 1 : DIM.axis));
+    this.brackets.setAlpha(a);
+    for (const pip of this.pips) pip.setAlpha(a * (h ? 1 : DIM.magnitude));
+    return this;
+  }
 }

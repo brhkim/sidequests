@@ -783,6 +783,51 @@ label dump. Every held bonus must be readable at a glance, mid-wave, while
 three gates descend. Expect to iterate on it. Full itemised detail lives on the
 pause screen; the strip is the glanceable summary.
 
+## The field is a note highway (2026-09-24)
+
+**Decided by the author.** Asked for an intensive visual pass ("right now
+the game is frankly ugly"), the author chose the **rhythm-game highway** as
+the world, over a war-table diorama and the glossy mobile-ad canon. Every
+old visual rule is lifted - "all bets are off ... we can adjudicate later" -
+with a bundled font, more motion, gradients / glow / rounding and a HUD
+restructure all approved. The target is **60fps on a 3-4 year old mid-range
+phone** at wave 41 with a full ring, ECHO and a dense stream. Where this
+section and the visual descriptions above disagree (the roof bar, the
+brightening card, the flat panels), this one is the newer intent.
+
+**The intent behind the moves:**
+
+- **Offers are notes, the lane line is the judgment line.** Three notes ride
+  three lanes down to a lit line at the squad; the receptor on that line
+  lights in the colour of the note the squad will take. The grammar is
+  borrowed whole (lanes, notes, receptors, judgments, a results screen) so a
+  player reads it without being taught.
+- **Beat lines show the tempo.** They stream down at the live gate speed,
+  so the rising difficulty of later waves is seen, not only felt.
+- **The judgment burst is the signature moment**: the note bursts, the
+  grade word punches in slanted, lands, lifts. It is the one thing allowed
+  to be loud.
+- **A near-neutral road.** The highway's own light is a cool, desaturated
+  white, so axis, rank, creature and grade colours own their hues. No neon.
+- **Colour still names the axis, never the form.** Both forms of an axis
+  share its colour; the operator (`×` or `+`) is a drawn glyph of one size
+  and weight, so multiply-versus-add is read by shape and has to be worked
+  out, never read off a tint.
+- **Clarity of which note you will take is non-negotiable.** Every effect
+  yields to it: the receptor marks the target at the line, the SENSE mark is
+  white and above so it never looks like the target, and siblings stay
+  readable because they are still being compared.
+
+**PENDING AUTHOR APPROVAL** (built, logged, not yet seen by the author):
+
+- the `N IN A ROW` line under a second and later consecutive PERFECT;
+- dropping the contact shadow under ordinary enemies (the Titan, cages and
+  squad keep theirs);
+- the end screen as a rhythm game's results table (rows with counts and
+  share bars) in place of five card footprints;
+- the duel rail: YOUR DPS against PAR over one tug bar, in place of five
+  equal columns.
+
 ---
 
 ## The probe bot needs rebuilding too

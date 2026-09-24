@@ -47,13 +47,36 @@ page.on('pageerror', (e) => errors.push(e.message));
 // The bot: steer into the option at `window.__pickRank` of the nearest offer
 // (0 best, 2 worst, by the game's own deltas), and stay put when there is
 // nothing to reach, so the forced moments below happen under a still squad.
+//
+// `'bad'` is its own mode, because "the worst of three" is not what the game
+// grades BAD. `GameScene` grades from `pickRank` against the state at the
+// PICK (the log opens on arrival), and BAD is rank 1: the unique-worst
+// option of an offer with a spread. The committed-once choice above it read
+// the deltas when the offer first came into reach, before the previous pick
+// had changed the army, and on seed 5 that "worst" graded GOOD - so the BAD
+// word and its burst had never been photographed. It also cannot be a RISK
+// option (MOVE / TIME / SENSE / SHIELD score zero and are told INVEST, and
+// an offer holding one has its worst at that zero). So in `'bad'` the bot
+// re-reads the live deltas every step, takes the worst DAMAGE option of an
+// offer whose worst is a damage option, and takes the best of any offer
+// that cannot grade BAD, waiting for the next.
 await page.addInitScript(() => {
   window.__pickRank = 0;
   const chosen = new Map();
+  const RISK = ['move', 'time', 'sense', 'shield'];
   window.__autopilot = ({ gates, squadX }) => {
     const reachable = gates.filter((g) => g.y < 820);
     if (reachable.length === 0) return squadX;
     const pair = reachable.reduce((a, b) => (b.y > a.y ? b : a)).pair;
+    if (window.__pickRank === 'bad') {
+      const offer = reachable.filter((g) => g.pair === pair);
+      const deltas = offer.map((g) => g.delta);
+      const worst = Math.min(...deltas);
+      const spread = Math.max(...deltas) - worst > 1e-4;
+      const target = offer.filter((g) => g.delta === worst);
+      const canGradeBad = spread && target.length === 1 && !RISK.includes(target[0].axis);
+      return canGradeBad ? target[0].x : (offer.find((g) => g.best) ?? offer[0]).x;
+    }
     if (!chosen.has(pair)) {
       const offer = reachable.filter((g) => g.pair === pair).sort((a, b) => b.delta - a.delta);
       chosen.set(pair, offer[Math.min(offer.length - 1, window.__pickRank)].x);
@@ -80,7 +103,7 @@ const expect = (name, texts, want) => {
 };
 
 // --- picks: one per grade, photographed 150ms into the wash -----------------
-for (const [rank, name] of [[0, 'perfect'], [1, 'good'], [2, 'bad']]) {
+for (const [rank, name] of [[0, 'perfect'], [1, 'good']]) {
   await page.evaluate((r) => { window.__pickRank = r; }, rank);
   const before = (await stats()).decisions;
   await page.waitForFunction(
@@ -95,9 +118,38 @@ for (const [rank, name] of [[0, 'perfect'], [1, 'good'], [2, 'bad']]) {
   expect(`moment-pick-${name}`, await shownTexts(), ['PERFECT', 'GOOD', 'BAD', 'INVEST']);
 }
 
-// The bot has just taken the WORST of three at an army of 3; on 1.6's seed
-// the standing is 25% of par and breaches end the run before a fourth offer
-// is in reach. Hold 24 from here (the damage frames below hold it again).
+// BAD is forced rather than hoped for (see `'bad'` in the bot above): take
+// offers until one is graded BAD by the game's own log, then photograph the
+// wash and ASSERT the word. The army is held up between attempts so a run of
+// bad picks cannot end the run first.
+{
+  await page.evaluate(() => { window.__pickRank = 'bad'; });
+  let graded = null;
+  for (let attempt = 0; attempt < 6 && !graded; attempt++) {
+    await page.evaluate(() => {
+      const g = window.game.scene.getScene('Game');
+      if (g.squad.progress.power < 12) { g.squad.progress.power = 12; g.squad.rebuild(); }
+    });
+    const before = await page.evaluate(() => window.game.scene.getScene('Game').log.count);
+    const last = await page.waitForFunction((n) => {
+      const log = window.game.scene.getScene('Game').log;
+      if (log.count <= n) return false;
+      const d = log.entries[log.count - 1];
+      return { taken: d.taken, rank: d.rank, risk: d.risk };
+    }, before, { timeout: 30000, polling: 30 }).then((h) => h.jsonValue()).catch(() => null);
+    if (!last) break;
+    if (last.taken >= 0 && !last.risk && last.rank >= 0.999) graded = last;
+  }
+  if (!graded) errors.push('pick-bad: no pick graded BAD inside six offers');
+  await page.waitForTimeout(150);
+  await shoot('moment-pick-bad');
+  const texts = await shownTexts();
+  expect('moment-pick-bad', texts, ['BAD']);
+}
+
+// The bot has just taken a BAD pick; on 1.6's seed the standing is then far
+// under par and breaches end the run before a fourth offer is in reach.
+// Hold 24 from here (the damage frames below hold it again).
 const holdPower = (n) => page.evaluate((p) => {
   const g = window.game.scene.getScene('Game');
   g.squad.progress.power = p;

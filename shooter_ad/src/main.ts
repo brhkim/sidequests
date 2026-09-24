@@ -1,18 +1,25 @@
 import Phaser from 'phaser';
-import { COLORS, VIEW } from './config';
+import { VIEW } from './config';
 import { ENEMIES } from './data/enemies';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { UIScene } from './scenes/UIScene';
 import { installAudio } from './audio/AudioEvents';
 import { installAnalytics } from './analytics/Analytics';
+import { loadFonts } from './fonts';
+
+// The face must be in `document.fonts` before any Text is made: canvas text
+// measures with whatever is ready at creation. `loadFonts` never throws and
+// gives up after a timeout, so a blocked load costs the look, not the game.
+await loadFonts();
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: VIEW.width,
   height: VIEW.height,
-  backgroundColor: COLORS.bg,
+  // The highway's void (`SURFACE.void` in scenes/theme.ts), the canvas clear.
+  backgroundColor: 0x07070d,
   // Sound is raw WebAudio in `src/audio/`, so Phaser's sound manager is not
   // created at all: one context, made inside the first gesture, not two.
   audio: { noAudio: true },

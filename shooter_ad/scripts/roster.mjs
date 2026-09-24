@@ -1,11 +1,13 @@
 /**
  * Photographs the roster as a set: one of every enemy type in a row, the Titan
- * and a cage, a volley of every gun, the squad at a tiered power. Three stills:
+ * and a cage, a volley of every gun, the squad at a tiered power. Four stills:
  *
  *   roster.png       the board at rest, `hud-mid` power (cream/green stream)
  *   roster-hit.png   every second body 40% damaged, one Grunt and one Brute
  *                    killed the frame before, a contact pop
  *   roster-late.png  the same board at `hud-late` power (orange stream)
+ *   roster-fx.png    the pops mid-flight: a Titan burst, two kill rings, a
+ *                    contact puff, a block ping; SHIELD 3 and ECHO 2 held
  *
  * The playfield is what a player reads at a glance, and until this existed
  * the roster had never been seen together: `verify` photographs wave 2 (two
@@ -149,6 +151,28 @@ await shoot('roster-hit');
 
 await board(LATE);
 await shoot('roster-late');
+
+// The pops, mid-flight: the Titan killed (its burst), a Brute and a Runner
+// killed, a contact puff and a block ping at the ring, with SHIELD 3 held
+// (the segmented ring, one charge spent) and ECHO 2 (both half ghosts).
+await board({ power: MID.power, u: { ...MID.u, shield: 3, echo: 2 } });
+await page.evaluate(() => {
+  const s = window.game.scene.getScene('Game');
+  const live = s.enemies.items.filter((e) => e.active);
+  for (const id of ['titan', 'brute', 'runner']) {
+    const e = live.find((b) => b.type.id === id);
+    s.enemies.damage(e, 1e12);
+    s.sim.push({ kind: 'kill', x: e.x, y: e.y, radius: e.radius, color: e.type.color, titan: id === 'titan' });
+  }
+  const lead = s.squad.units[0];
+  s.sim.push({ kind: 'contact', x: lead.x + 30, y: lead.y - 40, cost: 1, share: 0.01, tier: 'basic', titan: false });
+  s.sim.push({ kind: 'block', x: lead.x - 20, y: lead.y - 50, shell: false, body: false, left: 5 });
+  s.squad.shield.charges -= 1;
+  s.sprites.onEvents(s.sim.drain());
+  s.elapsed += 0.08;
+  s.render();
+});
+await shoot('roster-fx');
 
 console.log(`errors: ${errors.length}`);
 for (const e of errors) console.log(`  ${e}`);

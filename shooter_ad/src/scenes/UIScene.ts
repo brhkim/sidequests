@@ -8,8 +8,9 @@ import { EndScreen, type EndPayload } from './hud/EndScreen';
 import { PauseScreen, PAUSE_BUTTON } from './hud/PauseScreen';
 import { StartScreen, type StartPayload } from './hud/StartScreen';
 import { TopRail } from './hud/TopRail';
-import { cardButton } from './hud/CardTile';
-import { GRADE_COLOR, type HudPayload } from './hud/types';
+import { PAUSE_BLEED } from './hud/HudLayout';
+import { FONT, GRADE_COLOR, type HudPayload } from './hud/types';
+import { TYPE } from './theme';
 import { WaveBanner } from './hud/WaveBanner';
 
 const RED = 0xff5566;
@@ -25,7 +26,7 @@ const FIRE_BATCH_MS = 250;
  *
  * Two readouts, both load-bearing rather than decorative: the top rail carries
  * your DPS against par so falling behind is visible while it happens, and the
- * strip beneath the red line carries the bonus pools without which the
+ * chip strip beneath the rail carries the bonus pools without which the
  * raw-versus-multiplicative choice cannot be worked out at all.
  *
  * Feedback arrives as the typed `moment` stream (`systems/SimEvents.ts`), one
@@ -106,18 +107,18 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * The pause control, drawn here rather than in the rail because the rail's
-   * four columns are full. GameScene owns the hit test - see PAUSE_BUTTON -
-   * so one tap cannot both pause and order the squad across the lane.
+   * The pause control, drawn here rather than in the rail because GameScene
+   * owns the hit test - see PAUSE_BUTTON - so one tap cannot both pause and
+   * order the squad across the lane. A raised face baked to the button's
+   * exact size (`art/ui`, the two-bar glyph in it) over the word; not bound.
    */
   private drawPauseButton(): void {
     const { x, y, width, height } = PAUSE_BUTTON;
-    // The card shape every other button has, on the panel's own backing so
-    // the stream never reads through it; not bound - GameScene hit-tests it.
-    this.add.rectangle(x, y, width, height, 0x0b0f1c, 0.96).setDepth(40);
-    for (const p of cardButton(this, x, y, width, height, 0x8f9ab5, 'PAUSE', 14, 'secondary').parts) {
-      (p as Phaser.GameObjects.Rectangle).setDepth(40);
-    }
+    this.add.image(x - width / 2 - PAUSE_BLEED.x, y - height / 2 - PAUSE_BLEED.top, 'hud-pause')
+      .setOrigin(0, 0).setDepth(40);
+    this.add.text(x, y + 9, 'PAUSE', {
+      fontFamily: FONT, fontSize: `${TYPE.caption.size}px`, fontStyle: '700', color: '#b7bad8',
+    }).setOrigin(0.5).setLetterSpacing(1.5).setDepth(40);
   }
 
   private onHud(h: HudPayload): void {
@@ -147,7 +148,7 @@ export class UIScene extends Phaser.Scene {
           break;
         case 'rescue': case 'wave': this.strip.prime(GREEN); break;
         case 'titan':
-          if (e.phase === 'arrive') this.boss.arrive();
+          if (e.phase === 'arrive') { this.boss.arrive(); this.banner.titan(); }
           if (e.phase === 'down') { this.boss.down(); this.banner.titanDown(); }
           break;
         case 'over':

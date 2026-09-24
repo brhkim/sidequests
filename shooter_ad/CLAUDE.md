@@ -28,10 +28,11 @@ npm run pressure   # sweeps the two knobs that set how hard ordinary enemies are
 npm run neutral    # proves a change was RENDERING-ONLY, against a reference build
 npm run from       # plays real runs from an INJECTED late-game state, par equal to it
 npm run titan      # parks a squad under the boss and reports where on its descent it died
-npm run roster     # photographs every enemy type, the cage, every gun's volley, hits and kills
+npm run roster     # photographs every enemy type, the cage, every gun's volley, hits, kills and the pops
 npm run rescue     # forces a cage open at seven army sizes; asserts the reward and its label
-npm run rail       # forces the rail's widest state; fails if two neighbouring texts touch
-npm run sway       # injects waves 30 / 31 / 36 / 41; asserts the cards sway inside their lane, with tracks
+npm run rail       # forces the HUD's widest and narrowest states; fails if two texts' INK touch
+npm run sway       # injects waves 30 / 31 / 36 / 41; asserts the cards sway inside their lane, with grooves
+npm run perf       # frame cost at 4x CPU throttle, four injected scenarios: cpu ms, draws, uploads, fill
 ```
 
 `npm run verify` does not build — run `npm run build` first. It serves `dist/`,
@@ -104,85 +105,241 @@ shareable artefact - is never otherwise seen by any automated check, and it is
 the screen most likely to be wrong because it is the only one built from values
 that do not exist until a run ends.
 
-`npm run moments` photographs every feedback moment mid-animation - the pick
-wash at each grade, a MISS, a breach, a contact, a volley of fire, a rescue, a
+`npm run moments` photographs every feedback moment mid-animation - the
+judgment at each grade, a MISS, a breach, a contact, a volley of fire, a rescue, a
 wave clear, the Titan's warning and its bar, and the death beat at 250ms and
 900ms. Each is FORCED (a body moved into the ring, a one-hit cage dropped into
 the column, the wave clock zeroed) rather than waited for, and it asserts the
 expected text is on screen and that the end screen is held back for the beat.
 Stills are not motion; look at them, and read `npm run neutral` beside them,
-because a feedback change that reached the simulation would pass this.
+because a feedback change that reached the simulation would pass this. Since
+the 2026-09-24 redesign it FORCES a BAD too: a `'bad'` bot mode re-reads the
+live deltas and takes the unique-worst damage option of an offer that can
+grade BAD (the worst of three is not what the game grades BAD - on seed 5 it
+graded GOOD), and the probe asserts the word in `moment-pick-bad.png`. Every
+grade word is now asserted on screen, not only hoped for.
 
-**HUD and feedback, as built.** `UIScene` draws the rail, the strip
-(directly beneath the rail since 2026-09-20 - `BonusStrip.TOP` is
-`RAIL_HEIGHT`, `STRIP_HEIGHT` 94 - because on a phone the thumb covered it
-at the bottom; the pause button sits in the rail's right-hand
-`RAIL_PAUSE_WIDTH` and the lane and breach line moved down 88px with it in
-0.7, so the field is as tall as it was), the pause button and the three
-screens, and dispatches the `moment` stream to
-`hud/EdgeFlash` (damage, at the screen edges, sized by `share`),
-`hud/BossBar` (the Titan's HP in its own panel row directly under the
-strip from `HudPayload.titan`, since 2026-09-20; it sat in the fade between
-the rail and the strip before) and
-`hud/WaveBanner`. Field-space feedback is `scenes/fx/FieldFx` inside
-`render/FieldRender`: the grade wash (`PERFECT` / `GOOD` / `BAD`, or `RISK` for a MOVE / TIME / SENSE / SHIELD pick, in
-the card's own footprint, held then lifted - the one authored motion), `MISS`
-at the lane line, `+N ARMY` over a rescue, `-N` at a contact, `BLOCK` over
-an absorbed bullet, and the death
-dim. The `toast` string event and the 420ms halo are gone. Gate labels and
-the SENSE tag sit at depth 15, above the squad's stream; `render/GateCards`
-owns the cards, and draws each label as two lines - the magnitude (`×1.05`,
-`+2`) at 26px over the axis word (`DMG`, `PIERCE`) at 14px, split at the
-label's last space (`+SENSE` is `+` over `SENSE`) - because from wave 5
-dead space narrows the card to as little as 100px. A magnitude wider than
-the card (`+1840%` is 121px at 26px) is scaled down to fit rather than the
-whole ladder being sized for the rare case. `type.label` is unchanged; the
-split is display only. Every tappable line on a screen has a Rectangle hit bar of
-at least 44px, and the end screen restarts only from `REPLAY_BUTTON`, which
-`GameScene.bindInput` hit-tests - a tap anywhere else leaves the shareable
-screenshot alone. The pause screen's SOUND line emits `mutetoggle` and
-follows the `muted` answer; it never asserts a state audio is not in.
+`npm run perf` is the instrument for the 2026-09-24 performance target (the
+author: 60fps with no dropped frames on a 3-4 year old mid-range Android at
+wave 41 with a full ring, ECHO and a dense stream). It serves `dist/`,
+throttles the CPU 4x through the DevTools protocol (`PERF_THROTTLE`; the
+Lighthouse convention for a mid-range phone), injects four scenarios through
+`__startOverride` - `early` (wave 1 from the real start), `mid` (wave 16, the
+`hud-mid` build), `late` (wave 41, the `hud-late` build plus ECHO 4, SHIELD 3,
+SENSE 2 and MOVE 3: the most the renderer can be asked to draw) and `titan`
+(the same build on the wave-40 Titan) - steers the ring on a seeded sine
+through `__autopilot` so it moves and takes gates, and after a 2.5s warm-up
+reports per scenario: **cpu ms a frame** (Phaser's PRE_STEP to POST_RENDER -
+simulation, render-list build and GL submission; the number to hold under
+budget), rAF frame intervals with the share dropped, **GL draw calls and
+texture uploads a frame** (the context's draw and texImage calls, wrapped),
+live display objects, and a **fill estimate**: the on-screen area of every
+visible textured object in screens' worth of pixels, Graphics counted apart
+because they have no cheap bounds (`2.40+3g` reads 2.4 screens plus three
+Graphics). `PERF_PROFILE=1` adds the top
+functions by self time; `PERF_DIST` measures a snapshot, `PERF_ONLY=late`
+one scenario, `PERF_SECONDS` a longer window; stills land in
+`.verify/perf-<scenario>.png`.
+
+**What it cannot say.** Headless Chromium draws WebGL on SwiftShader, a CPU
+rasteriser, so GPU fill lands on the CPU clock and is inflated against a
+phone's GPU, and the clock is one contended machine's. The absolute figures
+are a pessimistic CPU-raster proxy: only a before/after pair on the same
+machine is a finding, a difference under ~10% needs a second run, and it
+never runs beside another Chromium probe. **60fps on a real phone GPU is
+unverified** - nothing here has run on one. The fill estimate exists for the
+half SwiftShader hides: mobile GPUs are fill-bound, so a change that grows
+fill is suspect even when cpu ms holds still. Measured across the redesign,
+`late` at 4x, the pre-redesign build against the finished one:
+
+| late, wave 41, 4x | cpu ms/frame med / p95 / p99 | draws/frame | uploads/frame | fill |
+| --- | --- | --- | --- | --- |
+| before | 10.9 / 21.5 / 23.7 | 18 | 11.1 | - |
+| after | ~6.7 / 12.6 / 14.0 | ~12 | 0.1 | ~0.8 screens |
+
+**The eleven uploads were the finding, and no static count could have seen
+them.** They were there on an empty field too: every HUD Text re-rasterised
+its canvas and re-uploaded its texture every frame, because the rail and the
+strip called `setColor` each frame, and a Phaser Text re-renders on
+`setColor` as on `setText`, changed or not. HUD text now renders WHITE once
+and takes its colour by tint, a vertex attribute (`hud/HudText`); a string is
+re-set only when it differs; the kill count re-renders at most at 4Hz; and an
+unchanged frame builds no strings at all (`TopRail.update` returns on eight
+unchanged payload fields). The draws came down on the HUD, which now draws
+only baked Images (18 to 8 a frame in the HUD workstream alone, before the
+field and the sprites added theirs), and on the field through one atlas and
+one MULTIPLY batch fewer (see "The highway" and "Art" below). Hold the new
+figures: a per-frame `setText`, `setColor` or `setStyle` anywhere on screen
+shows up here as uploads before it shows up anywhere else.
+
+**HUD and feedback, as built** (restructured in the 2026-09-24 redesign,
+inside the same fixed rows: `HUD_ROWS` rail 72 / strip 94 / Titan row 18,
+bottom 184, still the spawn line; `hud/HudLayout` holds every coordinate and
+`art/ui` bakes a texture to each). `UIScene` draws:
+
+- **The rail** (`hud/TopRail`): WAVE with kills under it | **the duel** |
+  SENSE | SHIELD | PAUSE. The duel is the one question the rail exists to
+  answer, so it is no longer one column among five: an inset well (`DUEL`,
+  x 92 to 306) with YOUR DPS as the biggest figure on the HUD (31px 800,
+  tinted the standing colour) at its left and PAR DPS smaller and neutral
+  (21px) at its right, over one **tug bar** that splits at `ratio / (1 +
+  ratio)` - dead centre is level with par, your colour past it is ahead,
+  par's grey past it is behind. `DIFFICULTY.targetFraction` is a notch under
+  the bar; crossing it swells the bar once (no continuous pulse). `% PAR`
+  and BEST PLAY stay under the figures because nothing may assume the reader
+  knows what par is. SENSE is three drawn pips (baked discs, not glyphs) over
+  `N% MARKED`; SHIELD is `ready/capacity` over READY. PAUSE is a baked raised
+  face with a two-bar glyph over the word at `PAUSE_BUTTON`'s exact geometry,
+  drawn by `UIScene` because `GameScene` owns its hit test.
+- **The strip** (`hud/BonusStrip`, directly beneath the rail since
+  2026-09-20 because on a phone the thumb covered it at the bottom; the lane
+  and breach line moved down 88px with it in 0.7): five baked rounded chips
+  of UNEQUAL width sized to the late state (`CHIP.widths` 100 / 118 / 118 /
+  80 / 80 - DMG and RATE hold `+1.84K%`), pool big and multiplier under it,
+  axis-coloured label, all left-aligned on one x per chip, anything wider
+  scaled into its chip by `HudText` - `+1.84K%` used to run into `+720%`. A
+  held chip wears the note's head, a lit cap and faint wash in its axis
+  colour; an unheld chip's face, figures and cap dim to neutral, so colour
+  on the strip means "you have this". A change punches the figure
+  (`MOTION.punch`, the overshoot capped to the chip's padding) and flashes a
+  baked glow in the colour of WHY - the pick's grade, green for army gained,
+  red for lost. ARMY's `-N` lands in the chip's always-empty third line.
+- **The Titan row** (`hud/BossBar`): its own baked panel, only while a boss
+  lives, TITAN tag, a lavender-to-purple 8px fill cropped to HP with a white
+  chunk trailing each hit (eased), so damage is seen landing.
+- **The stage banner** (`hud/WaveBanner`): three 0.32-alpha lane slabs
+  docked at the HUD's bottom edge (`BAND`, y 184 to 228 - it once sat 84px
+  deep at y 330, in the decision zone) wipe in lane by lane (`MOTION.wipe`,
+  `wipeStagger`), the word snaps in slanted at 32px with a dark stroke, the
+  sub-line sits at the band's right end, and the lanes wipe out. WAVE N holds
+  400ms. It also carries the Titan warning - TITAN in lavender between
+  edges lit the Titan's purple, WAVE N as its sub-line, pulsing twice, for
+  `TITAN_WARNING_MS` (1.2s), after which the bar arrives - and TITAN DOWN.
+- **Damage** (`hud/EdgeFlash`): a soft baked vignette - one falloff texture
+  stretched along four thin edge images, so the empty middle costs no fill
+  - whose strength and reach (56 to 160px) scale with the event's `share`,
+  tinted breach red, fire orange or loss red, in the UI scene so it does not
+  shake.
+
+Every figure on the HUD is a `HudText` (white, tinted, `setText` only on a
+changed string, fit by scale); every panel, gradient and shadow is baked once
+in `art/ui`. `npm run perf` reads 0.1 uploads a frame and is the check that
+it stays so.
+
+Field-space feedback is `scenes/fx/FieldFx` inside `render/FieldRender`.
+**The judgment is the signature moment**: on a pick the note flashes in its
+own footprint and throws a ring and ten sparks in the grade colour
+(`fx/Bursts`: pooled four / four / 48, additive, one depth, the scene clock,
+spark directions from a hashed counter), and the grade word - `PERFECT` /
+`GOOD` / `BAD`, or `INVEST` for a MOVE / TIME / SENSE / SHIELD pick - punches
+in 44px above the note, slanted (Saira italic 800, 30px), 1.7x to 1 with a
+Back.out overshoot in `MOTION.snap` (140ms), holds `pickHold`, then lifts 26px
+and fades over `pickFade`. From the second PERFECT in a row a `N IN A ROW`
+line lands under it; any other grade, a MISS or the run's end resets it. That
+count is feedback only, kept in `FieldFx` from `pick` events and read by
+nothing - and it is new, awaiting the author's approval (`notes.md`). Then
+`MISS` (slanted, 60px over the lane line, clear of the ring's heads), `+N
+ARMY` over a rescue, `-N` at a contact (60px over the line, MISS's stroke),
+`BLOCK` over an absorbed bullet, and the death beat: the field dims over
+`deathBeat`, and a Titan landing flares the fail line. Floating words are
+`fx/FloatingLabels`, a pool of six that snap in and rise. The `toast` string
+event and the 420ms halo are long gone.
+
+`render/GateCards` owns the notes. Labels, operators and the SENSE caption
+sit at depth 15, above the squad's stream (12.5), and each label is two
+lines - the magnitude (`1.05`, `2`) at 26px 800 over the axis word (`DMG`,
+`PIERCE`) at 14px 600 tracked - split at the label's last space (`+SENSE` is
+`+` over `SENSE`), because from wave 10 dead space narrows the card to 83px.
+The magnitude's OPERATOR is not typed: `render/Operator` splits it off and
+draws `×` or `+` as a baked white glyph of one size and weight (in Saira `×`
+is x-height small and read as a speck, and the form is the whole question a
+card asks); `GateCards` and the screens' `CardTile` share the split and the
+layout. Glyph and figure shrink together to the card's inner width when they
+overflow (`+1840%` at 26px) rather than the whole ladder being sized for the
+rare case. `type.label` is unchanged; all of this is display only.
+
+Every button's hit area is a fixed `Zone` at least 44px tall, and the end
+screen restarts only from `REPLAY_BUTTON`, which `GameScene.bindInput`
+hit-tests - a tap anywhere else leaves the shareable screenshot alone (and
+REPLAY is deliberately NOT interactive: an interactive one swallowed that
+tap). The pause screen's SOUND line emits `mutetoggle` and follows the
+`muted` answer; it never asserts a state audio is not in.
 
 **Every control is a card button, and the pause screen has a HOW TO PLAY
-page** (2026-09-20, the author's UX round). `cardButton` in `hud/CardTile`
-takes a variant - `primary` (filled, one per screen), `secondary` (link
-teal), `danger` (RESTART) - and `bind` wires the tap with hover and
-pressed fills; `segmented` is a row of those with one lit (difficulty on
-the start screen, the three pause tabs). `hud/PauseGuide` is twelve topic
+page** (2026-09-20, the author's UX round; rebuilt for the highway
+2026-09-24). `cardButton` lives in `hud/ScreenButton` (re-exported from
+`hud/CardTile`, signature unchanged) and takes a variant, each a baked
+rounded face drawn through NineSlice (`art/screens`) with a lit top edge and
+a soft offset shadow: `primary` - the one filled action per screen (START
+MATCH, RESUME, REPLAY THIS MATCH), a lit face in its colour over a baked
+glow, dark ink, the brightest object on the screen; `secondary` - a raised
+neutral plate with a ring and the word in the button's colour (link teal
+for most); `danger` - the same in red (RESTART). `bind` wires the tap with
+hover and a press that scales every part to 0.96 about the centre with a
+darker face for 140ms; nothing runs per frame. `segmented` is a row of
+secondaries with one lit - its face filled a deep step of its colour, the
+ring full, the word `#e8ecf8` (difficulty on the start screen, the three
+pause tabs). Every part is a flat object at the button's centre, never a
+nested Container, because the probes find a control by its label's
+position. `hud/PauseGuide` is twelve topic
 buttons and one explanation at a time, in words that do not assume PAR,
 RISK or DPS are known; `PauseScreen.show(h, 'guide')` opens the same
 screen from the start screen's HOW TO PLAY at depth 65 (over the start
 screen; 55 when pausing), with BACK for RESUME and no RESTART. GameScene
 publishes one HUD frame in `announceMatch` so that page has the start
-state's numbers. The rail's columns are WAVE / YOUR DPS / PAR DPS / SENSE
-/ SHIELD (five unequal lanes since 1.1, labels and sub-lines at 13px)
+state's numbers. The rail reads WAVE | the duel (YOUR DPS against PAR DPS
+over the tug bar) | SENSE | SHIELD | PAUSE since the 2026-09-24 redesign
+(five unequal columns from 1.1 until then), labels and sub-lines at 13px,
 with BEST PLAY under PAR. Instrument anchors moved with the words: ENTER
 A CODE, NEW MATCH (start and end), the NORMAL / HARD segments (the lit
 one's text is `#e8ecf8`), HOW TO PLAY, BACK; `npm run endscreen` presses
 them all and asserts the demo offer changes between passes.
 
-**The three screens are built from the gate card** (impeccable, 2026-09-20,
-code-led; rendering only, no `systems/` change). `hud/CardTile.ts` is the
-gate card off the field - roof, tinted body, stroke, magnitude over axis
-word, the field's white L-brackets as the selection mark, drawn pips for
-SENSE - and `cardButton` is the same shape as every primary action (START
-MATCH, RESUME, REPLAY THIS MATCH). `StartScreen` is a first wave: a demo
-offer of three real cards descends on a 2.6s loop (a scene tween, never the
-simulation), the squad stands on the field's own ground band at the lane
-from the real textures, and the pitch is the author's verbatim.
-`PauseBonuses` keeps the ruler and shows eight tiles in DPS order then the
-RISK three with one tap-to-read line beneath (it opens on ARMY); the DPS ·
-PAR line takes `standingColor`, exported from `TopRail`. `EndScreen`'s
-tally is five card footprints in the grade colours and the waves headline
-counts up (a tween on the UI scene's clock, after the run is over). The
-direction contract is `.impeccable/surfaces/src-scenes-hud-startscreen-ts.md`;
-the finish review's verdict was ship after one fix round. The instrument
-anchors (`START MATCH`, `enter a code`, `new match`, `tap to change
-difficulty`, `RESUME`, `RESTART`, `DETAILS`, `REPLAY THIS MATCH`, `or start
-a new match`) are unchanged; `npm run endscreen` presses them all.
+**The three screens are built from the gate card** - the note, since the
+highway (impeccable, 2026-09-20, code-led; rebuilt 2026-09-24; rendering
+only, no `systems/` change either time). `hud/CardTile.ts` is the field's
+note off the field, in the direction contract's anatomy: 9px corners
+(`RADIUS.card`), a baked gradient body in the axis colour with a lit cap,
+a lighter inner edge, an untinted white gloss over the upper half and a
+soft offset shadow, magnitude over axis word with the shared drawn operator
+(`render/Operator`), both lines shrunk to fit a late `RATE ×1.02K`, drawn
+pips for SENSE. `select` still draws white L-brackets at the tile's bottom
+corners on the pause page - the field itself no longer does (see the
+receptors, under "The highway") - never a white outline, which is the SENSE
+mark. Every screen stands on `hud/ScreenWipe`'s `ScreenBackdrop`: three
+opaque lane beds, the highway's own floor, drop in lane by lane each led by a
+white-hot edge (`MOTION.wipe`, `wipeStagger`), then the content fades up -
+four tweens per entrance, nothing while the screen is up.
+
+`StartScreen` is a first wave on a demo highway: three lanes run down to a
+judgment line (y 410) with the squad from the real textures standing on it;
+the demo offer (real conversions, a different one each 2.6s pass, a scene
+tween, never the simulation) descends at ~73px/s, near the field's wave-1
+speed; the note in the squad's lane is taken where it meets the heads - it
+swells, bursts and the receptor under the squad lights in its colour - and
+the other two run on under the line. The pitch is the author's verbatim.
+`PauseBonuses` keeps the ruler and shows ten notes on a 4x3 grid of 120x64
+tiles, the six DPS axes over two rows and the INVEST four across the third,
+named by a label in the second row's two free slots (`MOVE INVEST` on a
+120px tile ran past it), with one tap-to-read line beneath (it opens on
+ARMY); the DPS · PAR line takes `standingColor`, exported from `TopRail`.
+DETAILS lines were rewritten to fit the measure, and the block shrinks as
+one if a late build still overflows. `EndScreen` is a rhythm game's results
+screen - see "The end screen's plot, and the word INVEST" below. The
+direction contracts are `.impeccable/surfaces/src-scenes-hud-startscreen-ts.md`
+(2026-09-20) and, superseding its look, `src-scenes-render-fieldrender-ts.md`
+(2026-09-24). The instrument anchors (`START MATCH`, `enter a code`, `new
+match`, `tap to change difficulty`, `RESUME`, `RESTART`, `DETAILS`, `REPLAY
+THIS MATCH`, `or start a new match`) are unchanged; `npm run endscreen`
+presses them all, and since the redesign waits 2600ms (was 900) for the
+end screen's entrance to settle before it reads the screen and takes the
+still - every assertion unchanged.
 
 **Finish review** (impeccable, end of the 2026-09-19 session; rendering
-only, `npm run neutral` identical on 5/5 seeds). It changed: the rail
+only, `npm run neutral` identical on 5/5 seeds). *History: the 2026-09-24
+highway redesign superseded nearly all of the rendering below (the rail is
+opaque, the SENSE mark is a crown, the boss bar has its own row), and what
+survives is mostly its silhouette, colour and wording decisions.* It changed: the rail
 backing and the pause button to 0.96 alpha, what the strip already used,
 because the stream and a Runner read through DPS and PAR; OVERRUN / THE
 TITAN LANDED to a 28px untracked heading, the step PAUSED uses, instead of
@@ -490,8 +647,8 @@ wrong.
 
 ### `Scoring.ts` prices every offer, exactly once
 
-Par takes its pick from it, `DecisionLog` grades the player with it, the halo
-flash colours from it, and the probe bot chooses with it. Two implementations
+Par takes its pick from it, `DecisionLog` grades the player with it, the
+judgment burst colours from it, and the probe bot chooses with it. Two implementations
 would drift, and the failure is silent and nasty: the death screen telling a
 player they made a mistake the difficulty curve never charged them for, or
 charging them for one it refuses to name.
@@ -528,9 +685,9 @@ What follows, and `npm run model` asserts each:
 - **The player is told RISK, not graded.** `DecisionLog.resolve` returns the
   `Decision`, whose `risk` flag (`Scoring.isRiskPick`) `GameScene` turns
   into `grade: 'risk'` on the `pick` event; `GRADE_COLOR.risk` is lavender
-  `0xc9a7ff`, off every axis colour, and `GRADE_WORD.risk` is `RISK`. The
-  wash, the strip flash and the `pickRisk` cue (a rising tritone) all read
-  the same grade.
+  `0xc9a7ff`, off every axis colour, and `GRADE_WORD.risk` is `INVEST` on
+  screen (`RISK` until 1.5). The judgment burst and word, the strip's chip
+  flash and the `pickRisk` cue (a rising tritone) all read the same grade.
 - **`fractionOfOptimal` counts it as no growth**: delta is zero. The gamble
   is real and the percentage says so.
 - **`tally` has five buckets** - `top / mid / low / risk / miss` - and the
@@ -617,12 +774,21 @@ author's ceiling was "up to 1.5x periods of movement across the whole
 length of the screen"; `npm run model` fails if the fastest tier is not
 1.5, if a tier starts on the wrong wave, if the amplitude exceeds half the
 dead space, if a card is off-centre at spawn or at the line, or if the peak
-speed outruns the squad. `render/GateCards` draws a TRACK behind a swaying
-card - `RENDER.gate.track` grey, `trackFill` 0.09, a 1px stroke at
-`trackStroke` 0.28, the lane's width less the gap, at depth 3 under the
-card - and none behind a still one. `npm run sway` injects a late build at
+speed outruns the squad. `render/GateCards` sets a swaying card in a
+GROOVE (the 2026-09-24 redesign; a flat grey track before): a recessed
+channel the width of the card's whole travel (`g.width + 2 x
+swayAmplitude - GATES.gap`, centred on `laneX`), darker than the road, a
+faint rail through its middle and a lit stop at each limit, in the highway's
+grey rail light only - never an axis colour and never white, so it reads as
+the road and not as a fourth option. It sits at depth 2 under the note, fades
+in with the card's reveal, and is drawn behind no still card.
+`RENDER.gate` in config (`fill`, `roof`, `track`...) describes the flat card
+and is no longer read by anything. `npm run sway` injects a late build at
 waves 30 / 31 / 36 / 41 and asserts movement (or none), the lane bound and
-the track count per state, photographing `sway-NN.png`.
+the groove count per state (the code still calls it `track`), photographing
+`sway-NN.png`; its wait predicate guards `g.gates`, because Boot now takes
+~70ms longer baking and the probe could read the Game scene before
+`create()`.
 
 ### Dead space is the fourth judgment lever
 
@@ -642,10 +808,16 @@ constant step, the cap at `capWave` and that `max` never breaches
 2.5px stage to 97px at 26 (0.8), the author's one slope from 10 to 30
 (1.7). The width
 IS the hit test (`checkGates` and `FieldRender.findTarget` both read
-`g.width`) and the card is drawn exactly as wide as it hits; `GATES.gap` is
-the drawn inset on top of that, so what the eye sees as a gap is dead space
-plus 8px. `GATES.minWidth` (100) floors the width whatever the config asks,
-and `npm run model` fails if `max` would ever breach it.
+`g.width`) and the note is drawn to it: its body is exactly `g.width -
+GATES.gap` wide (a 3-sliced NineSlice, so a continuous width costs no
+redraw), `GATES.gap` being the drawn inset on top of the dead space, so what
+the eye sees as a gap is dead space plus 8px. The note's soft drop shadow and
+the target's breathing glow spill past the body by design and are soft enough
+never to read as its edge. The receptor that lights on the judgment line
+under the target is drawn at that same body width, with a bracket at each
+edge over the squad, so the footprint the leader must be inside is visible
+where the leader is. `GATES.minWidth` (80) floors the width whatever the
+config asks, and `npm run model` fails if `max` would ever breach it.
 
 Why it exists: past the point where the sum is hard and the time is short,
 the author wants the pick to also cost precision of movement through the
@@ -929,9 +1101,16 @@ model` asserts the fill on a pick, the drain, the refill of exactly
 price; `npm run moments` forces one level and three bullets and asserts two
 BLOCK words and `blocked === 2`.
 
-Rendering: `SpriteRender.renderShield` draws an arc ring around the leader
-at depth 19 - one segment per charge the pool holds, lit where ready, dim
-where refilling, white for two hit-flashes after a block. The rail's fifth
+Rendering: `SpriteRender.renderShield` draws a segmented energy ring
+around the leader at depth 19, between the shards and the squad - one baked
+arc per charge the pool can hold (`fx-shield-2` / `-4` / `-6` in `art/fx`,
+a hot core line in a soft band, radius `SQUAD.unitSpacing` x 2.6, the
+ring's centre outside the texture box so a segment rotates about the leader
+without a mostly-empty full-ring texture), tinted `AXIS_COLOR.shield`. A
+ready charge is lit at full alpha, the one refilling brightens from 0.2
+toward 0.55 as it fills, the rest sit at 0.2, and the whole ring goes white
+for two hit-flashes (0.14s) after a block, with a ping ring and a shard
+puff in the shield colour where the bullet was stopped. The rail's SHIELD
 column is `ready/capacity` over READY (pips at the value size were 123px at
 six charges, wider than the lane; `npm run rail` is what caught it), and
 the pause BONUSES tile shows the same.
@@ -945,12 +1124,22 @@ always, whatever sense is held, and compares it with `senseChance(sense)`
 so the stream advances identically on every run of a seed and a player's
 sense level cannot shift the enemies and offers that follow. That decides
 whether the offer is *sensed*. Which of its three options wears the mark is
-NOT stored: `renderGates` asks `scoreLiveGates` every frame, and the option
-that is best against the player's state right now is the one ringed and
-captioned. If taking the previous gate changes the answer, the mark moves,
-and at arrival it is the option the `DecisionLog` will grade best - the two
-cannot disagree because they are one call. The pulse reads the simulated
-clock for its phase and touches nothing.
+NOT stored: `GameScene.render` asks `scoreLiveGates` every frame and hands
+`FieldRender` the set of `pair:index` keys it marks, and the option that is
+best against the player's state right now is the one marked. If taking the
+previous gate changes the answer, the mark moves, and at arrival it is the
+option the `DecisionLog` will grade best - the two cannot disagree because
+they are one call.
+
+The mark (`render/GateCards`, since the 2026-09-24 redesign) is a pulsing
+white CROWN - a baked pill with a notch pointing down at the note head,
+`SENSE` in dark 13px 800 on it - above the card, and a 2.5px white edge ON
+the card's own edge. White and above, never coloured and around: the target
+is marked in the axis colour on the judgment line (the receptor), so the
+answer and the target never look alike. While its card is still emerging
+from under the HUD the crown is held just under the HUD's edge, but never
+lower than over the card's own head, so a sensed offer is told as soon as
+its head shows. The pulse reads the simulated clock and touches nothing.
 
 Sense is a RISK axis: priced at zero, never in the difficulty budget, never
 taken by par beside a damage option (see "Scoring prices DPS and nothing
@@ -973,8 +1162,9 @@ match did nothing on any page a script had opened, and `npm run endscreen`
 now presses all of them.
 
 Two Phaser facts this cost an hour: a tappable Text inside a Container was
-not reliably hit, so every tappable line now has a fixed Rectangle hit bar
-behind it (which also keeps the target still when the label changes length);
+not reliably hit, so every tappable line now has a fixed hit area behind it
+(a Rectangle then, a `Zone` since the 2026-09-24 redesign; either way it
+keeps the target still when the label changes length or the press scales);
 and the same tap reaches both scenes' pointer handlers, so nothing may depend
 on which runs first - `newmatchrequest` is not gated on `over` for that
 reason.
@@ -1306,24 +1496,205 @@ is refilled at the top of the screen by the wave spawner, and a tracker that
 checked only `active` read the same object as an 800px retreat. It now keys
 each body on its per-enemy `seed` and stops on the first reused slot.
 
+## The highway (2026-09-24 redesign)
+
+**The world.** The author asked for an intensive visual and UX pass ("the
+game is frankly ugly") with performance "extremely important" on a phone at
+the late, chaotic waves, and chose the **rhythm-game note highway** over a
+war-table diorama and the glossy mobile-ad canon (`ASKS.md`, 2026-09-24;
+`notes.md`, "The field is a note highway"). The field is three lanes of a
+note highway: offers are NOTES riding their lanes down to a lit JUDGMENT
+LINE at the squad (`ARENA.laneY`, 888), RECEPTORS on the line say which note
+the squad will take, the grade lands as a judgment burst, BEAT LINES stream
+down at the live gate speed so the tempo is seen, and the breach line is the
+FAIL line (950) - the one warm light on the road. The direction contract is
+`.impeccable/surfaces/src-scenes-render-fieldrender-ts.md`; `DESIGN.md`
+carries the system; this section is the mechanics. Every old visual rule was
+lifted ("all bets are off ... we can adjudicate later"), and the calls the
+author has not yet seen are listed in `notes.md` as pending approval.
+
+**It is rendering only, and measured as such.** Nothing under `systems/`,
+`data/` or `GameScene.ts` and no value in `config.ts` changed across the
+workstreams; outside `scenes/` the changes are the font's plumbing
+(`fonts.ts`, `main.ts`, the font files, Vite's asset naming). No version
+bump, and `NEUTRAL_REF=<pre-redesign dist> npm run neutral` reads **5/5
+seeds identical** against the build before it. Every animation is phased
+off the simulated clock (the field's sprites, beat lines, pulses) or the
+scene clock (tweens, bursts, screens), and every variation (spark angles,
+shard angles and spin) comes from an integer hash - never `Math.random()`,
+never the seeded RNG.
+
+**The font** is Saira Semi Condensed (OFL, licence at
+`src/assets/fonts/LICENSE-OFL.txt`), latin subset, weights 500 / 600 / 700 /
+800 at ~18KB each, bundled by Vite into `dist/` as `game.<name>.woff2`
+(`assetFileNames` gained `[name]` so four files do not collide) - a static
+file beside the game, never a network fetch. Condensed because a late note
+is 75px inside and must hold `+1.84K%`; tall, open numerals because the game
+is reading three numbers under time pressure. Canvas text measures with
+whatever face is ready when a Text is created, so `main.ts` awaits
+`loadFonts()` (`src/fonts.ts`) before `new Phaser.Game`: it resolves when
+the four faces are in `document.fonts` or after 2.5s whatever happens, falls
+back to the system stack in `FONT`, and never throws or logs (`verify`
+fails on any console error). There is no italic file; the grade words ask
+for italic and the browser slants the upright.
+
+**Tokens** live in `scenes/theme.ts`, which nothing in `systems/` may
+import: `SURFACE` (void `#07070d`, lane beds `#0d0e18` / centre `#10111d`,
+panel, raised, hairline), `LIGHT` (the highway's own light: rail `#c9ccff`
+for dividers and beat lines, the white-hot judgment line, fail red
+`#ff3b5c`), `INK` (four text greys, the floor ~4.6:1 on the panel), `MOTION`
+(snap 140ms Back.out, punch 1.18 to 1 in 180ms, a 260ms lane wipe staggered
+40ms, exits never overshoot), `TYPE` (one scale in Saira: 800 upright for
+numbers, 800 slanted for grade words, 600 tracked caps for labels, nothing
+under 13px) and `RADIUS` (card 9, button 12, chip 6). The road is
+near-neutral on purpose: axis, rank, creature and grade colours are
+vocabulary and live in `data/` and `hud/types`, and the highway's light is a
+cool desaturated white that never competes with a colour that means
+something.
+
+**The texture makers**, all called once from `BootScene`, all baked on a
+2D canvas (real gradients, `shadowBlur`) or by `art/draw` `bake`:
+
+- `art/cards` (`HW.*`, keys `hw-`): the beat line, the note body (a
+  luminance ramp the axis colour multiplies: lit cap, seam, body 0.58 to
+  0.30, inner highlight, crisp edge), its shadow, glow, rim, SENSE edge and
+  solid fill, the sway groove, the two operator glyphs, the SENSE crown,
+  the receptor bar, brackets, leader ring and chevron (each a tinted edge
+  plus an untinted white core), the breach tick, the burst ring and spark,
+  the fail-line flare. `NOTE` and `ROAD` export the geometry.
+- `art/fx`: the contact shadow, glow, ring, puff, health bar and backing,
+  the SHIELD arcs - and it packs the field atlas (below).
+- `art/ui`: the HUD panel with its lit edge and cast shadow, chip faces and
+  glows, the duel well and tug bar, pips, the pause face, the Titan row, the
+  banner slab and the damage vignette.
+- `art/screens` (`SCREEN_TEX`, keys `scr-`): button fill / plate / rim,
+  shadow, glow, the screens' note body and gloss, a plain panel - each with
+  its NineSlice insets, grey where a face takes a tint.
+
+Plus the sprite families (`creatures`, `squad`, `projectiles`, `cage`) under
+"Art" below.
+
+**The road** (`render/Highway`) is ONE Graphics of vertex-coloured rects
+drawn once at depth 0: three lane beds (the centre a step lighter) with a
+sheen, a calm tonal gradient sinking to the void at the far end, two lit
+dividers fading up the road, the ground band (a full ring's front rank down
+to the line: where contact happens), the judgment line at 888 with its glow,
+the fail line at 950 glowing up the band, dark ground below for the thumb.
+It is deliberately NOT a baked image: a full-screen textured quad measured
+~25% slower frames under `npm run perf` than the flat fills it replaced (a
+texture fetch on every one of 518k fragments; SwiftShader inflates that, but
+full-screen fill is also what a phone's GPU is shortest of); per-corner
+colours carry the same gradients with no fetch and no stacked fills. **Beat lines** are 8
+pooled images of one baked texture at depth 1, tinted rail light, 96px apart
+with every fourth a brighter bar line; their offset integrates
+`gateSpeed(wave, upgrades)` - the speed `Gates.update` uses - over the
+simulated clock, so they stop on pause, quicken when a wave raises the
+speed, slow under `+TIME`, and restart with the run. They fade in under the
+HUD and out before the ground band. The rail's backing on the game scene
+(depth 30) is opaque `SURFACE.panel`: nothing needs to show through it, and
+the notes are revealed below it.
+
+**The notes** (`render/GateCards`) are NineSlices of the baked note, exactly
+`g.width - GATES.gap` wide (see "Dead space"). A note fades in over its own
+height as it comes out from under the HUD (`cardReveal`, keyed off
+`HUD_ROWS.bottom`, which the receptor reads too). States: at rest (shade
+0.88 of the axis colour, alpha 0.9); TARGETED - the one the squad is lined
+up on - full colour, a white inner rim and a glow breathing on the
+simulated clock; its SIBLINGS barely stepped down (0.8, alpha 0.85, labels
+at full strength), because mid-decision they are the alternatives still
+being compared and at 0.5 they read as already rejected. **Colour names the
+axis, never the form**: both forms of an axis share its colour, and the
+operator is a drawn white glyph, so multiply-versus-add is read by shape.
+
+**The receptors** (`render/Receptors`) replace the old selection guide
+(white L-brackets on the card, a stub and a ring over the leader). The
+target's footprint - its x and drawn width exactly as `findTarget` decides -
+lights on the judgment line in its axis colour: a glowing bar at depth 5
+under the squad, and a keylined bracket at each edge at depth 25, over
+everything on the field, so a full ring standing on the bar cannot hide
+where the footprint ends. The leader wears a ring and a chevron pointing up
+the lane in the same colour. Every mark over the squad has a white core
+over its coloured edge, so it reads on a shirt of its own hue (Gold rank
+under a RATE note). The approaching offer's other options show where they
+will land as faint rail-light bars that never take a colour. All of it
+brightens as the note nears.
+
+**The judgment burst** (`fx/Bursts`, `fx/FieldFx`) is described under
+"HUD and feedback, as built": flash, ring and sparks in the grade colour,
+the slanted word punching in.
+
+**Probes that changed with it.** `npm run moments` now forces and asserts
+BAD (above). `npm run rail` judges the INK bounds of every HUD text - rail
+and chips - at the widest and the narrowest state, after the punches
+settle, against neighbours and panel edges. `npm run hud` adds `hud-close`
+and `hud-behind`, the duel seen near and far behind par. `npm run roster`
+adds `roster-fx.png`. `npm run endscreen` settles 2600ms before reading.
+`npm run sway` guards its wait predicate. `npm run perf` is new.
+
+**The rules that keep it fast**, each paid for:
+
+- **Bake once, at boot.** Every glow, gradient, shadow, rounded corner and
+  outline is baked into a texture in `BootScene`; nothing redraws a Graphics
+  path per frame on a moving thing (the static road and the end screen's
+  plot are drawn once each).
+- **No runtime filters or post-processing.** Glows are baked alpha; the
+  additive ones are blend modes on pooled sprites.
+- **No per-frame `setText` / `setColor`.** Text renders white and takes
+  colour by tint; strings change only when they differ. `npm run perf`'s
+  uploads column is the alarm.
+- **Pools and ring buffers, never allocation.** `SpriteLayer` pools per
+  depth, `Shards` and `FxPool` are fixed rings that overwrite their oldest,
+  the bursts are four / four / 48, the floating labels six.
+- **One atlas for the field** (`art/draw` `packAtlas`, why below), and
+  sprites grouped by depth and blend so a frame pays for few batch breaks.
+
 ## Art
 
-Entirely procedural, generated in `BootScene` with `Graphics#generateTexture`
-from the modules in `scenes/art/` (`creatures`, `squad`, `projectiles`,
-`cage`, and `draw` for the helper). No asset files, nothing to load at
-runtime — which is what keeps the build a static folder.
-`TextureManager.generate` and the Create palettes were **removed in Phaser
-v4**; see `.claude/skills/phaser4-migration/`.
+Entirely procedural, generated in `BootScene` from the modules in
+`scenes/art/`: the sprite families (`creatures`, `squad`, `projectiles`,
+`cage`) through `Graphics#generateTexture` and `art/draw`, and the
+highway's surfaces (`cards`, `fx`, `ui`, `screens`) on 2D canvases - see
+"The highway" above. The one file loaded is the bundled font. No image
+assets, nothing fetched at runtime, which is what keeps the build a static
+folder. `TextureManager.generate` and the Create palettes were **removed in
+Phaser v4**; see `.claude/skills/phaser4-migration/`.
 
-**White with black detail.** Every texture is drawn white with its details -
-eyes, seams, mouth slots, outlines - in pure black, at 2x, and shown at
-`setScale(0.5)`. Under the default multiply tint white takes the runtime
-colour and black stays black, so one texture serves every hue and a 3px seam
-stays crisp. Anything needing a SECOND hue (the Shielder's pale plate, the
-Bomber's ember, the Spitter's gun tube, the Lancer's trident, the Titan's
-eyes) is a separate overlay texture tinted `EnemyType.accent`, one depth
-above its body. `accent` is a rendering field and nothing in `systems/`
-reads it.
+**White with black detail, then baked.** Every sprite is drawn white with
+its details - eyes, seams, mouth slots - in pure black, at 2x, and shown at
+`setScale(0.5)`, so one texture serves every hue under the multiply tint
+and a 3px seam stays crisp. Since the redesign each drawing is then
+FINISHED once by `art/draw` `bake`, pixel by pixel, still for the multiply
+tint: the lit back stays white in the texture (so it takes the vocabulary
+colour exactly), the belly falls to grey (the colour in shade), the
+silhouette's edge darkens a little more, a dark outline is dilated around
+the whole shape, and hot things get a baked halo of their own hue. The one highlight a multiply tint cannot show -
+a colour lighter than itself - is a separate untinted GLOSS texture
+(`<key>-gloss`, cropped, `GLOSS_ORIGIN` pinning it to the body's centre so
+it turns and swells with it) drawn above the body. Anything needing a SECOND
+hue (the Shielder's plate, the Bomber's ember, the Spitter's tube, the
+Lancer's trident, the Titan's haloed eyes) is a separate overlay tinted
+`EnemyType.accent`, one depth above its body. `accent` is a rendering field
+and nothing in `systems/` reads it. `bake` adds `PAD` (8px) on every side,
+symmetrically, so the texture's centre is still the hit circle's.
+
+**One field atlas, and why it is a correctness fix before it is a batching
+win.** Phaser 4.2.1's quad shader selects its texture unit with
+`outTexDatum == float(INDEX)` and its tint mode with `tintMode == 5.0`, both
+exact float comparisons on values INTERPOLATED across the triangle. On a
+ROTATED quad the interpolation drifts off the integer and one triangle
+samples the wrong unit or the wrong mode: in the roster stills a turned
+Shielder lost its plate, then half its body; under the OVERLAY tint mode it
+drew grey-and-black. So `art/fx` packs every field texture (bodies, glosses,
+accents, cage, bullets, shards, soldiers, holograms, shadows, glows, rings,
+bars, SHIELD arcs) into ONE canvas texture (`field-atlas`, shelf-packed,
+frames named as the textures were) and every `SpriteLayer` draws from it;
+unit 0 is the one index no drift can miss, and a batch that starts on the
+atlas binds it there - the MULTIPLY layers (shadows, bar backings) exist
+partly to start fresh batches so the next NORMAL layer does. Tint stays
+MULTIPLY (mode 0) everywhere for the same reason. The source textures stay
+registered, so the start screen still draws `body` and `head` by key. If a
+rotated sprite ever loses a triangle again, suspect a second texture in its
+batch first.
 
 **Radius is simulation; the sprite is fitted to it.** `EnemyType.radius` is
 the hit circle and never changes for a drawing. Each creature's box is
@@ -1332,68 +1703,128 @@ only thin appendages cross, by a quarter of r at most (the Runner's nose is
 the worst, ~4px). `CREATURE_ART` in `art/creatures.ts` is the table the
 renderer reads - body key, accent key, whether it rotates to its travel
 (walkers) or stays upright (gun types), whether it is drawn in the Titan
-pools, and its one authored motion (the Splitter swells, the Bomber's ember
-pulses; nothing else animates). `SpriteRender.renderEnemies` has no per-type
-branch; a new creature is a texture and a row.
+pools, and its one authored motion (the Splitter swells, the Bomber's and
+the Mortar's embers pulse, the Spitter's tube tracks the squad; nothing else
+animates). `SpriteRender.renderEnemies` has no per-type branch; a new
+creature is a texture and a row.
 
-**Hit feedback is a flash and a bleach, never an alpha fade.** A wounded
-body used to fade toward the background and vanish. Now `Enemies.damage`
-stamps `hitFlash = e.timer` (its own clock) and `GameScene.collide` stamps
-`c.hitFlash = elapsed` on a cage; the renderer draws the body pure white for
-`RENDER.hitFlash` (0.07s) after the stamp and otherwise tints it
-`RENDER.bleach` (35%) of the way to white at zero HP. The stamp is written
-by the simulation and read only by rendering - `grep hitFlash src/systems`
-must show the field, the two `-1` initialisers and the one set, nothing
-else. Health bars stay for `radius >= 14`.
+**Hit feedback is a lift and a bleach, never pure white and never an alpha
+fade.** `Enemies.damage` stamps `hitFlash = e.timer` (its own clock) and
+`GameScene.collide` stamps `c.hitFlash = elapsed` on a cage; the renderer
+compares and nothing is read back - `grep hitFlash src/systems` must show
+the field, the two `-1` initialisers and the one set, nothing else. A flash
+LIFTS the body's own colour halfway to white for `RENDER.hitFlash` (0.07s)
+and fires at most once per 0.5s of the body's clock (`FLASH_REPEAT`, per
+slot, reset on a recycled seed): under a stream every stamp is always fresh,
+and the first sprites pass - pure white, at most every 0.2s - still held a
+wave-41 swarm ~35% white, so the colours that name a body never showed. Now
+it is lit under 15% of the time and a flashing Brute is still red; the
+gloss stays through a flash, and accents and cages lift the same way. A
+wound bleaches toward white by damage taken, capped at `RENDER.bleach` x
+0.55 (~19% at zero HP) - enough to see a body is hurt, never enough to wash
+the hue out. **No live body is ever drawn pure white**; the kill pop is the
+brightest thing a body does. Health bars stay for `radius >= 14`, only
+once hurt: rounded baked sprites on a dark backing, no Graphics.
 
-**Death pops are a fixed budget.** `render/Shards.ts` keeps `RENDER.shardRing`
-(96) shard records and one sprite pool; a `kill` event throws
-`shardsPerKill` (3; 12 for a Titan) for `shardLife` (0.28s), a `contact`
-event throws two dull ones for 0.18s. Past the budget the oldest shard is
-overwritten, so a burst never allocates. Spoke angles are phased off the
-simulated clock, never the RNG.
+**Shadows only where they read.** Ordinary enemies cast NO contact shadow:
+black at MULTIPLY on the `#10111c` road measured invisible in the stills,
+and at a wave-41 swarm it was ~60 sprites of fill for nothing - dropping it
+took one MULTIPLY batch out (14 to 12 draws a frame). The Titan (a wider,
+darker shadow plus a breathing aura in its own colour), the cages and the
+squad keep theirs. That call is pending the author's approval.
 
-**Enemy bullets are darts, not small enemies.** `ebullet` is a black-outlined
-teardrop rotated along its velocity, in `COLORS.enemyBullet` (hot magenta -
-no body wears it), with a faint copy behind it (`RENDER.bulletTrail`). Squad
-bullets stay the cream pill on the tier ladder. `ENEMY_FIRE.radius` is
-unchanged; the dart is 8x16 on screen around a 5px hit circle.
+**Squad bullets are additive glowing streaks** (`bullet-streak`): a soft
+capsule, bright head leading, tail fading inside a faint halo, drawn ADD at
+depth 12.5 and tinted by the density ladder (`bulletTint`), so the whole
+streak IS the ladder colour and a heavier bullet reads as its tier; tier 0
+is still the cream a bullet has always been. No outline: nothing the squad
+fires has one.
+
+**Death pops are a fixed budget.** `render/Shards.ts` keeps
+`RENDER.shardRing` (96) shard records and one sprite pool; `render/FxPool`
+keeps fixed rings of pop records (48 additive, 16 normal). An ordinary
+`kill` throws `shardsPerKill` (3) baked shards for `shardLife` (0.28s), each
+at its own HASHED angle, speed ±20%, thrown tumbling off its line, plus a
+0.1s glow flash in the body's colour lifted halfway to white - and **no
+ring**: a thin ring with three shards 120deg apart round it read as a gun
+sight in an empty lane (the finish review flagged it in both rounds before
+it went).
+Only the Titan's death rings: twelve spoked shards, a big glow, and three
+staggered rings (the middle one white). A `contact` throws two dull shards
+and a puff; a `block` a ping ring and two shards in the shield colour. Past
+the budget the oldest record is overwritten, so a burst never allocates.
+Everything is timed off the simulated clock and hashed from the ring slot,
+never the RNG.
+
+**Enemy bullets are darts, not small enemies.** `ebullet` is a
+black-outlined teardrop with a hot core, rotated along its velocity, in
+`COLORS.enemyBullet` (hot magenta - no body wears it), inside a baked halo
+of its own colour at NORMAL blend, with a faint smaller copy behind it
+(`RENDER.bulletTrail`). The opposite of the squad's stream on every axis
+that reads at a glance - outlined, haloed, normal blend over an additive
+stream - and never a Runner, which has legs, eyes and no glow.
+`ENEMY_FIRE.radius` is unchanged; the dart is 8x16 on screen around a 5px
+hit circle, the halo is extra.
 
 **A shell is a big slow round** (1.1). `GunSpec.shell` marks a gun whose
-bullets are `eshell` - a black-outlined disc with a highlight, 20px on
-screen around `ENEMY_FIRE.shellRadius` (9) - in `COLORS.enemyShell`
-(scarlet). `EnemyBullet.shell` carries the flag; `EnemyBullets.radiusOf`
-picks the hit radius per bullet, so the swept test is per bullet too. The
-only shell gun is the **Mortar**'s (`data/enemies.ts`: medium tier, wave 10,
-weight 11 and `interval 6` since 1.3, `speed 105, damage 2, aimed`), so a shell costs
-twice a dart through the same `powerShare` arithmetic. The Mortar is drawn
-upright as a squat pot with a black muzzle (`c-mortar`) and the loaded shell
-glowing in it as its accent (`a-mortar`, pulsing like the Bomber's ember).
-`npm run behaviour` picks it up as a shooter automatically; `npm run
-roster` puts a shell beside the darts in the volley still.
+bullets are `eshell` - a black-outlined disc with a bright core inside a
+baked halo, 20px on screen around `ENEMY_FIRE.shellRadius` (9) - in
+`COLORS.enemyShell` (scarlet). `EnemyBullet.shell` carries the flag;
+`EnemyBullets.radiusOf` picks the hit radius per bullet, so the swept test
+is per bullet too. The only shell gun is the **Mortar**'s
+(`data/enemies.ts`: medium tier, wave 10, weight 11 and `interval 6` since
+1.3, `speed 105, damage 2, aimed`), so a shell costs twice a dart through
+the same `powerShare` arithmetic. The Mortar is drawn upright as a squat pot
+with a black muzzle (`c-mortar`) and the loaded shell glowing in it as its
+accent (`a-mortar`, pulsing like the Bomber's ember). `npm run behaviour`
+picks it up as a shooter automatically; `npm run roster` puts a shell
+beside the darts in the volley still.
 
-**Depth map** (UX and HUD layers omitted; see their sections; the SHIELD
-ring is 19, between the shards and the squad):
+**Depth map**, bottom to top. The game scene (field; the constants live at
+the top of `SpriteRender` and in each render module):
 
 | depth | what |
 | --- | --- |
-| 8 / 9 | Titan body / accent (`bigPool`) |
-| 10 / 11 | enemy bodies / accents |
-| 12 / 13 | cage inmates / cage bars |
-| 12 | squad bullets |
-| 14 | shards |
-| 18 | enemy overlay (health bars) - above the bodies it annotates |
+| 0 / 1 | the road (one Graphics) / beat lines |
+| 2 | sway groove |
+| 3 / 3.5 | note shadow / the target's glow (ADD) |
+| 4 / 4.2 / 4.3 | note body / target rim / SENSE edge |
+| 5 | receptor bars (target, and the idle ones ADD) |
+| 6 | breach ticks; cage HP bars (Graphics) |
+| 7 / 7.5 | contact shadows (MULTIPLY: Titan, cages) / Titan aura |
+| 8 / 8.5 / 9 | Titan body / gloss / accent (`bigPool`) |
+| 10 / 10.5 / 11 | enemy bodies / gloss / accents |
+| 12 / 12.5 / 12.6 | cage inmates / squad streaks (ADD) / kill flashes, Titan rings, block pings (ADD) |
+| 13 / 14 / 14.3 | cage bars / shards / puffs |
+| 14.5 / 15 | SENSE crown / every label: operator, magnitude, axis word, SENSE tag, cage reward |
+| 17 / 17.1 | ECHO ghost bodies / heads (ADD) |
+| 18 / 18.1 | health-bar backing (MULTIPLY) / bar - above the bodies they annotate |
+| 18.9 / 19 | squad shadows (MULTIPLY) / SHIELD ring |
 | 20 / 21 | squad body / head (`head-lead` for slot 0, with a visor) |
 | 22 / 23 | enemy bullet trail / enemy bullets - above the squad they hit |
+| 25 / 25.1 | receptor brackets, leader ring, chevron / their white cores |
+| 26 | judgment bursts (ADD) |
+| 27 | grade words and floating labels |
+| 28 / 29 | fail-line flare (a Titan landing) / death dim |
+| 30 | the rail's opaque backing |
+
+The UI scene draws over all of it: the HUD panel and texts, the Titan row
+(42), the stage banner (44), the damage vignette (45), then the screens -
+end 50, pause 55, start 60, HOW TO PLAY over the start screen 65. Additive
+layers are grouped (the stream with the kill pops; the ghosts alone) so a
+frame pays for as few blend switches as possible.
 
 **`npm run roster`** photographs the set: `roster.png` (one of each type in
 a row, the Titan, a cage, every gun's volley, the squad at `hud-mid`),
 `roster-hit.png` (bodies flashing, bodies bleached, two kills popping, a
-contact mark, a flashing cage) and `roster-late.png` (`hud-late`).
+contact mark, a flashing cage), `roster-late.png` (`hud-late`) and, since
+the redesign, `roster-fx.png` (the pops mid-flight - a Titan burst, two kill
+pops, a contact puff, a block ping - with SHIELD 3 and ECHO 2 held).
 `ROSTER_SCALE=3` adds `*-zoom.png` crops at 3x. It asserts only that nothing
-errored; the two questions to put to the stills are whether every type can
-be named from silhouette with colour ignored, and whether any enemy bullet
-could be taken for a Runner.
+errored; the questions to put to the stills are whether every type can be
+named from silhouette with colour ignored, whether any enemy bullet could be
+taken for a Runner, and whether a swarm under a stream still shows its
+colours.
 
 ### The end screen's plot, and the word INVEST
 
@@ -1401,15 +1832,33 @@ could be taken for a Runner.
 pushes one on the run's first step (in `step`, lazily, because the first
 run never passes through `restart` and `from`'s injected state must be in
 first), one per `wave` event and one in `emitGameOver`. `EndScreen.drawPlot`
-draws it in the `PLOT` frame (270x80 at 62,310) with a dashed PAR line at
-100%, the y axis to `max(1.5, peak)`, and the line in `standingColor` of
-the last point; `PEAK_X` (440) holds peak DPS through `compact`. The
-"% OF THE GROWTH ON OFFER" number is gone from the screen;
+draws it once per run (one Graphics, redrawn only on `show`) in the `PLOT`
+frame (262x78 at 68,468) on a baked rounded panel (`SCREEN_TEX.panel`,
+tinted `SURFACE.panel`): a hairline baseline, a dashed PAR line at 100% in
+the rail light, the y axis to `max(1.5, peak)` with 13px labels, and the
+player as a soft filled area under a 2.5px line with a dot per wave and the
+last point ringed, all in `standingColor` of the last point; `PEAK_X` (432)
+holds peak DPS through `compact` at 38px over PEAK DAMAGE / SEC. The "% OF
+THE GROWTH ON OFFER" number is gone from the screen;
 `DecisionLog.fractionOfOptimal` and `stats.optimal` stay for the
-instruments. On screen the zero-DPS grade reads **INVEST** (`GRADE_WORD.risk`,
-the tally's fourth tile, `MOVE INVEST` on the pause tiles, the guide
-topic); the key is still `risk` everywhere in code and stats, and
-`npm run moments` accepts INVEST as a grade word.
+instruments.
+
+Since the 2026-09-24 redesign the end screen is a rhythm game's RESULTS
+screen, in the order the author's intent sets: the cause as a slanted
+heading (YOUR SQUAD WAS OVERRUN / THE TITAN LANDED - the run's last
+judgment), the waves headline counting up and punching, then the tally as a
+results TABLE of five rows - PERFECT / GOOD / BAD / INVEST / MISS, word
+slanted at 21px in its grade colour (MISS in caption grey), a share bar
+scaled to the largest count, the count at 27px - revealed in a stagger
+(260ms after the headline, 70ms apart, each counting up over 280ms), then
+the plot, the match code and REPLAY THIS MATCH. The
+choreography runs on the UI scene's clock after the death beat, and nothing
+runs once it has landed. The results-table layout is new and pending the
+author's approval (`notes.md`). On screen the zero-DPS grade reads
+**INVEST** (`GRADE_WORD.risk`, the table's fourth row, the label naming the
+third row of pause tiles, the guide topic); the key is still `risk`
+everywhere in code and stats, and `npm run moments` accepts INVEST as a
+grade word.
 
 ### Numbers on screen
 
@@ -1419,9 +1868,16 @@ and three significant figures on the thousands ladder above (`1.02K`,
 `formatMult` is `×1.32` / `×10.2` / `×102` / `×1.02K`, and `compactLabel`
 keeps a value's exact digits below 1000 for text that is also a promise
 (a card's `+12.5%`). `hud/types.ts` re-exports the first two. The rail's
-`% PAR` has no `>999%` cap any more; its WAVE lane took 6px from SENSE
-(88 / 100 / 96 / 94 / 82) when `1.23K KILLS` grew a figure, and `npm run
-rail` holds the 8px. `npm run model` asserts the ladder.
+`% PAR` has no `>999%` cap any more. Its lanes are no longer five equal-ish
+columns (88 / 100 / 96 / 94 / 82 until the redesign): WAVE from x 12 (the
+figure fit to 70px, `1.23K KILLS` to 72), the duel's well from 92 to 306
+(YOUR DPS fit to 56% of its 194px inside, PAR to 38%, `% PAR` stopping
+short of the target notch), SENSE from 314, SHIELD from 406 (fit to 56px),
+PAUSE in the last 80 (`RAIL_PAUSE_WIDTH`); the strip's chips are 100 / 118 /
+118 / 80 / 80. Every figure is fit by scale (`HudText`), and `npm run rail`
+holds 8px between inks side by side, 3px ink to ink stacked and 4px inside
+a panel's edge, at the widest and the narrowest state. `npm run model`
+asserts the ladder.
 
 ### Analytics
 
@@ -1601,10 +2057,15 @@ cage, so `opened` reads 0 on every probe row: the reward is measured by
   1.35 / 1.7 / 2.05 / 2.4) in `squadDps` and out of `singleTargetDps`, one
   spawn per column in `GameScene.fire` (`ECHO.offset` 150px, the same
   bundle at the column's strength of the damage) and `echoCopies` in
-  `bundleFactor` so the sim cap holds; the ghosts are
-  `SpriteRender.renderSquad` at `RENDER.echoAlpha`, scaled by strength
-  around their own leader, and have no body in `systems/`. The pause grid
-  is 4x3 of 120x64.
+  `bundleFactor` so the sim cap holds; the ghosts are drawn by
+  `SpriteRender.renderSquad` in the army's own shirts, scaled by strength
+  around their own leader, as HOLOGRAMS since the 2026-09-24 redesign: the
+  soldier drawing baked flat and cut by scanlines (`sq-holo-body` /
+  `-head` / `-head-lead`), drawn ADDITIVE at `RENDER.echoAlpha` (0.38) with
+  a faint flicker off the simulated clock and no shadow - light on the
+  road, never a second squad standing on it. They have no body in
+  `systems/`. The pause grid is 4x3 of 120x64, the INVEST four on the
+  third row.
   `npm run hud` photographs `hud-echo.png` and `npm run model` asserts the
   price, the cap, the pool filter, the Titan exclusion and that par takes
   it.

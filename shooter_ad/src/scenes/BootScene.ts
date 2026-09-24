@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
 import { makeCage } from './art/cage';
+import { makeCards } from './art/cards';
 import { makeCreatures } from './art/creatures';
+import { makeFx } from './art/fx';
 import { makeProjectiles } from './art/projectiles';
+import { makeScreens } from './art/screens';
 import { makeSquad } from './art/squad';
+import { makeUi } from './art/ui';
 
 /**
  * Builds every texture procedurally. There is no artist and no asset pipeline
@@ -23,6 +27,10 @@ export class BootScene extends Phaser.Scene {
     makeSquad(this);
     makeProjectiles(this);
     makeCage(this);
+    makeCards(this);
+    makeFx(this);
+    makeUi(this);
+    makeScreens(this);
     this.scene.start('Game');
     this.scene.launch('UI');
   }
