@@ -63,8 +63,13 @@ export const PAUSE_BLEED = { x: 5, top: 3, bottom: 8 } as const;
 export const TITAN_ROW = { y: PANEL_H, h: HUD_ROWS.titanRow } as const;
 export const TITAN_BAR = { x: 68, w: HUD_W - 68 - 10, h: 8 } as const;
 
-/** One lane of the stage banner; three abut across the field. */
-export const BAND = { lane: HUD_W / 3, h: 84, y: 330 } as const;
+/**
+ * One lane of the stage banner; three abut across the field. Docked at the
+ * HUD's bottom edge (the spawn line), 44px tall, so it never sits over the
+ * cards and bodies mid-descent - it once did, 84px deep at y 330, right in
+ * the decision zone.
+ */
+export const BAND = { lane: HUD_W / 3, h: 44, y: HUD_ROWS.bottom + 22 } as const;
 
 /** The damage vignette's baked depth (drawn thinner or thicker by share). */
 export const EDGE_DEPTH = 128;

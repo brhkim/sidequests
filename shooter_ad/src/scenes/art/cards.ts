@@ -34,8 +34,12 @@ export const HW = {
   recBar: 'hw-rec-bar',
   recCapL: 'hw-rec-cap-l',
   recCapR: 'hw-rec-cap-r',
+  recCapCoreL: 'hw-rec-cap-core-l',
+  recCapCoreR: 'hw-rec-cap-core-r',
   leader: 'hw-leader',
+  leaderCore: 'hw-leader-core',
   chevron: 'hw-chevron',
+  chevronCore: 'hw-chevron-core',
   tick: 'hw-tick',
   ring: 'hw-ring',
   spark: 'hw-spark',
@@ -314,62 +318,61 @@ function makeMarks(scene: Phaser.Scene): void {
   // Receptor end caps: a bracket at each edge of the footprint, standing on
   // the line, with a foot pointing inward along it. Left and right.
   // These three stand on top of the squad, whose shirts can be any rank
-  // colour, so each carries a dark keyline under its lit stroke: it reads
-  // over a mint shirt as well as over the road.
-  const KEY = 'rgba(7,7,13,0.85)';
-  const cap = (key: string, flip: boolean) => canvas(scene, key, 24, 44, (c) => {
+  // colour - including Gold, the same hue as the RATE axis - so each is TWO
+  // textures: a dark keyline under a broad stroke baked white and tinted the
+  // axis colour (`...`), and an untinted white core line down its middle
+  // (`...Core`). The white core reads on every shirt; the coloured edge says
+  // which axis; the keyline parts both from the road.
+  const KEY = 'rgba(7,7,13,0.9)';
+  const pair = (
+    edgeKey: string, coreKey: string, w: number, h: number,
+    path: (c: Ctx) => void, glow: number,
+  ): void => {
+    canvas(scene, edgeKey, w, h, (c) => {
+      c.lineCap = 'round';
+      c.lineJoin = 'round';
+      c.strokeStyle = KEY;
+      c.lineWidth = 8;
+      path(c);
+      c.shadowColor = 'rgba(255,255,255,0.9)';
+      c.shadowBlur = glow;
+      c.strokeStyle = '#ffffff';
+      c.lineWidth = 4.6;
+      path(c);
+    });
+    canvas(scene, coreKey, w, h, (c) => {
+      c.lineCap = 'round';
+      c.lineJoin = 'round';
+      c.strokeStyle = '#ffffff';
+      c.lineWidth = 1.7;
+      path(c);
+    });
+  };
+  const bracket = (flip: boolean) => (c: Ctx): void => {
+    c.save();
     if (flip) { c.translate(24, 0); c.scale(-1, 1); }
-    c.lineCap = 'round';
-    const bracket = (): void => {
-      c.beginPath();
-      c.moveTo(7.5, 7); c.lineTo(7.5, 37);
-      c.moveTo(7.5, 22); c.lineTo(18, 22);
-      c.stroke();
-    };
-    c.strokeStyle = KEY;
-    c.lineWidth = 6.5;
-    bracket();
-    c.shadowColor = 'rgba(255,255,255,0.9)';
-    c.shadowBlur = 5;
-    c.strokeStyle = '#ffffff';
-    c.lineWidth = 3;
-    bracket();
-  });
-  cap(HW.recCapL, false);
-  cap(HW.recCapR, true);
+    c.beginPath();
+    c.moveTo(7.5, 7); c.lineTo(7.5, 37);
+    c.moveTo(7.5, 22); c.lineTo(18, 22);
+    c.stroke();
+    c.restore();
+  };
+  pair(HW.recCapL, HW.recCapCoreL, 24, 44, bracket(false), 5);
+  pair(HW.recCapR, HW.recCapCoreR, 24, 44, bracket(true), 5);
 
   // The leader's mark: a lit ring round the unit that selects.
-  canvas(scene, HW.leader, 60, 60, (c) => {
-    c.strokeStyle = KEY;
-    c.lineWidth = 5.5;
+  pair(HW.leader, HW.leaderCore, 60, 60, (c) => {
     c.beginPath();
     c.arc(30, 30, 19, 0, Math.PI * 2);
     c.stroke();
-    c.shadowColor = 'rgba(255,255,255,0.9)';
-    c.shadowBlur = 6;
-    c.strokeStyle = '#ffffff';
-    c.lineWidth = 2.5;
-    c.stroke();
-  });
+  }, 6);
 
   // A chevron over the leader's head, pointing up the lane at the note.
-  canvas(scene, HW.chevron, 28, 20, (c) => {
-    c.lineCap = 'round';
-    c.lineJoin = 'round';
-    const chevron = (): void => {
-      c.beginPath();
-      c.moveTo(5, 15); c.lineTo(14, 6); c.lineTo(23, 15);
-      c.stroke();
-    };
-    c.strokeStyle = KEY;
-    c.lineWidth = 6.5;
-    chevron();
-    c.shadowColor = 'rgba(255,255,255,0.8)';
-    c.shadowBlur = 4;
-    c.strokeStyle = '#ffffff';
-    c.lineWidth = 3.2;
-    chevron();
-  });
+  pair(HW.chevron, HW.chevronCore, 28, 20, (c) => {
+    c.beginPath();
+    c.moveTo(5, 15); c.lineTo(14, 6); c.lineTo(23, 15);
+    c.stroke();
+  }, 4);
 
   // The breach tick: a short bar standing on the fail line, with glow.
   canvas(scene, HW.tick, 14, 22, (c) => {

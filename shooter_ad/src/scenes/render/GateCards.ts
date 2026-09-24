@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
-import { GATES } from '../../config';
+import { GATES, HUD_ROWS } from '../../config';
 import type { Gate } from '../../systems/Gates';
 import { HW, NOTE } from '../art/cards';
 import { FONT } from '../hud/types';
-import { RAIL_HEIGHT } from '../hud/TopRail';
 import { INK, TYPE } from '../theme';
+import { placeOperator, splitOperator } from './Operator';
 
 interface GateVisual {
   /** The sway groove (1.6): the lane a swaying card moves within, with its stops. */
@@ -51,13 +51,37 @@ export function splitLabel(label: string): { magnitude: string; axis: string } {
   return { magnitude: label, axis: '' };
 }
 
-/** Body tint as a share of the axis colour: at rest, targeted, a sibling of the target. */
-const SHADE = { rest: 0.88, target: 1, sibling: 0.5 } as const;
+/**
+ * Body tint as a share of the axis colour: at rest, targeted, a sibling of
+ * the target. The siblings are barely stepped down: mid-decision they are
+ * the two alternatives still being compared, and at 0.5 they read as
+ * already rejected. The rim, the breathing glow and the receptor mark the
+ * target; the siblings keep their numbers at full strength.
+ */
+const SHADE = { rest: 0.88, target: 1, sibling: 0.8 } as const;
 /** Body alpha in the same three states. */
-const BODY_ALPHA = { rest: 0.9, target: 1, sibling: 0.5 } as const;
-/** Operator glyph: its drawn footprint (px, at scale 1) and the gap to the figure. */
-const OP_WIDTH = 19;
-const OP_GAP = 0;
+const BODY_ALPHA = { rest: 0.9, target: 1, sibling: 0.85 } as const;
+/** Drop-shadow alpha in the same three states. */
+const SHADOW_ALPHA = { rest: 0.7, target: 0.7, sibling: 0.6 } as const;
+/**
+ * Where the field shows: the HUD band above it is opaque to here
+ * (`HUD_ROWS.bottom`, which is also the spawn line).
+ */
+const FIELD_TOP = HUD_ROWS.bottom;
+/** The SENSE crown's lowest centre while its card is still emerging: just under the HUD. */
+const CROWN_FLOOR = FIELD_TOP + 20;
+/** ...and never lower than this far below the card's top edge (over the cap, above the figure). */
+const CROWN_ON_HEAD = 8;
+
+/**
+ * How far a card at centre `y` has come out from under the HUD, 0 to 1: it
+ * fades in over its own height as it emerges below `FIELD_TOP`, so the fade
+ * happens where it can be seen rather than behind the opaque strip. The
+ * receptor on the judgment line reads the same curve.
+ */
+export function cardReveal(y: number): number {
+  return Phaser.Math.Clamp((y + GATES.height / 2 - FIELD_TOP) / GATES.height, 0, 1);
+}
 /** Label rows, from the card's centre. The cap takes the top 9px. */
 const MAG_Y = -5;
 const AXIS_Y = 23;
@@ -87,12 +111,14 @@ function shade(color: number, k: number): number {
  * the face `×` is x-height small and the form - multiply or add - is the
  * whole question the card asks. Colour names the axis only: both forms of an
  * axis share it. The operator and figure are shrunk together to the card's
- * inner width when they overflow.
+ * inner width when they overflow (`Operator`, shared with the screens'
+ * tiles).
  *
  * States: at rest; TARGETED (the card the squad is lined up on: full colour, a
  * white inner rim, a glow breathing on the simulated clock); SIBLINGS of the
- * target dim. On a sensed offer the option best RIGHT NOW - priced by the
- * same `scoreOffer` par uses - wears the SENSE mark: a pulsing white crown
+ * target step down only slightly (they are still being compared). On a
+ * sensed offer the option best RIGHT NOW - priced by the same `scoreOffer`
+ * par uses - wears the SENSE mark: a pulsing white crown
  * above the card with its caption, and a white edge ON the card. White and
  * above, never coloured and around, so the answer and the target never look
  * alike. The pulse reads the simulated clock.
@@ -114,9 +140,9 @@ export class GateCards {
       if (!g.active) continue;
       const v = this.visuals[used] ?? this.make();
       used++;
-      // Fade in clear of the top rail. Gates spawn above the screen and would
-      // otherwise slide through the HUD numbers.
-      const reveal = Phaser.Math.Clamp((g.y - RAIL_HEIGHT - 6) / 44, 0, 1);
+      // Fade in as it comes out from under the HUD. Gates spawn above the
+      // screen and would otherwise slide through the HUD numbers.
+      const reveal = cardReveal(g.y);
       const on = reveal > 0;
       if (!on) { this.hide(v); continue; }
       const width = g.width - GATES.gap;
@@ -142,7 +168,7 @@ export class GateCards {
         v.shadow.setSize(pw, GATES.height + NOTE.pad * 2);
         v.glow.setSize(pw, GATES.height + NOTE.pad * 2);
       }
-      v.shadow.setVisible(true).setPosition(g.x, g.y + 5).setAlpha((isSibling ? 0.35 : 0.7) * reveal);
+      v.shadow.setVisible(true).setPosition(g.x, g.y + 5).setAlpha(SHADOW_ALPHA[state] * reveal);
       v.body.setVisible(true).setPosition(g.x, g.y)
         .setTint(shade(g.type.color, SHADE[state])).setAlpha(BODY_ALPHA[state] * reveal);
       v.glow.setVisible(isTarget);
@@ -156,25 +182,21 @@ export class GateCards {
 
       if (v.label !== g.type.label) this.setLabel(v, g.type.label);
       // The operator and the figure, as one group centred on the card and
-      // shrunk together when the pair overflows the inner width.
-      const inner = width - 8;
-      const figure = v.magnitude.text === '' ? 0 : v.magnitude.width;
-      const opw = v.hasOp ? OP_WIDTH + (figure > 0 ? OP_GAP : 0) : 0;
-      const total = opw + figure;
-      const s = Math.min(1, inner / Math.max(1, total));
-      const x0 = g.x - (total * s) / 2;
-      const labelAlpha = (isSibling ? 0.7 : 1) * reveal;
-      const my = g.y + MAG_Y;
-      v.op.setVisible(v.hasOp);
-      if (v.hasOp) v.op.setPosition(x0 + (OP_WIDTH * s) / 2, my + 1).setScale(s).setAlpha(labelAlpha);
-      v.magnitude.setVisible(figure > 0).setPosition(x0 + opw * s + (figure * s) / 2, my)
-        .setScale(s).setAlpha(labelAlpha);
-      v.axis.setVisible(true).setPosition(g.x, g.y + AXIS_Y).setAlpha(labelAlpha);
+      // shrunk together when the pair overflows the inner width. Every
+      // label is at full strength, siblings included: they are still options.
+      placeOperator(v.op, v.magnitude, v.hasOp, g.x, g.y + MAG_Y, width - 8);
+      v.op.setAlpha(reveal);
+      v.magnitude.setAlpha(reveal);
+      v.axis.setVisible(true).setPosition(g.x, g.y + AXIS_Y).setAlpha(reveal);
 
       v.crown.setVisible(isMarked);
       v.tag.setVisible(isMarked);
       if (isMarked) {
-        const cy = top - 17 - 2 * pulse;
+        // Held just under the HUD while its card is still coming out - but
+        // never lower than over the card's own head, clear of its figure -
+        // so a sensed offer is told as soon as its head shows, then rides
+        // above the card.
+        const cy = Math.max(top - 17 - 2 * pulse, Math.min(CROWN_FLOOR, top + CROWN_ON_HEAD));
         v.crown.setPosition(g.x, cy + 2).setScale(0.96 + 0.06 * pulse).setAlpha((0.85 + 0.15 * pulse) * reveal);
         v.tag.setPosition(g.x, cy - 1).setAlpha(reveal);
       }
@@ -185,10 +207,10 @@ export class GateCards {
   private setLabel(v: GateVisual, label: string): void {
     v.label = label;
     const { magnitude, axis } = splitLabel(label);
-    const first = magnitude.charAt(0);
-    v.hasOp = first === '×' || first === '+';
-    if (v.hasOp) v.op.setTexture(first === '×' ? HW.opMult : HW.opAdd);
-    v.magnitude.setText(v.hasOp ? magnitude.slice(1) : magnitude);
+    const { op, figure } = splitOperator(magnitude);
+    v.hasOp = op !== null;
+    if (op !== null) v.op.setTexture(op);
+    v.magnitude.setText(figure);
     v.axis.setText(axis);
   }
 

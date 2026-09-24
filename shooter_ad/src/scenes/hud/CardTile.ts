@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { GATES } from '../../config';
+import { HW } from '../art/cards';
 import { SCREEN_TEX } from '../art/screens';
+import { placeOperator, splitOperator } from '../render/Operator';
 import { INK } from '../theme';
 import { slice } from './ScreenButton';
 import { FONT } from './types';
@@ -39,8 +41,13 @@ export class CardTile {
   private readonly shadow: Phaser.GameObjects.NineSlice;
   private readonly body: Phaser.GameObjects.NineSlice;
   private readonly gloss: Phaser.GameObjects.NineSlice;
+  /** The operator, drawn as the field's glyph (`Operator`), and the figure after it. */
+  private readonly op: Phaser.GameObjects.Image;
   private readonly magnitude: Phaser.GameObjects.Text;
   private readonly axis: Phaser.GameObjects.Text;
+  private readonly magY: number;
+  private readonly magSize: number;
+  private hasOp = false;
   private readonly brackets: Phaser.GameObjects.Graphics;
   private readonly pips: Phaser.GameObjects.Arc[] = [];
   private readonly offsets = new Map<Phaser.GameObjects.Components.Transform, number>();
@@ -48,7 +55,6 @@ export class CardTile {
   private held = true;
   private alpha = 1;
   private scale = 1;
-  private magFit = 1;
   private axisFit = 1;
   private cy: number;
 
@@ -62,9 +68,12 @@ export class CardTile {
     // The label sits 3px low: the lit cap takes the top 7px of the note.
     const magY = height >= 72 ? -9 : -7;
     const axisY = height >= 72 ? 20 : 17;
+    this.magY = magY;
+    this.magSize = magnitudeSize;
     this.shadow = slice(scene, SCREEN_TEX.shadow, x, y + SHADOW_DROP, width, height).setAlpha(0.75);
     this.body = slice(scene, SCREEN_TEX.note, x, y, width, height).setTint(color);
     this.gloss = slice(scene, SCREEN_TEX.gloss, x, y, width, height);
+    this.op = scene.add.image(x, y + magY, HW.opAdd).setVisible(false);
     this.magnitude = scene.add.text(x, y + magY, '', {
       fontFamily: FONT, fontSize: `${magnitudeSize}px`, color: INK.primary, fontStyle: '800',
     }).setOrigin(0.5).setShadow(0, 1, 'rgba(0,0,0,0.5)', 3);
@@ -83,9 +92,10 @@ export class CardTile {
       this.brackets.lineTo(cxs - side * 16, bottom);
       this.brackets.strokePath();
     }
-    this.parts = [this.shadow, this.body, this.gloss, this.magnitude, this.axis, this.brackets];
+    this.parts = [this.shadow, this.body, this.gloss, this.op, this.magnitude, this.axis, this.brackets];
+    // The operator and the figure are laid out together by `placeFigure`.
     this.offsets.set(this.shadow, SHADOW_DROP).set(this.body, 0).set(this.gloss, 0)
-      .set(this.magnitude, magY).set(this.axis, axisY).set(this.brackets, 0);
+      .set(this.axis, axisY).set(this.brackets, 0);
     if (withPips) {
       // Three drawn pips in place of a magnitude: the rail's own SENSE glyph.
       for (const dx of [-22, 0, 22]) {
@@ -97,15 +107,19 @@ export class CardTile {
     }
   }
 
-  /** Magnitude over axis word; either shrinks to fit the tile's inside. */
+  /**
+   * Magnitude over axis word; either shrinks to fit the tile's inside. The
+   * magnitude's leading `×` / `+` is drawn as the field note's operator
+   * glyph, the same split and the same layout (`Operator`), so a tile and
+   * the note it stands for cannot disagree.
+   */
   set(magnitude: string, axis: string, axisColor?: string): this {
     const inner = this.width - 12;
-    if (this.magnitude.text !== magnitude) this.magnitude.setText(magnitude);
-    this.magnitude.setVisible(magnitude !== '');
-    // `width` is the unscaled text width: measure against it, then apply
-    // the fit on top of whatever scale the note is drawn at.
-    this.magFit = Math.min(1, inner / Math.max(1, this.magnitude.width));
-    this.magnitude.setScale(this.magFit * this.scale);
+    const { op, figure } = splitOperator(magnitude);
+    this.hasOp = op !== null;
+    if (op !== null && this.op.texture.key !== op) this.op.setTexture(op);
+    if (this.magnitude.text !== figure) this.magnitude.setText(figure);
+    this.placeFigure();
     if (this.axis.text !== axis) this.axis.setText(axis);
     this.axisFit = Math.min(1, inner / Math.max(1, this.axis.width));
     this.axis.setScale(this.axisFit * this.scale);
@@ -147,6 +161,7 @@ export class CardTile {
   setY(y: number): this {
     this.cy = y;
     for (const [o, dy] of this.offsets) o.y = y + dy * this.scale;
+    this.placeFigure();
     return this;
   }
 
@@ -154,10 +169,17 @@ export class CardTile {
   setScale(s: number): this {
     this.scale = s;
     for (const [o, dy] of this.offsets) {
-      o.setScale(o === this.magnitude ? s * this.magFit : o === this.axis ? s * this.axisFit : s);
+      o.setScale(o === this.axis ? s * this.axisFit : s);
       o.y = this.cy + dy * s;
     }
+    this.placeFigure();
     return this;
+  }
+
+  /** The operator and the figure as one group, fitted to the tile's inside. */
+  private placeFigure(): void {
+    placeOperator(this.op, this.magnitude, this.hasOp, this.x, this.cy + this.magY * this.scale,
+      this.width - 12, this.magSize, this.scale);
   }
 
   private apply(): this {
@@ -166,6 +188,7 @@ export class CardTile {
     this.body.setAlpha(a * (h ? 1 : DIM.body));
     this.gloss.setAlpha(a * (h ? 1 : DIM.gloss));
     this.magnitude.setAlpha(a * (h ? 1 : DIM.magnitude));
+    this.op.setAlpha(a * (h ? 1 : DIM.magnitude));
     this.axis.setAlpha(a * (h ? 1 : DIM.axis));
     this.brackets.setAlpha(a);
     for (const pip of this.pips) pip.setAlpha(a * (h ? 1 : DIM.magnitude));

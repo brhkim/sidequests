@@ -13,6 +13,8 @@ const PRIMARY = 0xf2f3ff;
 const SECONDARY = 0xb7bad8;
 /** A chip you hold nothing on: dimmed, not hidden, so it still reads. */
 const UNHELD = 0.5;
+/** An unheld chip's cap: neutral and dim, never its axis colour. */
+const CAP_UNHELD = { tint: 0x8d91b4, alpha: 0.3 } as const;
 const FLASH_MS = 500;
 
 /**
@@ -40,6 +42,9 @@ const FLASH_MS = 500;
  *   is scaled into its chip (`HudText`) rather than allowed to run on.
  * - A chip you hold nothing on dims, face and figures, so what you actually
  *   have pops without reading any of it.
+ * - A held chip wears the field note's head: a lit cap along its top edge
+ *   and a faint wash down its face, in the axis colour. An unheld one's cap
+ *   is neutral and dim, so colour on the strip means "you have this".
  *
  * A chip that changes punches its figure and flashes its face in the colour
  * of WHY it changed: the grade of the pick, green for army gained, red for
@@ -58,6 +63,9 @@ const CELLS = [
 
 interface Chip {
   face: Phaser.GameObjects.Image;
+  /** The note head: a lit cap and a faint wash in the axis colour while held. */
+  cap: Phaser.GameObjects.Image;
+  color: number;
   glow: Phaser.GameObjects.Image;
   label: HudText;
   main: HudText;
@@ -84,6 +92,9 @@ export class BonusStrip {
       const tx = x + CHIP.pad;
       this.chips.push({
         face: scene.add.image(x - CHIP_BLEED.x, CHIP.top - CHIP_BLEED.top, `hud-chip-${w}`).setOrigin(0, 0),
+        cap: scene.add.image(x - CHIP_BLEED.x, CHIP.top - CHIP_BLEED.top, `hud-chipcap-${w}`).setOrigin(0, 0)
+          .setTint(CAP_UNHELD.tint).setAlpha(CAP_UNHELD.alpha),
+        color: AXIS_COLOR[spec.axis],
         glow: scene.add.image(x - CHIP_BLEED.x, CHIP.top - CHIP_BLEED.top, `hud-chipglow-${w}`)
           .setOrigin(0, 0).setAlpha(0).setVisible(false),
         label: new HudText(scene, tx, CHIP.top + 7,
@@ -171,6 +182,7 @@ export class BonusStrip {
       chip.held = held;
       const a = held ? 1 : UNHELD;
       chip.face.setAlpha(held ? 1 : 0.55);
+      chip.cap.setTint(held ? chip.color : CAP_UNHELD.tint).setAlpha(held ? 1 : CAP_UNHELD.alpha);
       chip.label.text.setAlpha(a);
       chip.main.text.setAlpha(a);
       chip.sub.text.setAlpha(a);

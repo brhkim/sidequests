@@ -15,6 +15,8 @@ const RED = GRADE_COLOR.bad;
 const WORD_LIFT = 44;
 /** The scale a grade word punches in from, before its overshoot settles it. */
 const PUNCH_FROM = 1.7;
+/** How far over the lane line a word about the ring lands (MISS, `-N`): above its heads. */
+const FLOAT_LIFT = 60;
 
 interface Judgment {
   word: Phaser.GameObjects.Text;
@@ -86,7 +88,7 @@ export class FieldFx {
           this.perfects = 0;
           // 60px up: the lane line is where the ring's heads are, and the word
           // used to spawn on them. Slanted: it is a judgment like the grades.
-          this.labels.spawn(e.x, e.y - 60, 'MISS', RED, {
+          this.labels.spawn(e.x, e.y - FLOAT_LIFT, 'MISS', RED, {
             size: 24, tracking: 2, stroke: 5, rise: 24, duration: 900, hold: 260, italic: true,
           });
           break;
@@ -94,7 +96,14 @@ export class FieldFx {
           this.labels.spawn(e.x, e.y - 20, `+${compact(e.amount)} ARMY`, AXIS_COLOR.army, { size: 20, stroke: 5, rise: 40, duration: 860, hold: 120 });
           break;
         case 'contact':
-          if (!e.titan) this.labels.spawn(e.x, e.y - 12, `-${e.cost}`, RED, { size: 17, rise: 26, duration: 700 });
+          // Clear of the ring like MISS: 60px over the lane line (or over
+          // the body, if it touched the front rank higher up), with MISS's
+          // stroke - at the body it landed among the heads.
+          if (!e.titan) {
+            this.labels.spawn(e.x, Math.min(e.y, ARENA.laneY) - FLOAT_LIFT, `-${e.cost}`, RED, {
+              size: 18, stroke: 5, rise: 26, duration: 760, hold: 120,
+            });
+          }
           break;
         case 'block':
           // Above where the bullet would have landed - clear of the ring and

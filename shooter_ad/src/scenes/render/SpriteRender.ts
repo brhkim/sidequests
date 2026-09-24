@@ -22,6 +22,9 @@ const SHIELD_BLOCKS = SHIELD.blocksPerLevel;
 const IMPACT = 0x8c5a60;
 const WHITE = 0xffffff;
 const HALF_PI = Math.PI / 2;
+/** A cage's hit flash: its own colours lifted, like a body's. */
+const CAGE_SKIN_LIT = bleach(SKIN, 0.5);
+const CAGE_LIT = bleach(COLORS.cage, 0.5);
 const ADD = Phaser.BlendModes.ADD;
 /**
  * Dark things (shadows, the bar backing) draw at MULTIPLY, which for black
@@ -48,13 +51,26 @@ const DEPTH = {
  * Under sustained fire every body's stamp is always fresh, so a 0.07s flash
  * held a wave-41 swarm permanently white and its colours - the fastest cue to
  * what a body is - never showed. A body now flashes at most once per this
- * many of its own seconds: the first hit always flashes, a stream reads as a
- * flicker over the body's own colour.
+ * many of its own seconds (0.07 / 0.5: lit under 15% of the time under a
+ * stream), and the flash is a LIFT of its own colour (`FLASH_LIFT` of the way
+ * to white), never pure white: a flashing Brute is still red. The kill pop
+ * stays the brightest thing a body ever does.
  */
-const FLASH_REPEAT = 0.2;
+const FLASH_REPEAT = 0.5;
+const FLASH_LIFT = 0.5;
+/**
+ * How far a body bleaches toward white at zero HP, as a share of
+ * `RENDER.bleach`: enough to see a body is hurt, never enough to wash its
+ * hue out (the health bar carries the exact figure on anything big).
+ */
+const WOUND_BLEACH = 0.55;
 
-/** The pops, as shapes: diameters in multiples of the size handed to `pop`. */
-const KILL_RING: FxShape = { texture: 'fx-ring', from: 1.6, to: 4.4, alpha: 0.95 };
+/**
+ * The pops, as shapes: diameters in multiples of the size handed to `pop`.
+ * An ordinary kill's ring is a small, soft pulse gone before its shards:
+ * wide (4.4x) and bright (0.95), it lingered in empty lanes like a reticle.
+ */
+const KILL_RING: FxShape = { texture: 'fx-ring-kill', from: 1.4, to: 2.6, alpha: 0.55 };
 const KILL_FLASH: FxShape = { texture: 'fx-glow', from: 3.4, to: 2.2, alpha: 0.9 };
 const TITAN_RING: FxShape = { texture: 'fx-ring', from: 1.6, to: 6.5, alpha: 1 };
 const TITAN_FLASH: FxShape = { texture: 'fx-glow', from: 3.5, to: 6, alpha: 1 };
@@ -88,9 +104,11 @@ function bleach(color: number, f: number): number {
  * Every body is a baked multiply texture (`art/draw` `Finish`) - the colour
  * exactly on the lit back, in shade below - with an untinted gloss above it.
  * Enemies are drawn from the table in `art/creatures.ts`, so there is no
- * per-type branch here. Hit feedback is a white flash (`hitFlash`, stamped by
- * the simulation in its own clock) and a bleach toward white by damage taken
- * - never an alpha fade, which made a wounded body vanish.
+ * per-type branch here. Hit feedback is a flash that lifts the body's own
+ * colour (`hitFlash`, stamped by the simulation in its own clock; never pure
+ * white, which erased the type under a stream) and a modest bleach toward
+ * white by damage taken - never an alpha fade, which made a wounded body
+ * vanish.
  */
 export class SpriteRender {
   private readonly shadows: SpriteLayer;
@@ -177,7 +195,7 @@ export class SpriteRender {
         } else {
           this.shards.pop(ev.x, ev.y, RENDER.shardsPerKill, RENDER.shardLife, ev.color, 150, now);
           this.pops.pop(KILL_FLASH, ev.x, ev.y, ev.radius, 0.1, bleach(ev.color, 0.5), now);
-          this.pops.pop(KILL_RING, ev.x, ev.y, ev.radius, 0.26, ev.color, now);
+          this.pops.pop(KILL_RING, ev.x, ev.y, ev.radius, 0.2, ev.color, now);
         }
       } else if (ev.kind === 'contact' && !ev.titan) {
         this.shards.pop(ev.x, ev.y, RENDER.shardsPerContact, RENDER.contactLife, IMPACT, 70, now);
@@ -249,7 +267,9 @@ export class SpriteRender {
       if (!e.active) continue;
       const art = CREATURE_ART[e.type.id] ?? FALLBACK_ART;
       const flash = this.flashing(i, e);
-      const tint = flash ? WHITE : bleach(e.type.color, RENDER.bleach * (1 - e.hp / e.maxHp));
+      const tint = flash
+        ? bleach(e.type.color, FLASH_LIFT)
+        : bleach(e.type.color, RENDER.bleach * WOUND_BLEACH * (1 - e.hp / e.maxHp));
       const rot = art.rotate ? Math.atan2(e.fy, e.fx) - HALF_PI : 0;
       const scale = art.pulse === 'swell' ? 0.5 * (1 + 0.05 * Math.sin(w.elapsed * 5 + e.phase)) : 0.5;
       if (art.big) {
@@ -259,23 +279,24 @@ export class SpriteRender {
         const breath = 0.5 + 0.5 * Math.sin(w.elapsed * 2.4 + e.phase);
         this.aura.claim().setPosition(e.x, e.y + e.radius * 0.1)
           .setScale((e.radius * (5 + 0.4 * breath)) / 64).setAlpha(0.3 + 0.12 * breath).setTint(e.type.color);
-      } else {
-        this.shadow(e.x, e.y, e.radius, 0.75);
       }
+      // Ordinary bodies cast no contact shadow: black at MULTIPLY on the
+      // #10111c road measured invisible, and at a wave-41 swarm it was ~60
+      // sprites of fill for nothing. The Titan's and the squad's stay.
       (art.big ? this.bigPool : this.enemyPool).claim(art.body)
         .setPosition(e.x, e.y).setRotation(rot).setScale(scale).setTint(tint);
       // The highlight a multiply tint cannot show: white, untinted, pinned to
-      // the body's centre so it turns and swells with it. A flash is white
-      // already, so it goes without.
+      // the body's centre so it turns and swells with it. It stays through a
+      // flash: the flash lifts the colour, it does not replace the body.
       const gloss = this.glossOf.get(art.body);
-      if (gloss && !flash) {
+      if (gloss) {
         const o = GLOSS_ORIGIN[gloss];
         (art.big ? this.bigGlossPool : this.glossPool).claim(gloss).setOrigin(o.x, o.y)
           .setPosition(e.x, e.y).setRotation(rot).setScale(scale);
       }
       if (!art.accent) continue;
       const a = (art.big ? this.bigAccentPool : this.accentPool).claim(art.accent)
-        .setTint(flash ? WHITE : e.type.accent);
+        .setTint(flash ? bleach(e.type.accent, FLASH_LIFT) : e.type.accent);
       if (art.aims) {
         // A gun tube pivoting at its breech, pointed where the shot will go.
         a.setOrigin(0.5, TUBE_PIVOT).setPosition(e.x, e.y + 2).setScale(0.5).setAlpha(1)
@@ -296,8 +317,8 @@ export class SpriteRender {
       if (!c.active) continue;
       const flash = c.hitFlash >= 0 && w.elapsed - c.hitFlash < RENDER.hitFlash;
       this.shadow(c.x, c.y + 2, 18, 0.8);
-      this.cageBackPool.claim().setPosition(c.x, c.y).setScale(0.5).setTint(flash ? WHITE : SKIN);
-      this.cagePool.claim().setPosition(c.x, c.y).setScale(0.5).setTint(flash ? WHITE : COLORS.cage);
+      this.cageBackPool.claim().setPosition(c.x, c.y).setScale(0.5).setTint(flash ? CAGE_SKIN_LIT : SKIN);
+      this.cagePool.claim().setPosition(c.x, c.y).setScale(0.5).setTint(flash ? CAGE_LIT : COLORS.cage);
     }
     this.cageBackPool.end(); this.cagePool.end();
   }

@@ -11,18 +11,23 @@ const LANES = 3;
 const TITAN = 0xa35bd6;
 const TITAN_INK = 0xefdcff;
 const WAVE_INK = 0xf2f3ff;
+/** How long WAVE N holds between wiping in and out, ms: a glance, not a stop. */
+const WAVE_HOLD = 400;
+/** The sub-line's inset from the band's right end. */
+const SUB_INSET = 16;
 
 interface Look { title: string; sub: string; edge: number; ink: number; hold: number; pulse: boolean }
 
 /**
- * The stage banner, in the highway's grammar: three lane slabs wipe in
- * across the field one lane after another (`MOTION.wipe`, staggered by
- * `MOTION.wipeStagger`), the word snaps in slanted with a small overshoot,
- * holds, and the lanes wipe out the way they came. It carries
+ * The stage banner, in the highway's grammar: three translucent lane slabs,
+ * docked under the HUD's bottom edge (`BAND`), wipe in one lane after
+ * another (`MOTION.wipe`, staggered by `MOTION.wipeStagger`), the word
+ * snaps in slanted with a small overshoot, holds, and the lanes wipe out
+ * the way they came. It carries
  *
  * - `WAVE N` as each wave begins,
  * - `TITAN` - the boss warning, its lit edges in the Titan's purple, the word
- *   pulsing twice on the beat, the wave number beneath - held for
+ *   pulsing twice on the beat, the wave number at the band's end - held for
  *   `TITAN_WARNING_MS`, after which the Titan row's bar arrives,
  * - `TITAN DOWN`, held longer.
  *
@@ -45,12 +50,18 @@ export class WaveBanner {
       this.slabs.push(scene.add.image(i * BAND.lane, top, 'hud-band').setOrigin(0, 0)
         .setDepth(DEPTH).setVisible(false));
     }
-    this.title = scene.add.text(VIEW.width / 2, BAND.y - 2, '', {
-      fontFamily: FONT, fontSize: '46px', fontStyle: 'italic 800', color: '#ffffff',
-    }).setOrigin(0.5).setPadding(10, 4, 10, 4).setLetterSpacing(3).setDepth(DEPTH).setVisible(false);
-    this.sub = scene.add.text(VIEW.width / 2, BAND.y + 26, '', {
+    // The word carries its own dark stroke: the slab under it is translucent,
+    // so a body or a card can pass behind it without eating the letters.
+    this.title = scene.add.text(VIEW.width / 2, BAND.y, '', {
+      fontFamily: FONT, fontSize: '32px', fontStyle: 'italic 800', color: '#ffffff',
+      stroke: '#07070d', strokeThickness: 6,
+    }).setOrigin(0.5).setPadding(10, 2, 10, 2).setLetterSpacing(3).setDepth(DEPTH).setVisible(false);
+    // The sub-line (the wave under a TITAN warning) sits at the band's right
+    // end on the same row: 44px holds one line, not two.
+    this.sub = scene.add.text(VIEW.width - SUB_INSET, BAND.y + 1, '', {
       fontFamily: FONT, fontSize: '14px', fontStyle: '700', color: '#ffffff',
-    }).setOrigin(0.5).setLetterSpacing(3).setDepth(DEPTH).setVisible(false);
+      stroke: '#07070d', strokeThickness: 4,
+    }).setOrigin(1, 0.5).setLetterSpacing(3).setDepth(DEPTH).setVisible(false);
   }
 
   wave(index: number): void {
@@ -59,7 +70,7 @@ export class WaveBanner {
       this.setSub(`WAVE ${index}`);
       return;
     }
-    this.show({ title: `WAVE ${index}`, sub: '', edge: LIGHT.rail, ink: WAVE_INK, hold: 620, pulse: false });
+    this.show({ title: `WAVE ${index}`, sub: '', edge: LIGHT.rail, ink: WAVE_INK, hold: WAVE_HOLD, pulse: false });
   }
 
   /** The Titan's arrival: the warning, before its bar. */
@@ -118,10 +129,11 @@ export class WaveBanner {
         });
       });
       tweens.add({
-        targets: [this.title, this.sub], alpha: 0, x: VIEW.width / 2 + 24,
+        targets: this.title, alpha: 0, x: VIEW.width / 2 + 24,
         duration: inFor, ease: MOTION.exitEase,
         onComplete: () => this.clear(),
       });
+      tweens.add({ targets: this.sub, alpha: 0, duration: inFor, ease: MOTION.exitEase });
     });
   }
 
@@ -136,7 +148,6 @@ export class WaveBanner {
     this.scene.tweens.killTweensOf(parts);
     for (const p of parts) p.setVisible(false);
     this.title.setX(VIEW.width / 2);
-    this.sub.setX(VIEW.width / 2);
     this.mode = 'none';
   }
 

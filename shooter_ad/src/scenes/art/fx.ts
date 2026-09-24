@@ -66,6 +66,19 @@ export function makeFx(scene: Phaser.Scene): void {
     }
   });
 
+  // An ordinary kill's ring: the hot core line and one narrow halo, no wide
+  // soft band. The full `fx-ring` above, grown to 4x a body and held, read
+  // as a reticle left behind in an empty lane; this one is a quick pulse.
+  canvasTexture(scene, 'fx-ring-kill', 64, 64, (ctx, w) => {
+    const c = w / 2, r = 26;
+    const strokes: [number, string][] = [[6, 'rgba(255,255,255,0.22)'], [2.5, 'rgba(255,255,255,1)']];
+    for (const [width, style] of strokes) {
+      ctx.lineWidth = width;
+      ctx.strokeStyle = style;
+      ctx.beginPath(); ctx.arc(c, c, r, 0, Math.PI * 2); ctx.stroke();
+    }
+  });
+
   // The contact puff: a lumpy soft cloud at the tint's own value.
   canvasTexture(scene, 'fx-puff', 64, 64, (ctx) => {
     const lumps: [number, number, number][] = [[32, 34, 20], [22, 28, 13], [42, 27, 14], [26, 42, 12], [41, 42, 12]];
@@ -142,7 +155,7 @@ function fieldFrames(): string[] {
   names.push(
     'cage', 'cage-inmates', 'bullet-streak', 'ebullet', 'eshell', 'shard',
     'body', 'head', 'head-lead', 'sq-holo-body', 'sq-holo-head', 'sq-holo-head-lead',
-    'fx-shadow', 'fx-glow', 'fx-ring', 'fx-puff', 'fx-bar', 'fx-bar-back',
+    'fx-shadow', 'fx-glow', 'fx-ring', 'fx-ring-kill', 'fx-puff', 'fx-bar', 'fx-bar-back',
   );
   for (const cap of SHIELD_CAPACITIES) names.push(`fx-shield-${cap}`);
   return names;

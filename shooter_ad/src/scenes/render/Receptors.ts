@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 import { GATES } from '../../config';
 import type { Gate } from '../../systems/Gates';
 import { HW, NOTE, ROAD } from '../art/cards';
-import { RAIL_HEIGHT } from '../hud/TopRail';
 import { LIGHT } from '../theme';
+import { cardReveal } from './GateCards';
 
 /** The card the squad is lined up on, where it is and how wide it is drawn. */
 export interface ReceptorTarget {
@@ -19,8 +19,6 @@ export interface ReceptorTarget {
 const RANGE = 560;
 /** Receptors of the approaching offer's other options: a whisper of the rail light. */
 const IDLE_ALPHA = 0.22;
-/** Where a card starts to fade in under the rail (`GateCards`' reveal). */
-const REVEAL_FROM = RAIL_HEIGHT + 6;
 
 /**
  * The receptors on the judgment line - the rhythm game's answer to "which
@@ -34,6 +32,9 @@ const REVEAL_FROM = RAIL_HEIGHT + 6;
  *     standing on the bar cannot hide where the footprint ends.
  *   - The leader wears a ring and a chevron pointing up the lane in the same
  *     colour (depth 25): the leader is what selects.
+ *   - Every mark that stands over the squad (the brackets, the ring, the
+ *     chevron) has a white core over its coloured edge, so it reads on a
+ *     shirt of its own hue (Gold rank under a RATE note).
  *   - The approaching offer's other options show where they will land, as
  *     faint rail-light bars on the line. They never take a colour.
  *
@@ -47,6 +48,9 @@ export class Receptors {
   private readonly capR: Phaser.GameObjects.Image;
   private readonly ring: Phaser.GameObjects.Image;
   private readonly chevron: Phaser.GameObjects.Image;
+  /** The untinted white cores over the four marks above: they read on any shirt. */
+  private readonly cores: Phaser.GameObjects.Image[];
+  private readonly marks: Phaser.GameObjects.Image[];
 
   constructor(scene: Phaser.Scene) {
     const slice = (): Phaser.GameObjects.NineSlice => scene.add
@@ -62,6 +66,13 @@ export class Receptors {
     this.capR = scene.add.image(0, ROAD.judgment, HW.recCapR).setOrigin(16.5 / 24, 20 / 40).setDepth(25).setVisible(false);
     this.ring = scene.add.image(0, 0, HW.leader).setDepth(25).setVisible(false);
     this.chevron = scene.add.image(0, 0, HW.chevron).setDepth(25).setVisible(false);
+    const core = (key: string, of: Phaser.GameObjects.Image): Phaser.GameObjects.Image => scene.add
+      .image(0, of.y, key).setOrigin(of.originX, of.originY).setDepth(25.1).setVisible(false);
+    this.marks = [this.capL, this.capR, this.ring, this.chevron];
+    this.cores = [
+      core(HW.recCapCoreL, this.capL), core(HW.recCapCoreR, this.capR),
+      core(HW.leaderCore, this.ring), core(HW.chevronCore, this.chevron),
+    ];
   }
 
   render(gates: readonly Gate[], squadX: number, squadY: number, t: ReceptorTarget | null): void {
@@ -89,11 +100,12 @@ export class Receptors {
     this.capR.setVisible(on);
     this.ring.setVisible(on);
     this.chevron.setVisible(on);
+    for (const c of this.cores) c.setVisible(on);
     if (t === null) return;
     const near = Phaser.Math.Clamp(1 - (squadY - t.y) / RANGE, 0, 1);
     // Still under the HUD: the note is not on screen yet, so neither is most
     // of its receptor (the same reveal the card fades in on).
-    const reveal = 0.35 + 0.65 * Phaser.Math.Clamp((t.y - REVEAL_FROM) / 44, 0, 1);
+    const reveal = 0.35 + 0.65 * cardReveal(t.y);
     const w = t.width - GATES.gap;
     if (this.bar.width !== w) this.bar.setSize(w, 28);
     this.bar.setX(t.x).setTint(t.color).setAlpha((0.5 + 0.5 * near) * reveal);
@@ -102,5 +114,9 @@ export class Receptors {
     this.capR.setX(t.x + w / 2).setTint(t.color).setAlpha(edge);
     this.ring.setPosition(squadX, squadY - 2).setTint(t.color).setAlpha((0.55 + 0.45 * near) * reveal);
     this.chevron.setPosition(squadX, squadY - 34 - 4 * near).setTint(t.color).setAlpha((0.4 + 0.6 * near) * reveal);
+    for (let i = 0; i < this.marks.length; i++) {
+      const m = this.marks[i];
+      this.cores[i].setPosition(m.x, m.y).setAlpha(m.alpha);
+    }
   }
 }

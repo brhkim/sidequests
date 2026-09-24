@@ -18,6 +18,11 @@ import {
  * Anything that changes colour at runtime is baked WHITE and tinted (the tug
  * fill, the chip flash, the pips, the banner edges, the vignette).
  */
+/** A chip's lit cap, px: the note head's line along its top edge. */
+const CHIP_CAP = 3;
+/** How far down the face the cap's wash reaches, px. */
+const CAP_WASH = 44;
+
 export function makeUi(scene: Phaser.Scene): void {
   // The rail and the strip: one panel. The strip is a darker tray the chips
   // sit up out of; a hairline parts the two rows; the bottom edge is lit in
@@ -56,6 +61,33 @@ export function makeUi(scene: Phaser.Scene): void {
       c.fillStyle = g;
       roundRect(c, CHIP_BLEED.x, CHIP_BLEED.top, w, CHIP.h, RADIUS.chip);
       c.fill();
+    });
+  }
+
+  // A chip's note head: a lit cap along its top edge and a faint wash down
+  // the face beneath it, baked white and tinted the chip's axis colour -
+  // the field note's grammar, so a chip reads as the cards it counts. It is
+  // clipped to the face's rounded corners and sits over it.
+  for (const w of new Set<number>(CHIP.widths)) {
+    // Only the upper part of the face: the wash is gone by CAP_WASH, and
+    // the rest of a full-face texture would be transparent fill.
+    bake(scene, `hud-chipcap-${w}`, w + 2 * CHIP_BLEED.x, CHIP_BLEED.top + CAP_WASH, (c) => {
+      const x = CHIP_BLEED.x, y = CHIP_BLEED.top;
+      c.save();
+      roundRect(c, x, y, w, CHIP.h, RADIUS.chip);
+      c.clip();
+      const wash = c.createLinearGradient(0, y, 0, y + CAP_WASH);
+      wash.addColorStop(0, 'rgba(255,255,255,0.2)');
+      wash.addColorStop(0.6, 'rgba(255,255,255,0.05)');
+      wash.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = wash;
+      c.fillRect(x, y, w, CAP_WASH);
+      const cap = c.createLinearGradient(0, y, 0, y + CHIP_CAP);
+      cap.addColorStop(0, 'rgba(255,255,255,1)');
+      cap.addColorStop(1, 'rgba(255,255,255,0.75)');
+      c.fillStyle = cap;
+      c.fillRect(x, y, w, CHIP_CAP);
+      c.restore();
     });
   }
 
@@ -167,28 +199,21 @@ export function makeUi(scene: Phaser.Scene): void {
     c.fillRect(TITAN_BAR.h / 2, 1, TITAN_BAR.w - TITAN_BAR.h, 1);
   });
 
-  // The stage banner's lane slab: a near-black body with white lit edges
-  // (tinted per banner) and a faint wash off each edge. Three abut.
+  // The stage banner's lane slab: a translucent dark body (0.32 - the field
+  // reads through it) with white lit edges (tinted per banner) and a faint
+  // wash off the lower one. Three abut.
   bake(scene, 'hud-band', BAND.lane, BAND.h, (c) => {
-    const body = c.createLinearGradient(0, 0, 0, BAND.h);
-    body.addColorStop(0, 'rgba(12,12,22,0.94)');
-    body.addColorStop(0.5, 'rgba(7,7,13,0.94)');
-    body.addColorStop(1, 'rgba(12,12,22,0.94)');
-    c.fillStyle = body;
+    c.fillStyle = 'rgba(7,7,13,0.32)';
     c.fillRect(0, 0, BAND.lane, BAND.h);
-    for (const [y0, y1] of [[0, 18], [BAND.h, BAND.h - 18]] as const) {
-      const wash = c.createLinearGradient(0, y0, 0, y1);
-      wash.addColorStop(0, 'rgba(255,255,255,0.22)');
-      wash.addColorStop(1, 'rgba(255,255,255,0)');
-      c.fillStyle = wash;
-      c.fillRect(0, Math.min(y0, y1), BAND.lane, 18);
-    }
+    const wash = c.createLinearGradient(0, BAND.h, 0, BAND.h - 12);
+    wash.addColorStop(0, 'rgba(255,255,255,0.2)');
+    wash.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = wash;
+    c.fillRect(0, BAND.h - 12, BAND.lane, 12);
+    c.fillStyle = 'rgba(255,255,255,0.7)';
+    c.fillRect(0, 0, BAND.lane, 1);
     c.fillStyle = '#ffffff';
-    c.fillRect(0, 0, BAND.lane, 2);
     c.fillRect(0, BAND.h - 2, BAND.lane, 2);
-    // The lane seam: where two slabs meet, the highway's divider shows through.
-    c.fillStyle = 'rgba(255,255,255,0.16)';
-    c.fillRect(0, 2, 1, BAND.h - 4);
   });
 
   // The damage vignette: one soft falloff, baked in both orientations and
